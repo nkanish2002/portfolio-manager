@@ -81,6 +81,14 @@ async def list_portfolios(db: Annotated[AsyncSession, Depends(get_db)]):
 
 @router.post("/", response_model=PortfolioResponse, status_code=201)
 async def create_portfolio(data: PortfolioCreate, db: Annotated[AsyncSession, Depends(get_db)]):
+    # Check for duplicate name
+    existing = await db.execute(
+        select(Portfolio).where(Portfolio.name == data.name)
+    )
+    if existing.scalar_one_or_none():
+        from fastapi import HTTPException
+        raise HTTPException(status_code=409, detail=f"Portfolio '{data.name}' already exists")
+
     portfolio = Portfolio(name=data.name, description=data.description, currency=data.currency)
     db.add(portfolio)
     await db.commit()
@@ -150,12 +158,12 @@ async def add_position(portfolio_id: str, data: PositionCreate, db: Annotated[As
 
     if position:
         # Update existing
-        old_qty = position.quantity
-        old_cost = position.avg_cost_basis * old_qty
-        new_qty = old_qty + data.quantity
-        position.avg_cost_basis = (old_cost + data.quantity * data.price) / new_qty if new_qty > 0 else 0
+        old_qty = float(position.quantity)
+        old_cost = float(position.avg_cost_basis) * old_qty
+        new_qty = old_qty + float(data.quantity)
+        position.avg_cost_basis = (old_cost + float(data.quantity) * float(data.price)) / new_qty if new_qty > 0 else 0
         position.quantity = new_qty
-        position.current_price = data.price
+        position.current_price = float(data.price)
     else:
         # Create new
         position = Position(
