@@ -142,8 +142,8 @@
   <div class="bg-slate-800 border border-slate-700 rounded-xl overflow-hidden">
     <div class="px-5 py-4 border-b border-slate-700 flex items-center justify-between">
       <h3 class="font-semibold text-white">Positions</h3>
-      <button onclick="fetch('/api/v1/portfolios/{{ portfolio.id }}/positions/refresh')
-        .then(r => window.location.reload())"
+      <button id="refresh-prices-btn"
+        onclick="refreshPrices('{{ portfolio.id }}')"
         class="text-xs text-slate-400 hover:text-emerald-400 transition-colors">
         Refresh Prices
       </button>
@@ -287,7 +287,41 @@
     }
   });
 
-  // Load risk report
+  // Refresh prices with loading state and toast feedback
+  async function refreshPrices(portfolioId) {
+    const btn = document.getElementById('refresh-prices-btn');
+    const originalText = btn.innerHTML;
+    btn.innerHTML = '<svg class="animate-spin inline w-3 h-3 mr-1" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" class="opacity-25"></circle><path fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" class="opacity-75"></path></svg> Refreshing...';
+    btn.disabled = true;
+
+    try {
+      const res = await fetch(`/api/v1/portfolios/${portfolioId}/positions/refresh`);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      btn.innerHTML = originalText;
+      btn.disabled = false;
+
+      // Show success toast
+      const toast = document.createElement('div');
+      toast.className = 'fixed bottom-4 right-4 bg-emerald-600 text-white px-4 py-3 rounded-lg shadow-lg z-50 text-sm animate-slide-up';
+      toast.innerHTML = `✓ Prices updated for ${data.length} position${data.length !== 1 ? 's' : ''}`;
+      document.body.appendChild(toast);
+      setTimeout(() => toast.remove(), 3000);
+
+      // Reload to show new prices
+      window.location.reload();
+    } catch (err) {
+      btn.innerHTML = originalText;
+      btn.disabled = false;
+
+      // Show error toast
+      const toast = document.createElement('div');
+      toast.className = 'fixed bottom-4 right-4 bg-red-600 text-white px-4 py-3 rounded-lg shadow-lg z-50 text-sm';
+      toast.innerHTML = `✗ Refresh failed: ${err.message}`;
+      document.body.appendChild(toast);
+      setTimeout(() => toast.remove(), 4000);
+    }
+  }
   async function loadRiskReport() {
     const res = await fetch('/api/v1/{{ portfolio.id }}/risk-report');
     const report = await res.json();
