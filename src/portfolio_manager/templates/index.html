@@ -68,7 +68,7 @@
       </div>
       <div class="flex items-center gap-4 text-sm">
         <span class="text-slate-400">Positions: <span class="text-white">{{ portfolio.position_count|default('0') }}</span></span>
-        <span class="text-slate-400">Created: <span class="text-white">{{ portfolio.created_at[:10] }}</span></span>
+        <span class="text-slate-400">Created: <span class="text-white">{{ portfolio.created_at.strftime('%Y-%m-%d') }}</span></span>
       </div>
     </a>
     {% endfor %}

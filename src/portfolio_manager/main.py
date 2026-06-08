@@ -57,7 +57,9 @@ async def health():
 from portfolio_manager.routes import portfolios  # noqa: E402
 from portfolio_manager.routes import dashboard  # noqa: E402
 from portfolio_manager.routes import charts  # noqa: E402
+from portfolio_manager.routes import ui  # noqa: E402
 
 app.include_router(portfolios.router, prefix="/api/v1")
 app.include_router(dashboard.router)
 app.include_router(charts.router, prefix="/api/v1")
+app.include_router(ui.router)
