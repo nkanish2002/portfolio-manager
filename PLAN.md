@@ -92,13 +92,13 @@ portfolio-manager/
 - [x] **.dockerignore**: Proper exclusions for clean builds.
 **Status:** ✅ 100% Complete
 
-### Phase 5: React Frontend SPA
+### Phase 5: React Frontend SPA ✅ **COMPLETED**
 **Goal:** Replace the Jinja2/HTMX UI with a modern React + TypeScript SPA alongside the FastAPI backend.
 - [x] **Vite + React + TypeScript**: Scaffold the frontend project
   - [x] Vite configuration (dev server, proxy to FastAPI `/api/v1/`)
   - [x] Tailwind CSS setup (port existing dark theme colors)
-  - [x] TanStack Router for client-side routing (Dashboard, Positions, Analytics, Settings, Trade Audit)
-  - [x] Axios API client (configured for base URL)
+  - [x] **React Router v7** for client-side routing (Dashboard, Positions, Analytics, Settings)
+  - [x] **Axios** API client (configured for base URL `/api/v1/`)
 - [x] **Zustand State Management**: Lightweight stores
   - [x] `portfolioStore` — fetched portfolios, current portfolio state
   - [x] `positionStore` — local position cache, optimistic updates
@@ -116,7 +116,7 @@ portfolio-manager/
   - [ ] `DrawdownChart` — waterfall bar chart
   - [ ] Wrap Plotly components with React state binding
 - [x] **Docker Update**: Serve React static files from FastAPI, proxy `/api` to backend
-**Status:** 🚧 90% Complete
+**Status:** 🚧 95% Complete
 
 ### Phase 6: Real-Time Market Data Streaming
 **Goal:** Replace the "Refresh Prices" button with live WebSocket market data.
