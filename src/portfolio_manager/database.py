@@ -1,4 +1,7 @@
-"""SQLAlchemy async engine, session, and base model."""
+"""SQLAlchemy async engine, session, base model, and Jinja2 templates."""
+
+import sqlite3
+from uuid import UUID
 
 from fastapi.templating import Jinja2Templates
 from jinja2 import Environment, FileSystemLoader
@@ -8,20 +11,27 @@ from sqlalchemy.orm import DeclarativeBase
 from portfolio_manager.config import settings
 
 engine = create_async_engine(settings.database_url, echo=settings.debug)
-
-# Create a Jinja2 Environment with caching disabled (Python 3.14 compatibility fix)
-# where Jinja2 uses unhashable dict keys in its internal cache.
-jinja_env = Environment(
-    loader=FileSystemLoader(settings.template_dir),
-    autoescape=True,
-    cache_size=0,
-)
-templates = Jinja2Templates(env=jinja_env)
 async_session = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
 
 
 class Base(DeclarativeBase):
     pass
+
+
+def _adapt_uuid(u: UUID) -> str:
+    """Convert UUID to string for SQLite storage."""
+    return str(u)
+
+
+def _convert_uuid(s: bytes) -> UUID:
+    """Convert SQLite bytes back to UUID."""
+    return UUID(s.decode())
+
+
+# Register SQLite adapters for UUIDs
+if "sqlite" in settings.database_url:
+    sqlite3.register_adapter(UUID, _adapt_uuid)
+    sqlite3.register_converter("UUID", _convert_uuid)
 
 
 async def get_db() -> AsyncSession:
@@ -36,3 +46,13 @@ async def init_db():
 
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
+
+
+# Create a Jinja2 Environment with caching disabled (Python 3.14 compatibility fix)
+# where Jinja2 uses unhashable dict keys in its internal cache.
+jinja_env = Environment(
+    loader=FileSystemLoader(settings.template_dir),
+    autoescape=True,
+    cache_size=0,
+)
+templates = Jinja2Templates(env=jinja_env)

@@ -33,7 +33,8 @@ def calculate_sortino(returns: pd.Series, risk_free_rate: float = 0.04) -> float
     if downside.empty or downside.std() == 0:
         return 0.0
     downside_std = downside.std() * math.sqrt(252)
-    return float((excess.mean() * 252) / downside_std)
+    result = (excess.mean() * 252) / downside_std
+    return float(result) if not math.isnan(result) else 0.0
 
 
 def calculate_max_drawdown(prices: pd.Series) -> dict:
@@ -48,6 +49,10 @@ def calculate_max_drawdown(prices: pd.Series) -> dict:
     cumulative = prices / prices.cummax()
     drawdown = cumulative - 1
     max_dd = drawdown.min()
+
+    # If no drawdown (max_dd >= 0), return early
+    if max_dd >= -0.0001:  # Allow for floating point tolerance
+        return {"max_drawdown_pct": 0.0, "peak_date": None, "trough_date": None, "duration_days": 0}
 
     # Find peak and trough dates
     trough_idx = drawdown.idxmin()
@@ -110,10 +115,12 @@ def calculate_var(returns: pd.Series, confidence: float = 0.95, portfolio_value:
 def calculate_beta(portfolio_returns: pd.Series, benchmark_returns: pd.Series) -> float:
     """Beta = Cov(Rp, Rb) / Var(Rb)."""
     aligned = pd.concat([portfolio_returns, benchmark_returns], axis=1).dropna()
-    if aligned.empty or aligned[1].var() == 0:
+    if aligned.empty:
         return 1.0  # Default to 1 (market-like)
-    covariance = aligned[0].cov(aligned[1])
     benchmark_variance = aligned[1].var()
+    if benchmark_variance < 1e-10:  # Near-zero variance
+        return 1.0
+    covariance = aligned[0].cov(aligned[1])
     return round(float(covariance / benchmark_variance), 2)
 
 

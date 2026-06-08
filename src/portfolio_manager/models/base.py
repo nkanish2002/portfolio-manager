@@ -1,16 +1,18 @@
 """Common SQLAlchemy mixins."""
-
+"""Common SQLAlchemy mixins."""
 import uuid
 from datetime import datetime
 
-from sqlalchemy import DateTime, func
+from sqlalchemy import String, DateTime, func
 from sqlalchemy.orm import Mapped, mapped_column
 
 
 class UuidMixin:
     """Auto-generated UUID primary key."""
 
-    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    id: Mapped[uuid.UUID] = mapped_column(
+        String(36), primary_key=True, default=uuid.uuid4
+    )
 
 
 class TimestampMixin:

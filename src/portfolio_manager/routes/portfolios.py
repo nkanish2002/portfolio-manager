@@ -92,7 +92,7 @@ async def create_portfolio(data: PortfolioCreate, db: Annotated[AsyncSession, De
 
 @router.get("/{portfolio_id}", response_model=PortfolioResponse)
 async def get_portfolio(portfolio_id: str, db: Annotated[AsyncSession, Depends(get_db)]):
-    result = await db.execute(select(Portfolio).where(Portfolio.id == UUID(portfolio_id)))
+    result = await db.execute(select(Portfolio).where(Portfolio.id == portfolio_id))
     portfolio = result.scalar_one_or_none()
     if not portfolio:
         from fastapi import HTTPException
@@ -104,7 +104,7 @@ async def get_portfolio(portfolio_id: str, db: Annotated[AsyncSession, Depends(g
 
 @router.delete("/{portfolio_id}", status_code=204)
 async def delete_portfolio(portfolio_id: str, db: Annotated[AsyncSession, Depends(get_db)]):
-    result = await db.execute(select(Portfolio).where(Portfolio.id == UUID(portfolio_id)))
+    result = await db.execute(select(Portfolio).where(Portfolio.id == portfolio_id))
     portfolio = result.scalar_one_or_none()
     if not portfolio:
         from fastapi import HTTPException
@@ -116,8 +116,10 @@ async def delete_portfolio(portfolio_id: str, db: Annotated[AsyncSession, Depend
 @router.post("/{portfolio_id}/positions", response_model=PositionResponse, status_code=201)
 async def add_position(portfolio_id: str, data: PositionCreate, db: Annotated[AsyncSession, Depends(get_db)]):
     """Add or update a position in a portfolio."""
+    from sqlalchemy.orm import selectinload
+
     # Ensure portfolio exists
-    result = await db.execute(select(Portfolio).where(Portfolio.id == UUID(portfolio_id)))
+    result = await db.execute(select(Portfolio).where(Portfolio.id == portfolio_id))
     portfolio = result.scalar_one_or_none()
     if not portfolio:
         from fastapi import HTTPException
@@ -137,7 +139,9 @@ async def add_position(portfolio_id: str, data: PositionCreate, db: Annotated[As
 
     # Check for existing position
     pos_result = await db.execute(
-        select(Position).where(
+        select(Position)
+        .options(selectinload(Position.asset))
+        .where(
             Position.portfolio_id == portfolio_id,
             Position.asset_id == asset.id,
         )
@@ -164,7 +168,7 @@ async def add_position(portfolio_id: str, data: PositionCreate, db: Annotated[As
         db.add(position)
 
     await db.commit()
-    await db.refresh(position)
+    await db.refresh(position, {"asset"})
     market_val = float(position.quantity) * float(position.current_price or 0)
     cost = float(position.quantity) * float(position.avg_cost_basis)
     gain = market_val - cost
@@ -210,24 +214,28 @@ async def add_transaction(portfolio_id: str, data: TransactionCreate, db: Annota
 @router.get("/{portfolio_id}/positions/refresh", response_model=list[dict])
 async def refresh_prices(portfolio_id: str, db: Annotated[AsyncSession, Depends(get_db)]):
     """Fetch latest prices for all positions in a portfolio."""
+    from sqlalchemy.orm import selectinload
+
     result = await db.execute(
-        select(Position).where(Position.portfolio_id == UUID(portfolio_id))
+        select(Position)
+        .options(selectinload(Position.asset))
+        .where(Position.portfolio_id == portfolio_id)
     )
     positions = result.scalars().all()
 
     for pos in positions:
         # Get asset symbol
-        asset_result = await db.execute(select(Asset).where(Asset.id == pos.asset_id))
-        asset = asset_result.scalar_one()
-        if asset and asset.asset_class == AssetClass.EQUITY:
-            price = get_price(asset.symbol)
+        if pos.asset and pos.asset.asset_class == AssetClass.EQUITY:
+            price = get_price(pos.asset.symbol)
             if price is not None:
                 pos.current_price = price
 
     await db.commit()
 
     result = await db.execute(
-        select(Position).where(Position.portfolio_id == UUID(portfolio_id))
+        select(Position)
+        .options(selectinload(Position.asset))
+        .where(Position.portfolio_id == portfolio_id)
     )
     positions = result.scalars().all()
     out = []

@@ -16,6 +16,18 @@ def calculate_portfolio_value(positions: pd.DataFrame) -> dict:
     Returns:
         dict with total_value, by_class, top_holdings, allocation_pct
     """
+    if positions.empty:
+        return {
+            "total_value": 0.0,
+            "total_cost_basis": 0.0,
+            "total_gain": 0.0,
+            "total_gain_pct": 0.0,
+            "position_count": 0,
+            "by_class": {},
+            "allocation_pct": [],
+            "top_holdings": [],
+        }
+
     positions = positions.copy()
     positions["market_value"] = positions["quantity"] * positions["price"]
     positions["cost_basis_total"] = positions["quantity"] * positions["cost_basis"]
