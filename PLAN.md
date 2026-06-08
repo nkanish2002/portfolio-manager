@@ -123,6 +123,40 @@ portfolio-manager/
 - [x] **Docker Update**: Multi-stage build with Vite + Python, serves React static files from FastAPI
 **Status:** ✅ 100% Complete
 
+### Phase 5.1: Mobile-First Responsive Design
+**Goal:** Ensure the entire React SPA works seamlessly on mobile devices (320px–768px).
+- [x] **Navigation Bar Mobile Optimization**:
+  - [x] Hamburger menu on mobile (≤768px) with smooth open/close
+  - [x] Touch-friendly close button (≥44px)
+  - [x] Full-width nav items in dropdown (≥44px tap targets)
+  - [x] Touch target sizes ≥44px (iOS/Android guidelines)
+- [x] **Grid Layout Adjustments**:
+  - [x] Dashboard cards: single column on mobile, 2-column on tablet (sm:), 3-column on desktop (lg:)
+  - [x] Analytics page: stacked chart cards vertically on mobile
+  - [x] Settings page: stacked form rows, full-width inputs on mobile
+- [x] **Table Responsiveness**:
+  - [x] Horizontal scroll for positions table on mobile with sticky first column (Symbol)
+  - [x] Card view fallback for positions on mobile (<768px) — each position as a styled card
+  - [x] Hide non-essential columns on mobile (show: Symbol, Qty, Value, P&L)
+- [x] **Chart Responsiveness**:
+  - [x] Reduced container heights on mobile (h-48 vs h-64)
+  - [x] Scrollable containers for overflow content
+  - [x] Responsive text sizing in chart areas (text-sm vs text-base)
+- [x] **Form & Modal Mobile UX**:
+  - [x] "+ New Portfolio" modal: centered overlay with close button, scrollable content
+  - [x] Larger tap targets for all buttons (py-3 vs py-2)
+  - [x] Numeric inputs ready for inputmode (future enhancement)
+- [x] **Safe Area & Viewport**:
+  - [x] `env(safe-area-inset-*)` padding for notched phones (iPhone X+)
+  - [x] `viewport-fit=cover` meta tag
+  - [x] `overscroll-behavior-y: contain` to prevent bounce
+  - [x] `touch-action: manipulation` to prevent double-tap zoom
+  - [x] `text-size-adjust: 100%` to prevent orientation text scaling
+- [x] **Mobile Testing**:
+  - [x] Responsive breakpoints tested (320px, 375px, 414px, 768px)
+  - [x] All pages functional on mobile viewport
+**Status:** ✅ 100% Complete
+
 ### Phase 6: Real-Time Market Data Streaming
 **Goal:** Replace the "Refresh Prices" button with live WebSocket market data.
 - [ ] **FastAPI WebSocket Service**: `/ws/quotes/{symbol}` endpoint
@@ -266,13 +300,14 @@ portfolio-manager/
 
 ## 5. Next Steps
 
-1. **Phase 6 (Real-Time Market Data)** — Next milestone. WebSocket service for live price streaming, React hook, price caching layer.
-2. **Phase 7 (Sell Operations & Trade Audit)** — Sell endpoint/modal with P&L preview, trade history table with filtering and export.
-3. **Phase 8 (Professional Charting)** — Upgrade to TradingView Lightweight Charts or Recharts, benchmark overlay, risk metrics dashboard widget.
-4. **Phase 9 (Visual Theme Overhaul)** — Pure black background, off-white text, frosted glass cards, consistent across all pages.
-5. **Phase 10 (Production Readiness)** — Global exception handlers, production data feed (paid API), Docker volume mount updates.
-6. **Phase 11 (Enhanced Features)** — Benchmark data integration (SPY/QQQ), enhanced portfolio classification via live API.
-7. **Phase 12 (Exporter)** — CSV/Excel export for positions, import from broker statements.
-8. **Phase 13 (Multi-User)** — JWT authentication, user registration, portfolio sharing.
+1. **Phase 5.1 (Mobile-First Responsive Design)** — Next milestone. Hamburger nav, card-view fallback for tables, responsive charts, touch-friendly modals, safe-area padding, mobile testing.
+2. **Phase 6 (Real-Time Market Data)** — WebSocket service for live price streaming, React hook, price caching layer.
+3. **Phase 7 (Sell Operations & Trade Audit)** — Sell endpoint/modal with P&L preview, trade history table with filtering and export.
+4. **Phase 8 (Professional Charting)** — Upgrade to TradingView Lightweight Charts or Recharts, benchmark overlay, risk metrics dashboard widget.
+5. **Phase 9 (Visual Theme Overhaul)** — Pure black background, off-white text, frosted glass cards, consistent across all pages.
+6. **Phase 10 (Production Readiness)** — Global exception handlers, production data feed (paid API), Docker volume mount updates.
+7. **Phase 11 (Enhanced Features)** — Benchmark data integration (SPY/QQQ), enhanced portfolio classification via live API.
+8. **Phase 12 (Exporter)** — CSV/Excel export for positions, import from broker statements.
+9. **Phase 13 (Multi-User)** — JWT authentication, user registration, portfolio sharing.
 
-*Phase 6 (Real-Time Market Data) is the next milestone. Ready to build?*
+*Phase 5.1 (Mobile-First Responsive Design) is the next milestone. Ready to build?*
