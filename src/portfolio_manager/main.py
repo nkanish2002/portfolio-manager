@@ -4,7 +4,7 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 
 from fastapi import FastAPI, Request
-from fastapi.responses import HTMLResponse, FileResponse
+from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from portfolio_manager.config import settings
 
@@ -39,17 +39,6 @@ async def health():
     return {"status": "ok", "version": app.version}
 
 
-@app.get("/{full_path:path}")
-async def spa_fallback(full_path: str):
-    """Serve React SPA for all non-API routes."""
-    if full_path.startswith("api/"):
-        return {"error": "Not found"}
-    index_path = FRONTEND_DIST / "index.html"
-    if index_path.exists():
-        return FileResponse(str(index_path))
-    return {"error": "Frontend not built"}
-
-
 # Import routes after app creation to avoid circular imports
 from portfolio_manager.routes import portfolios  # noqa: E402
 from portfolio_manager.routes import dashboard  # noqa: E402
@@ -60,3 +49,12 @@ app.include_router(portfolios.router, prefix="/api/v1")
 app.include_router(dashboard.router)
 app.include_router(charts.router, prefix="/api/v1")
 app.include_router(ui.router)
+
+
+@app.get("/{full_path:path}")
+async def spa_fallback(full_path: str):
+    """Serve React SPA for all non-API routes."""
+    index_path = FRONTEND_DIST / "index.html"
+    if index_path.exists():
+        return FileResponse(str(index_path))
+    return {"error": "Frontend not built"}

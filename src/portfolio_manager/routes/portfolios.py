@@ -187,6 +187,33 @@ async def add_position(portfolio_id: str, data: PositionCreate, db: Annotated[As
             "gain": round(gain, 2), "gain_pct": round(gain_pct, 2)}
 
 
+@router.get("/{portfolio_id}/positions", response_model=list[PositionResponse])
+async def list_positions(portfolio_id: str, db: Annotated[AsyncSession, Depends(get_db)]):
+    """List all positions in a portfolio."""
+    from sqlalchemy.orm import selectinload
+
+    result = await db.execute(
+        select(Position)
+        .options(selectinload(Position.asset))
+        .where(Position.portfolio_id == portfolio_id)
+    )
+    positions = result.scalars().all()
+    
+    out = []
+    for pos in positions:
+        market_val = float(pos.quantity) * float(pos.current_price or 0)
+        cost = float(pos.quantity) * float(pos.avg_cost_basis)
+        gain = market_val - cost
+        gain_pct = (gain / cost * 100) if cost > 0 else 0
+        out.append({
+            "id": str(pos.id), "symbol": pos.asset.symbol if pos.asset else "?",
+            "quantity": float(pos.quantity), "price": float(pos.current_price or 0),
+            "cost_basis": float(pos.avg_cost_basis), "market_value": round(market_val, 2),
+            "gain": round(gain, 2), "gain_pct": round(gain_pct, 2),
+        })
+    return out
+
+
 @router.post("/{portfolio_id}/transactions", response_model=dict, status_code=201)
 async def add_transaction(portfolio_id: str, data: TransactionCreate, db: Annotated[AsyncSession, Depends(get_db)]):
     """Record a trade transaction."""

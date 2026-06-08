@@ -9,6 +9,7 @@ interface PortfolioState {
   error: string | null;
   fetchPortfolios: () => Promise<void>;
   setCurrentPortfolio: (id: string) => Promise<void>;
+  createPortfolio: (data: { name: string; currency?: string }) => Promise<Portfolio>;
   clearCurrentPortfolio: () => void;
 }
 
@@ -35,6 +36,22 @@ export const usePortfolioStore = create<PortfolioState>((set) => ({
       set({ currentPortfolio: response.data, loading: false });
     } catch (err: any) {
       set({ error: err.message, loading: false });
+    }
+  },
+
+  createPortfolio: async (data) => {
+    set({ loading: true, error: null });
+    try {
+      const response = await portfolioService.create(data);
+      const newPortfolio = response.data as Portfolio;
+      set((state) => ({
+        portfolios: [...state.portfolios, newPortfolio],
+        loading: false,
+      }));
+      return newPortfolio;
+    } catch (err: any) {
+      set({ error: err.message, loading: false });
+      throw err;
     }
   },
 

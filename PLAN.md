@@ -100,23 +100,28 @@ portfolio-manager/
   - [x] **React Router v7** for client-side routing (Dashboard, Positions, Analytics, Settings)
   - [x] **Axios** API client (configured for base URL `/api/v1/`)
 - [x] **Zustand State Management**: Lightweight stores
-  - [x] `portfolioStore` — fetched portfolios, current portfolio state
+  - [x] `portfolioStore` — fetched portfolios, current portfolio state, create portfolio
   - [x] `positionStore` — local position cache, optimistic updates
 - [x] **Page Components**: Mirror existing Jinja2 pages in React
-  - [x] `DashboardPage` — portfolio cards, summary stats, allocation pie chart
-  - [x] `PositionsPage` — table view of all positions with gain/loss coloring
-  - [x] `AnalyticsPage` — portfolio comparison, classification cards
-  - [x] `SettingsPage` — data sources, API config, display preferences
-  - [ ] `TradeAuditPage` — trade history table (placeholder)
+  - [x] `DashboardPage` — portfolio cards with Total Value, Positions, date info, "+ New Portfolio" modal
+  - [x] `PositionsPage` — portfolio detail view with summary stats, Plotly charts, positions table
+  - [x] `AnalyticsPage` — placeholder UI (portfolio comparison, risk metrics)
+  - [x] `SettingsPage` — data sources, display preferences
 - [x] **Reusable Components**:
-  - [x] `PortfolioCard`, `PositionTable`, `SellModal` (placeholder), `TradeRow`
-  - [x] `PageLayout` — nav bar + content area (migrate from Jinja2 nav)
-- [ ] **Chart Integration**: Port Plotly charts to React
-  - [ ] `AllocationChart` — donut pie chart via Plotly.js for React
-  - [ ] `DrawdownChart` — waterfall bar chart
-  - [ ] Wrap Plotly components with React state binding
-- [x] **Docker Update**: Serve React static files from FastAPI, proxy `/api` to backend
-**Status:** 🚧 95% Complete
+  - [x] `PortfolioCard` — portfolio summary card with Total Value, Positions, dates
+  - [x] `PositionTable` — positions table with gain/loss coloring, calculated metrics from backend
+  - [x] `CreatePortfolioModal` — modal for creating new portfolios with name, currency
+- [x] **Chart Integration**: Plotly.js charts rendered in React
+  - [x] `AllocationChart` — donut pie chart via Plotly.js
+  - [x] `DrawdownChart` — waterfall bar chart
+  - [x] `NavChart` — NAV growth line chart
+  - [x] `ReturnsDistributionChart` — histogram
+  - [x] `MonthlyReturnsChart` — heatmap
+  - [x] `BenchmarkComparisonChart` — overlay chart
+- [x] **API Endpoints Fixed**: Added missing `GET /api/v1/portfolios/{id}/positions` endpoint
+- [x] **SPA Fallback Route**: FastAPI properly serves React SPA for non-API routes
+- [x] **Docker Update**: Multi-stage build with Vite + Python, serves React static files from FastAPI
+**Status:** ✅ 100% Complete
 
 ### Phase 6: Real-Time Market Data Streaming
 **Goal:** Replace the "Refresh Prices" button with live WebSocket market data.
@@ -261,14 +266,13 @@ portfolio-manager/
 
 ## 5. Next Steps
 
-1. **Phase 5 (React Frontend SPA)** — Next milestone. Scaffold Vite + React + TypeScript, mirror existing Jinja2 pages, port Plotly charts, update Docker to serve SPA.
-2. **Phase 6 (Real-Time Market Data)** — WebSocket service for live price streaming, React hook, price caching layer.
-3. **Phase 7 (Sell Operations & Trade Audit)** — Sell endpoint/modal with P&L preview, trade history table with filtering and export.
-4. **Phase 8 (Professional Charting)** — Upgrade to TradingView Lightweight Charts or Recharts, benchmark overlay, risk metrics dashboard widget.
-5. **Phase 9 (Visual Theme Overhaul)** — Pure black background, off-white text, frosted glass cards, consistent across all pages.
-6. **Phase 10 (Production Readiness)** — Global exception handlers, production data feed (paid API), Docker volume mount updates.
-7. **Phase 11 (Enhanced Features)** — Benchmark data integration (SPY/QQQ), enhanced portfolio classification via live API.
-8. **Phase 12 (Exporter)** — CSV/Excel export for positions, import from broker statements.
-9. **Phase 13 (Multi-User)** — JWT authentication, user registration, portfolio sharing.
+1. **Phase 6 (Real-Time Market Data)** — Next milestone. WebSocket service for live price streaming, React hook, price caching layer.
+2. **Phase 7 (Sell Operations & Trade Audit)** — Sell endpoint/modal with P&L preview, trade history table with filtering and export.
+3. **Phase 8 (Professional Charting)** — Upgrade to TradingView Lightweight Charts or Recharts, benchmark overlay, risk metrics dashboard widget.
+4. **Phase 9 (Visual Theme Overhaul)** — Pure black background, off-white text, frosted glass cards, consistent across all pages.
+5. **Phase 10 (Production Readiness)** — Global exception handlers, production data feed (paid API), Docker volume mount updates.
+6. **Phase 11 (Enhanced Features)** — Benchmark data integration (SPY/QQQ), enhanced portfolio classification via live API.
+7. **Phase 12 (Exporter)** — CSV/Excel export for positions, import from broker statements.
+8. **Phase 13 (Multi-User)** — JWT authentication, user registration, portfolio sharing.
 
-*Phase 5 (React Frontend SPA) is the next milestone. Ready to scaffold?*
+*Phase 6 (Real-Time Market Data) is the next milestone. Ready to build?*

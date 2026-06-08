@@ -42,10 +42,10 @@ export function PositionTable({ positions }: PositionTableProps) {
           </thead>
           <tbody className="divide-y divide-slate-dark">
             {positions.map((position) => {
-              const totalValue = (position.quantity * position.market_price!) || 0;
-              const costBasis = position.quantity * position.avg_cost_basis;
-              const pl = totalValue - costBasis;
-              const plPercent = costBasis ? (pl / costBasis) * 100 : 0;
+              const currentPrice = position.current_price || 0;
+              const totalValue = position.market_value || (position.quantity * currentPrice);
+              const gain = position.gain || 0;
+              const gainPct = position.gain_pct || 0;
 
               return (
                 <tr key={position.id} className="hover:bg-black/30">
@@ -61,13 +61,13 @@ export function PositionTable({ positions }: PositionTableProps) {
                     {position.quantity}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-right text-sm text-slate-300">
-                    ${position.market_price?.toFixed(2)}
+                    ${currentPrice.toFixed(2)}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-right text-sm text-white">
                     ${totalValue.toFixed(2)}
                   </td>
-                  <td className={`px-6 py-4 whitespace-nowrap text-right text-sm font-medium ${pl >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
-                    {pl >= 0 ? '+' : ''}${pl.toFixed(2)} ({plPercent >= 0 ? '+' : ''}{plPercent.toFixed(2)}%)
+                  <td className={`px-6 py-4 whitespace-nowrap text-right text-sm font-medium ${gain >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                    {gain >= 0 ? '+' : ''}${gain.toFixed(2)} ({gainPct >= 0 ? '+' : ''}{gainPct.toFixed(2)}%)
                   </td>
                 </tr>
               );

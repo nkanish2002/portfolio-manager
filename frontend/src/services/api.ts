@@ -10,7 +10,10 @@ const api = axios.create({
 export interface Portfolio {
   id: string;
   name: string;
+  description?: string;
   currency: string;
+  position_count: number;
+  total_value: number;
   created_at: string;
   updated_at: string;
 }
@@ -21,7 +24,10 @@ export interface Position {
   symbol: string;
   quantity: number;
   avg_cost_basis: number;
-  market_price?: number;
+  current_price?: number;
+  market_value?: number;
+  gain?: number;
+  gain_pct?: number;
   asset_class?: string;
   sector?: string;
   industry?: string;
