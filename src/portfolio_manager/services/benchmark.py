@@ -77,7 +77,11 @@ def generate_allocation_pie(positions: pd.DataFrame) -> dict:
     if positions.empty:
         return {"labels": [], "values": [], "colors": [], "total_value": 0}
 
-    by_class = positions.groupby("asset_class")["market_value"].sum().reset_index()
+    df = positions.copy()
+    if "market_value" not in df.columns:
+        df["market_value"] = df["quantity"] * df["price"]
+
+    by_class = df.groupby("asset_class")["market_value"].sum().reset_index()
     by_class.columns = ["asset_class", "total_value"]
 
     total = float(by_class["total_value"].sum())
