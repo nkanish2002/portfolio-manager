@@ -1,0 +1,26 @@
+version: "3.8"
+
+services:
+  portfolio-manager:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: portfolio-manager
+    ports:
+      - "8000:8000"
+    volumes:
+      - portfolio-data:/app/data
+    environment:
+      - DATABASE_URL=sqlite:///data/portfolio.db
+      - DEBUG=false
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 5s
+
+volumes:
+  portfolio-data:
+    driver: local

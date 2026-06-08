@@ -81,6 +81,63 @@
     {% endif %}
   </div>
 
+  <!-- Charts Section -->
+  {% if chart_data %}
+  <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+    <!-- Allocation Pie Chart -->
+    <div class="bg-slate-800 border border-slate-700 rounded-xl p-6">
+      <h3 class="font-semibold text-white mb-4">Asset Allocation</h3>
+      <div id="allocation-chart" class="w-full h-80"></div>
+    </div>
+
+    <!-- Drawdown Chart -->
+    <div class="bg-slate-800 border border-slate-700 rounded-xl p-6">
+      <h3 class="font-semibold text-white mb-4">Drawdown</h3>
+      <div id="drawdown-chart" class="w-full h-80"></div>
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- Classification Section -->
+  {% if classified_positions %}
+  <div class="bg-slate-800 border border-slate-700 rounded-xl p-6">
+    <h3 class="font-semibold text-white mb-4">Sector & Industry Classification</h3>
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+      {% for pos in classified_positions %}
+      <div class="bg-slate-900 rounded-lg p-4">
+        <div class="flex justify-between items-start mb-2">
+          <span class="font-semibold text-white">{{ pos.symbol }}</span>
+          <span class="text-xs bg-slate-700 text-slate-300 px-2 py-0.5 rounded">{{ pos.asset_class }}</span>
+        </div>
+        {% if pos.sector %}
+        <p class="text-sm text-slate-400">Sector: {{ pos.sector }}</p>
+        {% endif %}
+        {% if pos.industry %}
+        <p class="text-sm text-slate-400">Industry: {{ pos.industry }}</p>
+        {% endif %}
+        {% if pos.region %}
+        <p class="text-sm text-slate-400">Region: {{ pos.region }}</p>
+        {% endif %}
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- Risk Report Section -->
+  <div id="risk-report" class="bg-slate-800 border border-slate-700 rounded-xl p-6">
+    <div class="flex justify-between items-center mb-4">
+      <h3 class="font-semibold text-white">Risk Metrics</h3>
+      <button onclick="loadRiskReport()"
+        class="text-xs text-slate-400 hover:text-emerald-400 transition-colors">
+        Load Risk Report
+      </button>
+    </div>
+    <div id="risk-report-content" class="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+      <div class="text-slate-500 text-center py-4">Click "Load Risk Report" to calculate metrics</div>
+    </div>
+  </div>
+
   <!-- Position Table -->
   <div class="bg-slate-800 border border-slate-700 rounded-xl overflow-hidden">
     <div class="px-5 py-4 border-b border-slate-700 flex items-center justify-between">
@@ -148,7 +205,62 @@
 {% endblock %}
 
 {% block scripts %}
+<!-- Plotly CDN -->
+<script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
+
 <script>
+  // Render charts if data is available
+  {% if chart_data %}
+  const chartData = {{ chart_data|tojson }};
+
+  // Allocation Pie Chart
+  if (chartData.allocation) {
+    const allocation = JSON.parse(chartData.allocation);
+    if (allocation.labels.length > 0) {
+      Plotly.newPlot('allocation-chart', [{
+        labels: allocation.labels,
+        values: allocation.values,
+        type: 'pie',
+        marker: { colors: allocation.colors },
+        hole: 0.4,
+        textinfo: 'label+percent',
+        hoverinfo: 'label+value+percent',
+      }], {
+        margin: { t: 20, b: 20, l: 20, r: 20 },
+        showlegend: true,
+        paper_bgcolor: 'rgba(0,0,0,0)',
+        plot_bgcolor: 'rgba(0,0,0,0)',
+      }, {responsive: true});
+    }
+  }
+
+  // Drawdown Chart
+  if (chartData.nav) {
+    const nav = JSON.parse(chartData.nav);
+    if (nav.dates.length > 0) {
+      Plotly.newPlot('drawdown-chart', [
+        {
+          x: nav.dates,
+          y: nav.drawdown,
+          type: 'bar',
+          marker: {
+            color: nav.drawdown.map(d => d >= 0 ? 'rgba(16, 185, 129, 0.5)' : 'rgba(239, 68, 68, 0.5)'),
+          },
+          name: 'Drawdown',
+        },
+      ], {
+        margin: { t: 20, b: 40, l: 50, r: 20 },
+        yaxis: { title: 'Drawdown %', gridcolor: '#334155' },
+        xaxis: { gridcolor: '#334155' },
+        paper_bgcolor: 'rgba(0,0,0,0)',
+        plot_bgcolor: 'rgba(0,0,0,0)',
+        showlegend: false,
+      }, {responsive: true});
+    }
+  }
+  {% endif %}
+
+  // Modal handling
   document.getElementById('add-position-btn').addEventListener('click', () => {
     document.getElementById('add-modal').classList.remove('hidden');
   });
@@ -174,5 +286,35 @@
       alert('Failed to add position');
     }
   });
+
+  // Load risk report
+  async function loadRiskReport() {
+    const res = await fetch('/api/v1/{{ portfolio.id }}/risk-report');
+    const report = await res.json();
+
+    const content = document.getElementById('risk-report-content');
+    if (report.error) {
+      content.innerHTML = `<div class="text-red-400 text-center col-span-4 py-4">${report.error}</div>`;
+      return;
+    }
+
+    const metrics = [
+      { label: 'Sharpe Ratio', value: report.sharpe_ratio, color: report.sharpe_ratio >= 1 ? 'text-emerald-400' : 'text-amber-400' },
+      { label: 'Sortino Ratio', value: report.sortino_ratio, color: report.sortino_ratio >= 1 ? 'text-emerald-400' : 'text-amber-400' },
+      { label: 'Max Drawdown', value: report.max_drawdown.max_drawdown_pct + '%', color: report.max_drawdown.max_drawdown_pct <= -10 ? 'text-red-400' : 'text-slate-300' },
+      { label: 'VaR (95%)', value: report.var.historical_var_annual ? '$' + report.var.historical_var_annual.toLocaleString() : 'N/A', color: 'text-amber-400' },
+      { label: 'Ulcer Index', value: report.ulcer_index, color: report.ulcer_index <= 5 ? 'text-emerald-400' : 'text-amber-400' },
+      { label: 'Calmar Ratio', value: report.calmar_ratio, color: report.calmar_ratio >= 1 ? 'text-emerald-400' : 'text-slate-300' },
+      { label: 'Beta', value: report.beta || 'N/A', color: report.beta >= 0.8 && report.beta <= 1.2 ? 'text-emerald-400' : 'text-amber-400' },
+      { label: 'Alpha', value: report.alpha ? report.alpha + '%' : 'N/A', color: report.alpha >= 0 ? 'text-emerald-400' : 'text-red-400' },
+    ];
+
+    content.innerHTML = metrics.map(m => `
+      <div class="bg-slate-900 rounded-lg p-3">
+        <p class="text-slate-400 text-xs mb-1">${m.label}</p>
+        <p class="text-lg font-bold ${m.color}">${m.value}</p>
+      </div>
+    `).join('');
+  }
 </script>
 {% endblock %}
