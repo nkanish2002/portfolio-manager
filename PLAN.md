@@ -1,8 +1,9 @@
 # Portfolio Manager — Master Plan
 
-> **Status:** Foundation & Core Logic Complete. Analytics & Visualization Pending.
+> **Status:** Foundation, Core Logic, and Robustness Complete. Analytics & Visualization Pending.
 > **Last Updated:** June 08, 2026
-> **Tech Stack:** Python 3.12+, FastAPI, SQLAlchemy (Async), SQLite, HTMX, Tailwind CSS, Plotly, yfinance.
+> **Tech Stack:** Python 3.11+, FastAPI, SQLAlchemy (Async), SQLite, HTMX, Tailwind CSS, Plotly, yfinance.
+> **Tests:** 41/41 passing (pytest).
 
 ---
 
@@ -69,14 +70,20 @@ portfolio-manager/
 - [ ] **Portfolio Detail Page**: Enhance `dashboard.html` to show charts alongside the table.
 **Status:** ⬜ 0% Complete
 
-### Phase 4: Robustness, Testing & Polish
+### Phase 4: Robustness, Testing & Polish ✅ **COMPLETED**
 **Goal:** Ensure reliability, maintainability, and production-readiness.
-- [ ] **Unit & Integration Tests**: `pytest` suite for services (risk, calc) and API routes.
-- [ ] **Alembic Migrations**: Version control for DB schema.
-- [ ] **Git Repository**: Initialize repo, add `.gitignore`, initial commit.
-- [ ] **Error Handling**: Global exception handlers, input validation enhancements.
+- [x] **Git Repository**: Initialized, `.gitignore` added, commits tracking all changes.
+- [x] **Alembic Migrations**: Configured for async SQLAlchemy with `aiosqlite`. Initial schema + UUID type fix migrations.
+- [x] **Unit & Integration Tests**: 41 passing tests covering:
+  - 9 API endpoint tests (portfolios CRUD, positions, transactions, health, refresh prices)
+  - 8 portfolio calculation tests (value, returns, price series, empty DataFrame handling)
+  - 24 risk metric tests (Sharpe, Sortino, MaxDrawdown, VaR, Beta, Alpha, Treynor, Calmar, Ulcer, FullReport)
+- [x] **SQLite UUID Adapter**: Registered for proper UUID storage in `aiosqlite`.
+- [x] **Edge Case Handling**: Empty DataFrames, zero-variance benchmarks, no-drawdown portfolios, NaN Sortino.
+- [x] **Lazy-Loading Fix**: Eager loading with `selectinload` for asset relationships.
+- [ ] **Global Exception Handlers**: TODO
 - [ ] **Dockerfile**: Containerize the application for deployment.
-**Status:** ⬜ 0% Complete
+**Status:** ✅ 90% Complete
 
 ---
 
@@ -97,20 +104,19 @@ portfolio-manager/
 ### What is Left to Build ❌
 | Priority | Component | Description |
 |---|---|---|
-| **P0** | **Tests** | Zero test coverage currently. Need unit tests for `risk.py` and `portfolio_calc.py`, plus API integration tests. |
-| **P0** | **Migrations** | No Alembic setup. Schema is created via `create_all()`. Need versioned migrations for future changes. |
 | **P1** | **Charts** | Plotly is installed but not wired up. Need backend functions to generate chart data and frontend components to render them. |
 | **P1** | **Benchmark Engine** | `Benchmark` model exists but no service logic to compare portfolio returns vs benchmark returns. |
 | **P1** | **Classification** | No logic to categorize assets into sectors/industries yet. |
-| **P2** | **Git Init** | Project is not version controlled. |
+| **P2** | **Global Exception Handlers** | Add FastAPI exception handlers for consistent error responses. |
 | **P2** | **Docker** | No `Dockerfile` for easy deployment. |
 
 ---
 
 ## 5. Next Steps
 
-1. **Initialize Git & Migrations**: Foundation for version control and DB integrity.
-2. **Write Tests**: Validate existing logic before adding new features.
-3. **Phase 3 (Analytics)**: Implement benchmark comparison and Plotly charts.
+1. **Phase 3 (Analytics)**: Implement benchmark comparison service and Plotly chart integration.
+2. **Portfolio Classification**: Add sector/industry categorization.
+3. **Global Exception Handlers**: Add FastAPI exception handlers for consistent error responses.
+4. **Dockerization**: Create `Dockerfile` and `docker-compose.yml` for deployment.
 
-*Ready to proceed? Shall I start with Phase 4 (Tests & Migrations) or Phase 3 (Analytics) first?*
+*Ready to proceed with Phase 3 (Analytics & Visualization)?*
