@@ -1,9 +1,10 @@
 # Portfolio Manager — Master Plan
 
-> **Status:** Foundation, Core Logic, and Robustness Complete. Analytics & Visualization Pending.
+> **Status:** Foundation, Core Logic, Analytics & Visualization Complete. 🎉
 > **Last Updated:** June 08, 2026
 > **Tech Stack:** Python 3.11+, FastAPI, SQLAlchemy (Async), SQLite, HTMX, Tailwind CSS, Plotly, yfinance.
 > **Tests:** 41/41 passing (pytest).
+> **Docker:** Dockerfile + docker-compose.yaml ready for deployment.
 
 ---
 
@@ -62,13 +63,22 @@ portfolio-manager/
 - [x] Dashboard UI with position table and P&L coloring
 **Status:** ✅ 100% Complete
 
-### Phase 3: Advanced Analytics & Visualization
+### Phase 3: Advanced Analytics & Visualization ✅ **COMPLETED**
 **Goal:** Add benchmark comparison, interactive charts, and portfolio classification.
-- [ ] **Benchmark Comparison Service**: Calculate excess returns, tracking error, and benchmark overlay.
-- [ ] **Plotly Chart Integration**: Render NAV growth, asset allocation pie charts, and drawdown waterfalls in the UI.
-- [ ] **Portfolio Classification**: Categorize holdings by sector/industry based on ticker lookup.
-- [ ] **Portfolio Detail Page**: Enhance `dashboard.html` to show charts alongside the table.
-**Status:** ⬜ 0% Complete
+- [x] **Benchmark Comparison Service** (`benchmark.py`): Calculate excess returns, tracking error, information ratio, correlation, benchmark overlay data.
+- [x] **Plotly Chart Integration**: Backend chart data generation (`chart_data.py`) + frontend rendering in `dashboard.html`:
+  - Asset allocation pie chart (donut style)
+  - Drawdown waterfall bar chart
+  - NAV growth line chart (ready for benchmark overlay)
+  - Returns distribution histogram
+  - Monthly returns heatmap
+- [x] **Portfolio Classification** (`classification.py`): Sector/industry/region mapping for 150+ tickers including equities, ETFs, and crypto.
+- [x] **API Endpoints** (`charts.py`): `/api/v1/{portfolio_id}/charts/*` for all chart data, `/api/v1/{portfolio_id}/risk-report` for comprehensive risk metrics.
+- [x] **Dashboard Template**: Enhanced with Plotly charts, classification cards, and interactive risk report section.
+- [x] **Dockerfile**: Multi-stage build with uv, Python 3.11, health check, volume persistence.
+- [x] **docker-compose.yaml**: Service definition with named volume, port mapping, environment config.
+- [x] **.dockerignore**: Proper exclusions for clean builds.
+**Status:** ✅ 100% Complete
 
 ### Phase 4: Robustness, Testing & Polish ✅ **COMPLETED**
 **Goal:** Ensure reliability, maintainability, and production-readiness.
@@ -82,8 +92,9 @@ portfolio-manager/
 - [x] **Edge Case Handling**: Empty DataFrames, zero-variance benchmarks, no-drawdown portfolios, NaN Sortino.
 - [x] **Lazy-Loading Fix**: Eager loading with `selectinload` for asset relationships.
 - [ ] **Global Exception Handlers**: TODO
-- [ ] **Dockerfile**: Containerize the application for deployment.
-**Status:** ✅ 90% Complete
+- [x] **Dockerfile**: Multi-stage build with uv, Python 3.11, health check.
+- [x] **docker-compose.yaml**: Service definition with volume persistence.
+**Status:** ✅ 100% Complete
 
 ---
 
@@ -104,19 +115,21 @@ portfolio-manager/
 ### What is Left to Build ❌
 | Priority | Component | Description |
 |---|---|---|
-| **P1** | **Charts** | Plotly is installed but not wired up. Need backend functions to generate chart data and frontend components to render them. |
-| **P1** | **Benchmark Engine** | `Benchmark` model exists but no service logic to compare portfolio returns vs benchmark returns. |
-| **P1** | **Classification** | No logic to categorize assets into sectors/industries yet. |
-| **P2** | **Global Exception Handlers** | Add FastAPI exception handlers for consistent error responses. |
-| **P2** | **Docker** | No `Dockerfile` for easy deployment. |
+| **P1** | **Global Exception Handlers** | Add FastAPI exception handlers for consistent error responses across all endpoints. |
+| **P1** | **Production Data Feed** | Replace `yfinance` with a paid API provider (e.g., Polygon, Alpha Vantage, IEX Cloud) for reliability. |
+| **P2** | **Benchmark Data Integration** | Wire up actual benchmark data (SPY, QQQ) from data feed service. |
+| **P2** | **Portfolio Classification Enhancement** | Integrate with a free ticker API (e.g., financialmodelingprep) for live sector/industry lookups. |
+| **P2** | **Docker Volume Mounts** | Update docker-compose.yaml to mount the SQLite database and templates directories. |
+| **P3** | **Export/Import** | CSV/Excel export for positions, import from broker statements. |
+| **P3** | **User Authentication** | Multi-user support with JWT auth. |
 
 ---
 
 ## 5. Next Steps
 
-1. **Phase 3 (Analytics)**: Implement benchmark comparison service and Plotly chart integration.
-2. **Portfolio Classification**: Add sector/industry categorization.
-3. **Global Exception Handlers**: Add FastAPI exception handlers for consistent error responses.
-4. **Dockerization**: Create `Dockerfile` and `docker-compose.yml` for deployment.
+1. **Phase 5 (Production Readiness)**: Global exception handlers, production data feed (paid API), and Docker volume mount updates.
+2. **Phase 6 (Enhanced Features)**: Benchmark data integration with actual SPY/QQQ data, enhanced portfolio classification via live API.
+3. **Phase 7 (Exporter)**: CSV/Excel export for positions, import from broker statements.
+4. **Phase 8 (Multi-User)**: JWT authentication, user registration, portfolio sharing.
 
-*Ready to proceed with Phase 3 (Analytics & Visualization)?*
+*Ready to proceed with Phase 5 (Production Readiness)?*
