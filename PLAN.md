@@ -92,62 +92,137 @@ portfolio-manager/
 - [x] **.dockerignore**: Proper exclusions for clean builds.
 **Status:** ✅ 100% Complete
 
-### Phase 5: React Frontend Rebuild & Real-Time Features
-**Goal:** Replace the Jinja2/HTMX UI with a modern React SPA, add live market data streaming, sell operations, and trade audit trail.
-- [ ] **React SPA Architecture**: Set up Vite + React frontend serving as a reverse proxy / static SPA alongside the FastAPI backend
-  - [ ] Use **Vite** + **React** + **TypeScript** for fast development
-  - [ ] **TanStack Router** for client-side routing (Dashboard, Positions, Analytics, Settings, Trade Audit)
-  - [ ] **Tailwind CSS** for styling (keep existing dark theme colors)
-  - [ ] **Zustand** for lightweight state management (portfolio data, positions, auth)
-  - [ ] **Axios** for API calls to FastAPI backend
-- [ ] **Real-Time Market Data Streaming**: Replace "Refresh Prices" button with live WebSocket connections
-  - [ ] **FastAPI WebSockets** endpoint (`/ws/quotes/{symbol}`) for streaming prices
-  - [ ] **React WebSocket hook** (`useWebSocket`) for managing connections
-  - [ ] **Debounce + batching** to avoid overwhelming the server during price updates
-  - [ ] **Reconnection logic** with exponential backoff for dropped connections
-- [ ] **Sell Button & Trade Feature**: Full sell/short sell workflow
-  - [ ] **Sell modal**: Quantity picker, price input (pre-filled with current), fee input
-  - [ ] **Partial sell**: Sell only a portion of existing position
-  - [ ] **Full sell**: Liquidate entire position
-  - [ ] **Sell confirmation**: Show P&L impact before executing
-  - [ ] **Record as transaction**: Automatically creates a Sell transaction in the DB
-  - [ ] **Position update**: Reduces quantity (or removes if full sell), updates avg cost basis
-- [ ] **Trade Audit Trail**: Complete history of all buy/sell/dividend operations
-  - [ ] **Trade history table**: Date, symbol, type, qty, price, fees, total, P&L, notes
-  - [ ] **Filter & sort**: By date range, symbol, transaction type
-  - [ ] **Export trades**: CSV/Excel download of trade history
-  - [ ] **Edit/delete trades**: Admin-only ability to correct mistakes
-  - [ ] **P&L calculation**: Realized gains/losses from completed sell transactions
-- [ ] **Visual Design Updates**: Black background with off-white text
-  - [ ] **Background**: Pure black `#000000` instead of slate-950
-  - [ ] **Text**: Off-white `#E2E8F0` instead of slate-200/slate-300
-  - [ ] **Borders**: Subtle `#1E293B` instead of slate-700
-  - [ ] **Accent**: Keep emerald-500/emerald-400 for positive, red-500/red-400 for negative
-  - [ ] **Cards**: Semi-transparent `bg-gray-900/80` with backdrop blur for depth
-- [ ] **Graphing & Benchmark Visualization**: Professional-grade charts
-  - [ ] **Charting library**: **Lightweight Charts** (TradingView) or **Recharts** for React-native charting
-  - [ ] **Portfolio NAV chart**: Line chart with benchmark overlay
-  - [ ] **Drawdown chart**: Waterfall-style showing drawdown periods
-  - [ ] **Sector allocation**: Donut/pie chart with interactive legend
-  - [ ] **Monthly returns**: Heatmap showing performance by month/year
-  - [ ] **Benchmark comparison**: S&P 500 / custom index overlay with tracking error stats
-  - [ ] **Risk metrics panel**: Sharpe, Sortino, Max DD, VaR, Beta, Alpha displayed in a dashboard widget
+### Phase 5: React Frontend SPA
+**Goal:** Replace the Jinja2/HTMX UI with a modern React + TypeScript SPA alongside the FastAPI backend.
+- [ ] **Vite + React + TypeScript**: Scaffold the frontend project
+  - [ ] Vite configuration (dev server, proxy to FastAPI `/api/v1/`)
+  - [ ] Tailwind CSS setup (port existing dark theme colors)
+  - [ ] TanStack Router for client-side routing (Dashboard, Positions, Analytics, Settings, Trade Audit)
+  - [ ] Axios API client (configured for base URL)
+- [ ] **Zustand State Management**: Lightweight stores
+  - [ ] `portfolioStore` — fetched portfolios, current portfolio state
+  - [ ] `positionStore` — local position cache, optimistic updates
+- [ ] **Page Components**: Mirror existing Jinja2 pages in React
+  - [ ] `DashboardPage` — portfolio cards, summary stats, allocation pie chart
+  - [ ] `PositionsPage` — table view of all positions with gain/loss coloring
+  - [ ] `AnalyticsPage` — portfolio comparison, classification cards
+  - [ ] `SettingsPage` — data sources, API config, display preferences
+  - [ ] `TradeAuditPage` — trade history table (placeholder)
+- [ ] **Reusable Components**:
+  - [ ] `PortfolioCard`, `PositionTable`, `SellModal` (placeholder), `TradeRow`
+  - [ ] `PageLayout` — nav bar + content area (migrate from Jinja2 nav)
+- [ ] **Chart Integration**: Port Plotly charts to React
+  - [ ] `AllocationChart` — donut pie chart via Plotly.js for React
+  - [ ] `DrawdownChart` — waterfall bar chart
+  - [ ] Wrap Plotly components with React state binding
+- [ ] **Docker Update**: Serve React static files from FastAPI, proxy `/api` to backend
 **Status:** 🚧 In Progress
 
-### Phase 6: Robustness, Testing & Polish ✅ **COMPLETED**
+### Phase 6: Real-Time Market Data Streaming
+**Goal:** Replace the "Refresh Prices" button with live WebSocket market data.
+- [ ] **FastAPI WebSocket Service**: `/ws/quotes/{symbol}` endpoint
+  - [ ] Accept multiple symbol subscriptions per connection
+  - [ ] Debounce + batch updates (1s window) to avoid overwhelming the server
+  - [ ] Reconnect logic on the server side
+- [ ] **React WebSocket Hook**: `useWebSocket`
+  - [ ] Auto-connect on component mount
+  - [ ] Exponential backoff reconnection
+  - [ ] Message parsing and dispatch to stores
+- [ ] **Live Price Updates in UI**:
+  - [ ] Flash highlight on price change (green for up, red for down)
+  - [ ] Auto-refresh positions table when portfolio ID changes
+  - [ ] Fallback to manual refresh if WebSocket unavailable
+- [ ] **Price Caching Layer**:
+  - [ ] Server-side cache (in-memory TTL dict) to avoid repeated yfinance calls
+  - [ ] Cache invalidation on new position creation
+**Status:** 📋 Pending
+
+### Phase 7: Sell Operations & Trade Audit Trail
+**Goal:** Complete buy/sell workflow with full trade history and P&L tracking.
+- [ ] **Backend — Sell Endpoint**:
+  - [ ] `POST /api/v1/portfolios/{id}/positions/sell` — partial or full sell
+  - [ ] Validate quantity ≤ current position quantity
+  - [ ] Calculate realized P&L (FIFO or weighted avg cost)
+  - [ ] Create Sell transaction record
+  - [ ] Update position: reduce quantity, remove if fully liquidated, update avg cost basis
+  - [ ] Return updated position with P&L delta
+- [ ] **Frontend — Sell Modal**:
+  - [ ] Quantity picker (slider + input, max = current quantity)
+  - [ ] Price input (pre-filled with current market price)
+  - [ ] Fee input
+  - [ ] **P&L Preview**: Show estimated realized gain/loss before confirming
+  - [ ] Confirmation step with summary (symbol, qty, price, fees, net proceeds, P&L)
+- [ ] **Trade Audit Trail**:
+  - [ ] `GET /api/v1/portfolios/{id}/trades` — paginated trade history
+  - [ ] Frontend `TradeAuditPage` with filterable table (date, symbol, type, qty, price, fees, P&L, notes)
+  - [ ] Sort by date/symbol/type
+  - [ ] Filter by date range, transaction type (Buy/Sell/Dividend)
+  - [ ] CSV export button
+  - [ ] Edit/delete trade (admin-only, with reason field)
+  - [ ] Realized P&L summary widget (total gains, total losses, net P&L)
+**Status:** 📋 Pending
+
+### Phase 8: Professional Charting & Benchmark Visualization
+**Goal:** Upgrade from basic Plotly charts to professional-grade financial visualizations.
+- [ ] **Charting Library Selection & Setup**:
+  - [ ] Evaluate **TradingView Lightweight Charts** (lightweight, professional, free) vs **Recharts** (React-native, customizable)
+  - [ ] Install and configure in React frontend
+- [ ] **Portfolio NAV Chart**:
+  - [ ] Line chart showing portfolio value over time
+  - [ ] Benchmark overlay (SPY, QQQ, or custom index) on same chart
+  - [ ] Interactive crosshair, zoom, pan
+  - [ ] Time range selector (1W, 1M, 3M, 1Y, ALL)
+- [ ] **Drawdown Chart**:
+  - [ ] Waterfall-style bar chart showing drawdown periods
+  - [ ] Color-coded (green = recovering, red = deepening)
+- [ ] **Sector Allocation**:
+  - [ ] Donut/pie chart with interactive legend
+  - [ ] Click to highlight/filter positions by sector
+- [ ] **Monthly Returns Heatmap**:
+  - [ ] Grid showing performance by month/year (green/red cells)
+  - [ ] Hover to see exact percentage
+- [ ] **Benchmark Comparison Panel**:
+  - [ ] Stats sidebar: Tracking error, Information ratio, Correlation, Excess returns
+  - [ ] Visual benchmark line overlay on NAV chart
+- [ ] **Risk Metrics Dashboard Widget**:
+  - [ ] Grid display: Sharpe, Sortino, Max DD, VaR, Beta, Alpha, Treynor, Calmar, Ulcer Index
+  - [ ] Color-coded thresholds (green/yellow/red)
+**Status:** 📋 Pending
+
+### Phase 9: Visual Theme Overhaul
+**Goal:** Switch to a pure black background with off-white text for a cleaner, more professional look.
+- [ ] **Tailwind Theme Configuration**:
+  - [ ] Background: `#000000` (pure black)
+  - [ ] Text: `#E2E8F0` (off-white)
+  - [ ] Borders: `#1E293B` (subtle slate)
+  - [ ] Cards: `bg-gray-900/80` with `backdrop-blur` for depth
+  - [ ] Accent: Keep emerald-500/emerald-400 for positive, red-500/red-400 for negative
+- [ ] **Component Updates**:
+  - [ ] Nav bar — transparent bg, white text, hover effects
+  - [ ] Cards — dark with subtle borders, hover elevation
+  - [ ] Tables — zebra striping with semi-transparent rows
+  - [ ] Charts — dark background, white grid lines, high-contrast data series
+  - [ ] Modals — frosted glass effect over black backdrop
+- [ ] **Consistency Pass**:
+  - [ ] Ensure all pages (Dashboard, Positions, Analytics, Trade Audit, Settings) use new theme
+  - [ ] Dark mode only (no toggle needed — this IS the theme)
+**Status:** 📋 Pending
+
+### Phase 10: Robustness, Testing & Polish ✅ **COMPLETED**
 **Goal:** Ensure reliability, maintainability, and production-readiness.
 - [x] **Git Repository**: Initialized, `.gitignore` added, commits tracking all changes.
 - [x] **Alembic Migrations**: Configured for async SQLAlchemy with `aiosqlite`. Initial schema + UUID type fix migrations.
-- [x] **Unit & Integration Tests**: 41 passing tests covering:
-  - 9 API endpoint tests (portfolios CRUD, positions, transactions, health, refresh prices)
+- [x] **Unit & Integration Tests**: 62 passing tests covering:
+  - 10 API endpoint tests (portfolios CRUD, positions, transactions, health, refresh prices, integration)
   - 8 portfolio calculation tests (value, returns, price series, empty DataFrame handling)
   - 24 risk metric tests (Sharpe, Sortino, MaxDrawdown, VaR, Beta, Alpha, Treynor, Calmar, Ulcer, FullReport)
+  - 20 portfolio integration tests (create, read, update, delete, duplicate, empty, error cases)
 - [x] **SQLite UUID Adapter**: Registered for proper UUID storage in `aiosqlite`.
 - [x] **Edge Case Handling**: Empty DataFrames, zero-variance benchmarks, no-drawdown portfolios, NaN Sortino.
 - [x] **Lazy-Loading Fix**: Eager loading with `selectinload` for asset relationships.
-- [ ] **Global Exception Handlers**: TODO
-- [x] **Dockerfile**: Multi-stage build with uv, Python 3.11, health check.
+- [x] **Dockerfile**: Multi-stage build with uv, Python 3.11.
 - [x] **docker-compose.yaml**: Service definition with volume persistence.
+- [x] **.dockerignore**: Proper exclusions.
 **Status:** ✅ 100% Complete
 
 ---
@@ -169,33 +244,31 @@ portfolio-manager/
 ### What is Left to Build ❌
 | Priority | Component | Description |
 |---|---|---|
-| **P1** | **React Frontend Rebuild** | Replace Jinja2/HTMX with Vite + React + TypeScript SPA. See Phase 5 breakdown above. |
-| **P1** | **Sell Operations** | Sell modal, partial/full sell, P&L preview, transaction recording, position updates. |
-| **P1** | **Trade Audit Trail** | Trade history table, filtering, export, P&L calculation from realized gains. |
-| **P1** | **WebSocket Market Data** | Real-time price streaming via FastAPI WebSockets + React hook with reconnect logic. |
-| **P1** | **Professional Charts** | TradingView Lightweight Charts or Recharts for NAV, drawdown, benchmark overlay. |
-| **P2** | **Global Exception Handlers** | Add FastAPI exception handlers for consistent error responses across all endpoints. |
-| **P2** | **Production Data Feed** | Replace `yfinance` with a paid API provider (e.g., Polygon, Alpha Vantage, IEX Cloud) for reliability. |
-| **P2** | **Benchmark Data Integration** | Wire up actual benchmark data (SPY, QQQ) from data feed service. |
-| **P2** | **Portfolio Classification Enhancement** | Integrate with a free ticker API (e.g., financialmodelingprep) for live sector/industry lookups. |
-| **P3** | **Export/Import** | CSV/Excel export for positions, import from broker statements. |
-| **P3** | **User Authentication** | Multi-user support with JWT auth. |
+| **P1** | **React Frontend SPA (Phase 5)** | Vite + React + TypeScript SPA. Replace Jinja2/HTMX. See Phase 5 breakdown. |
+| **P1** | **Sell Operations (Phase 7)** | Sell endpoint, modal, P&L preview, transaction recording. |
+| **P1** | **Trade Audit Trail (Phase 7)** | Trade history, filtering, export, realized P&L. |
+| **P2** | **Real-Time Market Data (Phase 6)** | WebSocket streaming + React hook + price caching. |
+| **P2** | **Professional Charts (Phase 8)** | TradingView Lightweight Charts or Recharts, NAV + benchmark overlay. |
+| **P3** | **Visual Theme Overhaul (Phase 9)** | Pure black bg, off-white text, frosted glass cards. |
+| **P2** | **Global Exception Handlers** | FastAPI exception handlers for consistent error responses. |
+| **P3** | **Production Data Feed** | Replace `yfinance` with a paid API provider (Polygon, Alpha Vantage, IEX Cloud). |
+| **P3** | **Benchmark Data Integration** | Wire up actual benchmark data (SPY, QQQ) from data feed service. |
+| **P4** | **Portfolio Classification Enhancement** | Integrate with a free ticker API for live sector/industry lookups. |
+| **P4** | **Export/Import** | CSV/Excel export for positions, import from broker statements. |
+| **P4** | **User Authentication** | Multi-user support with JWT auth. |
 
 ---
 
 ## 5. Next Steps
 
-1. **Phase 5 (React Frontend & Real-Time Features)** — The active development phase. This is a significant rewrite:
-   - Scaffold Vite + React + TypeScript project
-   - Build WebSocket service for live market data streaming
-   - Implement sell operations with P&L preview
-   - Create trade audit trail with filtering and export
-   - Professional charting with TradingView Lightweight Charts or Recharts
-   - Black/off-white visual theme
-   
-2. **Phase 6 (Production Readiness)**: Global exception handlers, production data feed (paid API), and Docker volume mount updates.
-3. **Phase 7 (Enhanced Features)**: Benchmark data integration with actual SPY/QQQ data, enhanced portfolio classification via live API.
-4. **Phase 8 (Exporter)**: CSV/Excel export for positions, import from broker statements.
-5. **Phase 9 (Multi-User)**: JWT authentication, user registration, portfolio sharing.
+1. **Phase 5 (React Frontend SPA)** — Next milestone. Scaffold Vite + React + TypeScript, mirror existing Jinja2 pages, port Plotly charts, update Docker to serve SPA.
+2. **Phase 6 (Real-Time Market Data)** — WebSocket service for live price streaming, React hook, price caching layer.
+3. **Phase 7 (Sell Operations & Trade Audit)** — Sell endpoint/modal with P&L preview, trade history table with filtering and export.
+4. **Phase 8 (Professional Charting)** — Upgrade to TradingView Lightweight Charts or Recharts, benchmark overlay, risk metrics dashboard widget.
+5. **Phase 9 (Visual Theme Overhaul)** — Pure black background, off-white text, frosted glass cards, consistent across all pages.
+6. **Phase 10 (Production Readiness)** — Global exception handlers, production data feed (paid API), Docker volume mount updates.
+7. **Phase 11 (Enhanced Features)** — Benchmark data integration (SPY/QQQ), enhanced portfolio classification via live API.
+8. **Phase 12 (Exporter)** — CSV/Excel export for positions, import from broker statements.
+9. **Phase 13 (Multi-User)** — JWT authentication, user registration, portfolio sharing.
 
-*Phase 5 (React Frontend) is the next milestone. Ready to scaffold?*
+*Phase 5 (React Frontend SPA) is the next milestone. Ready to scaffold?*
