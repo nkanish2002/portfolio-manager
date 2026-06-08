@@ -1,0 +1,178 @@
+{% extends "base.html" %}
+
+{% block title %}{{ portfolio.name }} — Portfolio Manager{% endblock %}
+
+{% block content %}
+<div class="space-y-8">
+  <!-- Header -->
+  <div class="flex items-center justify-between">
+    <div>
+      <h1 class="text-3xl font-bold text-white tracking-tight">{{ portfolio.name }}</h1>
+      <p class="text-slate-400 mt-1">{{ portfolio.currency }} · {{ portfolio.description or 'No description' }}</p>
+    </div>
+    <button id="add-position-btn"
+      class="bg-emerald-500 hover:bg-emerald-600 text-white font-medium px-4 py-2 rounded-lg transition-colors text-sm">
+      + Add Position
+    </button>
+  </div>
+
+  <!-- Add Position Modal -->
+  <div id="add-modal" class="hidden fixed inset-0 bg-black/60 z-50 flex items-center justify-center">
+    <div class="bg-slate-800 rounded-xl p-6 w-full max-w-md border border-slate-700 shadow-2xl">
+      <h2 class="text-lg font-semibold text-white mb-4">Add Position</h2>
+      <form id="add-form" class="space-y-4">
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-sm font-medium text-slate-300 mb-1">Symbol</label>
+            <input name="symbol" type="text" placeholder="AAPL"
+              class="w-full bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500" required>
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-slate-300 mb-1">Quantity</label>
+            <input name="quantity" type="number" step="0.0001" placeholder="10"
+              class="w-full bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500" required>
+          </div>
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-slate-300 mb-1">Price ($)</label>
+          <input name="price" type="number" step="0.01" placeholder="150.00"
+            class="w-full bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500" required>
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-slate-300 mb-1">Notes</label>
+          <input name="notes" type="text" placeholder="Optional"
+            class="w-full bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500">
+        </div>
+        <div class="flex justify-end gap-3 mt-6">
+          <button type="button" onclick="document.getElementById('add-modal').classList.add('hidden')"
+            class="px-4 py-2 text-slate-400 hover:text-white text-sm">Cancel</button>
+          <button type="submit" class="bg-emerald-500 hover:bg-emerald-600 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors">Add Position</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Summary Cards -->
+  <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+    {% if portfolio_data %}
+    <div class="bg-slate-800 border border-slate-700 rounded-xl p-5">
+      <p class="text-sm text-slate-400 mb-1">Total Value</p>
+      <p class="text-2xl font-bold text-white">${{ "{:,.2f}".format(portfolio_data.total_value) }}</p>
+    </div>
+    <div class="bg-slate-800 border border-slate-700 rounded-xl p-5">
+      <p class="text-sm text-slate-400 mb-1">Total Cost Basis</p>
+      <p class="text-2xl font-bold text-white">${{ "{:,.2f}".format(portfolio_data.total_cost_basis) }}</p>
+    </div>
+    <div class="bg-slate-800 border border-slate-700 rounded-xl p-5">
+      <p class="text-sm text-slate-400 mb-1">Unrealized P&L</p>
+      <p class="text-2xl font-bold {% if portfolio_data.total_gain >= 0 %}text-emerald-400{% else %}text-red-400{% endif %}">
+        {{ "{:+,.2f}".format(portfolio_data.total_gain) }}
+        <span class="text-sm">({{ "{:+.2f}".format(portfolio_data.total_gain_pct) }}%)</span>
+      </p>
+    </div>
+    <div class="bg-slate-800 border border-slate-700 rounded-xl p-5">
+      <p class="text-sm text-slate-400 mb-1">Positions</p>
+      <p class="text-2xl font-bold text-white">{{ portfolio_data.position_count }}</p>
+    </div>
+    {% else %}
+    <div class="col-span-4 text-center py-10">
+      <p class="text-slate-500">Add positions to see portfolio metrics.</p>
+    </div>
+    {% endif %}
+  </div>
+
+  <!-- Position Table -->
+  <div class="bg-slate-800 border border-slate-700 rounded-xl overflow-hidden">
+    <div class="px-5 py-4 border-b border-slate-700 flex items-center justify-between">
+      <h3 class="font-semibold text-white">Positions</h3>
+      <button onclick="fetch('/api/v1/portfolios/{{ portfolio.id }}/positions/refresh')
+        .then(r => window.location.reload())"
+        class="text-xs text-slate-400 hover:text-emerald-400 transition-colors">
+        Refresh Prices
+      </button>
+    </div>
+    {% if position_rows %}
+    <div class="overflow-x-auto">
+      <table class="w-full text-sm">
+        <thead>
+          <tr class="border-b border-slate-700 text-slate-400">
+            <th class="text-left px-5 py-3 font-medium">Symbol</th>
+            <th class="text-left px-5 py-3 font-medium">Class</th>
+            <th class="text-right px-5 py-3 font-medium">Qty</th>
+            <th class="text-right px-5 py-3 font-medium">Price</th>
+            <th class="text-right px-5 py-3 font-medium">Cost Basis</th>
+            <th class="text-right px-5 py-3 font-medium">Market Value</th>
+            <th class="text-right px-5 py-3 font-medium">Gain</th>
+            <th class="text-right px-5 py-3 font-medium">Alloc</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for pos in position_rows %}
+          <tr class="border-b border-slate-800 hover:bg-slate-750 transition-colors">
+            <td class="px-5 py-3">
+              <div class="font-semibold text-white">{{ pos.symbol }}</div>
+              <div class="text-xs text-slate-500">{{ pos.name }}</div>
+            </td>
+            <td class="px-5 py-3">
+              <span class="text-xs bg-slate-700 text-slate-300 px-2 py-0.5 rounded">{{ pos.asset_class }}</span>
+            </td>
+            <td class="px-5 py-3 text-right text-slate-300">{{ "{:,.4f}".format(pos.quantity) }}</td>
+            <td class="px-5 py-3 text-right text-slate-300">${{ "{:,.2f}".format(pos.price) }}</td>
+            <td class="px-5 py-3 text-right text-slate-300">${{ "{:,.2f}".format(pos.cost_basis) }}</td>
+            <td class="px-5 py-3 text-right text-white font-medium">${{ "{:,.2f}".format(pos.market_value) }}</td>
+            <td class="px-5 py-3 text-right {{ 'text-emerald-400' if pos.gain >= 0 else 'text-red-400' }}">
+              {{ "{:+,.2f}".format(pos.gain) }}
+              <span class="text-xs">({{ "{:+.2f}".format(pos.gain_pct) }}%)</span>
+            </td>
+            <td class="px-5 py-3 text-right text-slate-400">
+              {% if portfolio_data and portfolio_data.allocation_pct %}
+              {{ (portfolio_data.allocation_pct|selectattr("symbol", "equalto", pos.symbol)|first).allocation_pct|default('--') }}%
+              {% else %}--{% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <div class="text-center py-12">
+      <p class="text-slate-500 mb-3">No positions yet</p>
+      <button onclick="document.getElementById('add-modal').classList.remove('hidden')"
+        class="text-emerald-400 hover:text-emerald-300 text-sm">
+        Add your first position →
+      </button>
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  document.getElementById('add-position-btn').addEventListener('click', () => {
+    document.getElementById('add-modal').classList.remove('hidden');
+  });
+
+  document.getElementById('add-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const formData = new FormData(e.target);
+    const data = Object.fromEntries(formData.entries());
+    data.quantity = parseFloat(data.quantity);
+    data.price = parseFloat(data.price);
+
+    const res = await fetch('/api/v1/portfolios/{{ portfolio.id }}/positions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    });
+
+    if (res.ok) {
+      document.getElementById('add-modal').classList.add('hidden');
+      e.target.reset();
+      window.location.reload();
+    } else {
+      alert('Failed to add position');
+    }
+  });
+</script>
+{% endblock %}

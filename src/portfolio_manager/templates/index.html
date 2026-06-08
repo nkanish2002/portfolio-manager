@@ -1,0 +1,128 @@
+{% extends "base.html" %}
+
+{% block title %}Portfolio Manager — Dashboard{% endblock %}
+
+{% block content %}
+<div class="space-y-8">
+  <!-- Header -->
+  <div class="flex items-center justify-between">
+    <div>
+      <h1 class="text-3xl font-bold text-white tracking-tight">Dashboard</h1>
+      <p class="text-slate-400 mt-1">Monitor your portfolio performance</p>
+    </div>
+    <button onclick="document.getElementById('create-modal').classList.remove('hidden')"
+      class="bg-emerald-500 hover:bg-emerald-600 text-white font-medium px-4 py-2 rounded-lg transition-colors text-sm">
+      + New Portfolio
+    </button>
+  </div>
+
+  <!-- Create Portfolio Modal -->
+  <div id="create-modal" class="hidden fixed inset-0 bg-black/60 z-50 flex items-center justify-center">
+    <div class="bg-slate-800 rounded-xl p-6 w-full max-w-md border border-slate-700 shadow-2xl">
+      <h2 class="text-lg font-semibold text-white mb-4">Create Portfolio</h2>
+      <form id="create-form" class="space-y-4">
+        <div>
+          <label class="block text-sm font-medium text-slate-300 mb-1">Name</label>
+          <input name="name" type="text" placeholder="e.g., IRA, Taxable, Margin"
+            class="w-full bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500" required>
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-slate-300 mb-1">Description</label>
+          <input name="description" type="text" placeholder="Optional description"
+            class="w-full bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500">
+        </div>
+        <div class="flex justify-end gap-3 mt-6">
+          <button type="button" onclick="document.getElementById('create-modal').classList.add('hidden')"
+            class="px-4 py-2 text-slate-400 hover:text-white text-sm">Cancel</button>
+          <button type="submit" class="bg-emerald-500 hover:bg-emerald-600 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors">Create</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  {% if portfolio_count == 0 %}
+  <!-- Empty State -->
+  <div class="text-center py-20">
+    <svg class="w-20 h-20 text-slate-700 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/>
+    </svg>
+    <h2 class="text-xl font-semibold text-slate-300 mb-2">No portfolios yet</h2>
+    <p class="text-slate-500 mb-6">Create your first portfolio to start tracking your investments.</p>
+    <button onclick="document.getElementById('create-modal').classList.remove('hidden')"
+      class="bg-emerald-500 hover:bg-emerald-600 text-white font-medium px-6 py-3 rounded-lg transition-colors">
+      Create First Portfolio
+    </button>
+  </div>
+  {% else %}
+  <!-- Portfolio Cards -->
+  <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+    {% for portfolio in portfolios %}
+    <a href="/dashboard/{{ portfolio.id }}"
+       class="bg-slate-800 hover:bg-slate-750 border border-slate-700 rounded-xl p-5 transition-all hover:border-slate-600 hover:shadow-lg hover:shadow-emerald-500/5 group">
+      <div class="flex items-start justify-between mb-3">
+        <div>
+          <h3 class="text-lg font-semibold text-white group-hover:text-emerald-400 transition-colors">{{ portfolio.name }}</h3>
+          {% if portfolio.description %}<p class="text-sm text-slate-400">{{ portfolio.description }}</p>{% endif %}
+        </div>
+        <span class="text-xs bg-slate-700 text-slate-300 px-2 py-1 rounded">{{ portfolio.currency }}</span>
+      </div>
+      <div class="flex items-center gap-4 text-sm">
+        <span class="text-slate-400">Positions: <span class="text-white">{{ portfolio.position_count|default('0') }}</span></span>
+        <span class="text-slate-400">Created: <span class="text-white">{{ portfolio.created_at[:10] }}</span></span>
+      </div>
+    </a>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  <!-- Quick Stats (if we have data) -->
+  {% if portfolio_data %}
+  <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+    <div class="bg-slate-800 border border-slate-700 rounded-xl p-5">
+      <p class="text-sm text-slate-400 mb-1">Total Value</p>
+      <p class="text-2xl font-bold text-white">${{ "{:,.2f}".format(portfolio_data.total_value) }}</p>
+    </div>
+    <div class="bg-slate-800 border border-slate-700 rounded-xl p-5">
+      <p class="text-sm text-slate-400 mb-1">Total Gain</p>
+      <p class="text-2xl font-bold {% if portfolio_data.total_gain >= 0 %}text-emerald-400{% else %}text-red-400{% endif %}">
+        ${{ "{:,.2f}".format(portfolio_data.total_gain) }}
+      </p>
+    </div>
+    <div class="bg-slate-800 border border-slate-700 rounded-xl p-5">
+      <p class="text-sm text-slate-400 mb-1">Return</p>
+      <p class="text-2xl font-bold {% if portfolio_data.total_gain_pct >= 0 %}text-emerald-400{% else %}text-red-400{% endif %}">
+        {{ "{:.2f}".format(portfolio_data.total_gain_pct) }}%
+      </p>
+    </div>
+    <div class="bg-slate-800 border border-slate-700 rounded-xl p-5">
+      <p class="text-sm text-slate-400 mb-1">Positions</p>
+      <p class="text-2xl font-bold text-white">{{ portfolio_data.position_count }}</p>
+    </div>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  // Create portfolio form submission
+  document.getElementById('create-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const formData = new FormData(e.target);
+    const data = Object.fromEntries(formData.entries());
+
+    const res = await fetch('/api/v1/portfolios/', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    });
+
+    if (res.ok) {
+      const portfolio = await res.json();
+      window.location.href = `/dashboard/${portfolio.id}`;
+    } else {
+      alert('Failed to create portfolio');
+    }
+  });
+</script>
+{% endblock %}
