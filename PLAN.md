@@ -94,29 +94,29 @@ portfolio-manager/
 
 ### Phase 5: React Frontend SPA
 **Goal:** Replace the Jinja2/HTMX UI with a modern React + TypeScript SPA alongside the FastAPI backend.
-- [ ] **Vite + React + TypeScript**: Scaffold the frontend project
-  - [ ] Vite configuration (dev server, proxy to FastAPI `/api/v1/`)
-  - [ ] Tailwind CSS setup (port existing dark theme colors)
-  - [ ] TanStack Router for client-side routing (Dashboard, Positions, Analytics, Settings, Trade Audit)
-  - [ ] Axios API client (configured for base URL)
-- [ ] **Zustand State Management**: Lightweight stores
-  - [ ] `portfolioStore` — fetched portfolios, current portfolio state
-  - [ ] `positionStore` — local position cache, optimistic updates
-- [ ] **Page Components**: Mirror existing Jinja2 pages in React
-  - [ ] `DashboardPage` — portfolio cards, summary stats, allocation pie chart
-  - [ ] `PositionsPage` — table view of all positions with gain/loss coloring
-  - [ ] `AnalyticsPage` — portfolio comparison, classification cards
-  - [ ] `SettingsPage` — data sources, API config, display preferences
+- [x] **Vite + React + TypeScript**: Scaffold the frontend project
+  - [x] Vite configuration (dev server, proxy to FastAPI `/api/v1/`)
+  - [x] Tailwind CSS setup (port existing dark theme colors)
+  - [x] TanStack Router for client-side routing (Dashboard, Positions, Analytics, Settings, Trade Audit)
+  - [x] Axios API client (configured for base URL)
+- [x] **Zustand State Management**: Lightweight stores
+  - [x] `portfolioStore` — fetched portfolios, current portfolio state
+  - [x] `positionStore` — local position cache, optimistic updates
+- [x] **Page Components**: Mirror existing Jinja2 pages in React
+  - [x] `DashboardPage` — portfolio cards, summary stats, allocation pie chart
+  - [x] `PositionsPage` — table view of all positions with gain/loss coloring
+  - [x] `AnalyticsPage` — portfolio comparison, classification cards
+  - [x] `SettingsPage` — data sources, API config, display preferences
   - [ ] `TradeAuditPage` — trade history table (placeholder)
-- [ ] **Reusable Components**:
-  - [ ] `PortfolioCard`, `PositionTable`, `SellModal` (placeholder), `TradeRow`
-  - [ ] `PageLayout` — nav bar + content area (migrate from Jinja2 nav)
+- [x] **Reusable Components**:
+  - [x] `PortfolioCard`, `PositionTable`, `SellModal` (placeholder), `TradeRow`
+  - [x] `PageLayout` — nav bar + content area (migrate from Jinja2 nav)
 - [ ] **Chart Integration**: Port Plotly charts to React
   - [ ] `AllocationChart` — donut pie chart via Plotly.js for React
   - [ ] `DrawdownChart` — waterfall bar chart
   - [ ] Wrap Plotly components with React state binding
-- [ ] **Docker Update**: Serve React static files from FastAPI, proxy `/api` to backend
-**Status:** 🚧 In Progress
+- [x] **Docker Update**: Serve React static files from FastAPI, proxy `/api` to backend
+**Status:** 🚧 90% Complete
 
 ### Phase 6: Real-Time Market Data Streaming
 **Goal:** Replace the "Refresh Prices" button with live WebSocket market data.

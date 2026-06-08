@@ -1,14 +1,17 @@
 """FastAPI application factory."""
 
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 from fastapi import FastAPI, Request
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
 from portfolio_manager.config import settings
 
 # Templates (now in database.py to avoid circular imports)
 from portfolio_manager.database import templates
+
+FRONTEND_DIST = Path(__file__).parent.parent.parent / "frontend" / "dist"
 
 
 @asynccontextmanager
@@ -26,31 +29,25 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-# Static files (for JS/CSS assets)
-# app.mount("/static", StaticFiles(directory="static"), name="static")
-
-
-@app.get("/", response_class=HTMLResponse)
-async def home(request: Request):
-    from portfolio_manager.database import async_session
-
-    db = async_session()
-    try:
-        # Quick check: do we have any portfolios?
-        from sqlalchemy import text
-        result = await db.execute(text("SELECT COUNT(*) FROM portfolios"))
-        portfolio_count = result.scalar()
-    except Exception:
-        portfolio_count = 0
-    finally:
-        await db.close()
-
-    return templates.TemplateResponse(request, "index.html", {"portfolio_count": portfolio_count})
+# React SPA static files
+if FRONTEND_DIST.exists():
+    app.mount("/assets", StaticFiles(directory=str(FRONTEND_DIST / "assets")), name="assets")
 
 
 @app.get("/health")
 async def health():
     return {"status": "ok", "version": app.version}
+
+
+@app.get("/{full_path:path}")
+async def spa_fallback(full_path: str):
+    """Serve React SPA for all non-API routes."""
+    if full_path.startswith("api/"):
+        return {"error": "Not found"}
+    index_path = FRONTEND_DIST / "index.html"
+    if index_path.exists():
+        return FileResponse(str(index_path))
+    return {"error": "Frontend not built"}
 
 
 # Import routes after app creation to avoid circular imports
