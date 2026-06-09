@@ -1,9 +1,9 @@
 # Portfolio Manager — Master Plan
 
-> **Status:** Foundation, Core Logic, Analytics & Visualization Complete. React UI Phase In Progress. 🚀
+> **Status:** Foundation, Core Logic, Analytics, React SPA & Real-Time Data Complete. 🚀
 > **Last Updated:** June 08, 2026
 > **Tech Stack:** Python 3.11+, FastAPI, SQLAlchemy (Async), SQLite, HTMX/Tailwind (legacy), Plotly, yfinance, React (new).
-> **Tests:** 41/41 passing (pytest).
+> **Tests:** 64/64 passing (pytest).
 > **Docker:** Dockerfile + docker-compose.yaml ready for deployment.
 
 ---
@@ -157,24 +157,24 @@ portfolio-manager/
   - [x] All pages functional on mobile viewport
 **Status:** ✅ 100% Complete
 
-### Phase 6: Real-Time Market Data Streaming
+### Phase 6: Real-Time Market Data Streaming ✅ **COMPLETED**
 **Goal:** Replace the "Refresh Prices" button with live WebSocket market data.
-- [ ] **FastAPI WebSocket Service**: `/ws/quotes/{symbol}` endpoint
-  - [ ] Accept multiple symbol subscriptions per connection
-  - [ ] Debounce + batch updates (1s window) to avoid overwhelming the server
-  - [ ] Reconnect logic on the server side
-- [ ] **React WebSocket Hook**: `useWebSocket`
-  - [ ] Auto-connect on component mount
-  - [ ] Exponential backoff reconnection
-  - [ ] Message parsing and dispatch to stores
-- [ ] **Live Price Updates in UI**:
-  - [ ] Flash highlight on price change (green for up, red for down)
-  - [ ] Auto-refresh positions table when portfolio ID changes
-  - [ ] Fallback to manual refresh if WebSocket unavailable
-- [ ] **Price Caching Layer**:
-  - [ ] Server-side cache (in-memory TTL dict) to avoid repeated yfinance calls
-  - [ ] Cache invalidation on new position creation
-**Status:** 📋 Pending
+- [x] **FastAPI WebSocket Service**: `/ws/quotes` endpoint
+  - [x] Accept multiple symbol subscriptions per connection
+  - [x] Debounce + batch updates (1s window) to avoid overwhelming the server
+  - [x] Background polling loop (every 2s via yfinance)
+- [x] **React WebSocket Hook**: `useWebSocket`
+  - [x] Auto-connect on component mount
+  - [x] Exponential backoff reconnection (1s base, 30s max)
+  - [x] Message parsing and dispatch to stores
+- [x] **Live Price Updates in UI**:
+  - [x] Green/red flash highlight on price change
+  - [x] Live status indicator (connected/disconnected) in PositionsPage
+  - [x] Fallback to manual refresh if WebSocket unavailable
+- [x] **Price Caching Layer**:
+  - [x] Server-side in-memory TTL cache (30s default) to avoid repeated yfinance calls
+  - [x] Cache invalidation on new position creation
+**Status:** ✅ 100% Complete
 
 ### Phase 7: Sell Operations & Trade Audit Trail
 **Goal:** Complete buy/sell workflow with full trade history and P&L tracking.
@@ -283,10 +283,8 @@ portfolio-manager/
 ### What is Left to Build ❌
 | Priority | Component | Description |
 |---|---|---|
-| **P1** | **React Frontend SPA (Phase 5)** | Vite + React + TypeScript SPA. Replace Jinja2/HTMX. See Phase 5 breakdown. |
 | **P1** | **Sell Operations (Phase 7)** | Sell endpoint, modal, P&L preview, transaction recording. |
 | **P1** | **Trade Audit Trail (Phase 7)** | Trade history, filtering, export, realized P&L. |
-| **P2** | **Real-Time Market Data (Phase 6)** | WebSocket streaming + React hook + price caching. |
 | **P2** | **Professional Charts (Phase 8)** | TradingView Lightweight Charts or Recharts, NAV + benchmark overlay. |
 | **P3** | **Visual Theme Overhaul (Phase 9)** | Pure black bg, off-white text, frosted glass cards. |
 | **P2** | **Global Exception Handlers** | FastAPI exception handlers for consistent error responses. |
@@ -300,14 +298,12 @@ portfolio-manager/
 
 ## 5. Next Steps
 
-1. **Phase 5.1 (Mobile-First Responsive Design)** — Next milestone. Hamburger nav, card-view fallback for tables, responsive charts, touch-friendly modals, safe-area padding, mobile testing.
-2. **Phase 6 (Real-Time Market Data)** — WebSocket service for live price streaming, React hook, price caching layer.
-3. **Phase 7 (Sell Operations & Trade Audit)** — Sell endpoint/modal with P&L preview, trade history table with filtering and export.
-4. **Phase 8 (Professional Charting)** — Upgrade to TradingView Lightweight Charts or Recharts, benchmark overlay, risk metrics dashboard widget.
-5. **Phase 9 (Visual Theme Overhaul)** — Pure black background, off-white text, frosted glass cards, consistent across all pages.
-6. **Phase 10 (Production Readiness)** — Global exception handlers, production data feed (paid API), Docker volume mount updates.
-7. **Phase 11 (Enhanced Features)** — Benchmark data integration (SPY/QQQ), enhanced portfolio classification via live API.
-8. **Phase 12 (Exporter)** — CSV/Excel export for positions, import from broker statements.
-9. **Phase 13 (Multi-User)** — JWT authentication, user registration, portfolio sharing.
+1. **Phase 7 (Sell Operations & Trade Audit)** — Sell endpoint/modal with P&L preview, trade history table with filtering and export.
+2. **Phase 8 (Professional Charting)** — Upgrade to TradingView Lightweight Charts or Recharts, benchmark overlay, risk metrics dashboard widget.
+3. **Phase 9 (Visual Theme Overhaul)** — Pure black background, off-white text, frosted glass cards, consistent across all pages.
+4. **Phase 10 (Production Readiness)** — Global exception handlers, production data feed (paid API), Docker volume mount updates.
+5. **Phase 11 (Enhanced Features)** — Benchmark data integration (SPY/QQQ), enhanced portfolio classification via live API.
+6. **Phase 12 (Exporter)** — CSV/Excel export for positions, import from broker statements.
+7. **Phase 13 (Multi-User)** — JWT authentication, user registration, portfolio sharing.
 
-*Phase 5.1 (Mobile-First Responsive Design) is the next milestone. Ready to build?*
+*Phase 7 (Sell Operations & Trade Audit) is the next milestone. Ready to build?*
