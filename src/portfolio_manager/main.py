@@ -3,7 +3,7 @@
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from portfolio_manager.config import settings
@@ -37,6 +37,11 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+# ── Global Exception Handlers (Phase 9) ──────────────────────────────────────
+from portfolio_manager.exceptions import register_exception_handlers  # noqa: E402
+
+register_exception_handlers(app)
+
 # React SPA static files
 if FRONTEND_DIST.exists():
     app.mount("/assets", StaticFiles(directory=str(FRONTEND_DIST / "assets")), name="assets")
@@ -67,6 +72,9 @@ app.include_router(ws.router)
 @app.get("/{full_path:path}")
 async def spa_fallback(full_path: str):
     """Serve React SPA for all non-API routes."""
+    # Don't intercept API routes — let FastAPI's 404 handling take over
+    if full_path.startswith("api/"):
+        raise HTTPException(status_code=404, detail="API endpoint not found")
     index_path = FRONTEND_DIST / "index.html"
     if index_path.exists():
         return FileResponse(str(index_path))

@@ -125,7 +125,8 @@ class TestSellEndpoint:
             json={"symbol": "MSFT", "quantity": 20, "price": 310.0},
         )
         assert sell.status_code == 400, f"Expected 400, got {sell.status_code}: {sell.text}"
-        assert "Cannot sell" in sell.json()["detail"]
+        err = sell.json().get("error", {})
+        assert "Cannot sell" in err.get("message", sell.json().get("detail", ""))
 
     async def test_sell_nonexistent_position(self, client: AsyncClient) -> None:
         """Selling a symbol that isn't in the portfolio returns 404."""

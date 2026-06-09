@@ -33,9 +33,13 @@ export function AnalyticsPage() {
   const [error, setError] = useState<string | null>(null);
 
   const fetchData = useCallback(async () => {
-    if (!currentPortfolio) return;
     setLoading(true);
     setError(null);
+
+    if (!currentPortfolio) {
+      setLoading(false);
+      return;
+    }
 
     try {
       const [nav, dd, mr, bm, risk] = await Promise.all([

@@ -96,7 +96,8 @@ class TestPortfoliosIntegration:
         })
         assert response.status_code == 409
         data = response.json()
-        assert "already exists" in data["detail"].lower()
+        err = data.get("error", {})
+        assert "already exists" in err.get("message", data.get("detail", "")).lower()
 
     async def test_list_portfolios_empty(self, client: AsyncClient) -> None:
         """Test listing portfolios when none exist."""
@@ -143,7 +144,8 @@ class TestPortfoliosIntegration:
         response = await client.get(f"/api/v1/portfolios/{fake_id}")
         assert response.status_code == 404
         data = response.json()
-        assert "not found" in data["detail"].lower()
+        err = data.get("error", {})
+        assert "not found" in err.get("message", data.get("detail", "")).lower()
 
     async def test_delete_portfolio(self, client: AsyncClient) -> None:
         """Test deleting a portfolio."""
@@ -166,7 +168,8 @@ class TestPortfoliosIntegration:
         response = await client.delete(f"/api/v1/portfolios/{fake_id}")
         assert response.status_code == 404
         data = response.json()
-        assert "not found" in data["detail"].lower()
+        err = data.get("error", {})
+        assert "not found" in err.get("message", data.get("detail", "")).lower()
 
 
 class TestPositionsIntegration:
@@ -233,7 +236,8 @@ class TestPositionsIntegration:
         })
         assert response.status_code == 404
         data = response.json()
-        assert "not found" in data["detail"].lower()
+        err = data.get("error", {})
+        assert "not found" in err.get("message", data.get("detail", "")).lower()
 
     async def test_add_position_zero_quantity(self, client: AsyncClient) -> None:
         """Test that zero/negative quantity is rejected."""

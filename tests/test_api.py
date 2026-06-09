@@ -99,7 +99,9 @@ class TestPortfoliosAPI:
         fake_id = str(uuid.uuid4())
         response = await client.get(f"/api/v1/portfolios/{fake_id}")
         assert response.status_code == 404
-        assert "not found" in response.json()["detail"].lower()
+        data = response.json()["error"]
+        assert data["code"] == "NOT_FOUND"
+        assert "not found" in data["message"].lower()
 
     async def test_delete_portfolio(self, client):
         # Create a portfolio
