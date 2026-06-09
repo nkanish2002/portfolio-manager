@@ -223,32 +223,47 @@ portfolio-manager/
 - [x] **Theme Consistency**: Pure black background (`#000`), off-white text (`#E2E8F0`), emerald accents, sharp edges throughout
 **Status:** ✅ 100% Complete
 
-### Phase 8: Professional Charting & Benchmark Visualization
-**Goal:** Upgrade from basic Plotly charts to professional-grade financial visualizations.
-- [ ] **Charting Library Selection & Setup**:
-  - [ ] Evaluate **TradingView Lightweight Charts** (lightweight, professional, free) vs **Recharts** (React-native, customizable)
-  - [ ] Install and configure in React frontend
-- [ ] **Portfolio NAV Chart**:
-  - [ ] Line chart showing portfolio value over time
-  - [ ] Benchmark overlay (SPY, QQQ, or custom index) on same chart
-  - [ ] Interactive crosshair, zoom, pan
-  - [ ] Time range selector (1W, 1M, 3M, 1Y, ALL)
-- [ ] **Drawdown Chart**:
-  - [ ] Waterfall-style bar chart showing drawdown periods
-  - [ ] Color-coded (green = recovering, red = deepening)
-- [ ] **Sector Allocation**:
-  - [ ] Donut/pie chart with interactive legend
-  - [ ] Click to highlight/filter positions by sector
-- [ ] **Monthly Returns Heatmap**:
-  - [ ] Grid showing performance by month/year (green/red cells)
-  - [ ] Hover to see exact percentage
-- [ ] **Benchmark Comparison Panel**:
-  - [ ] Stats sidebar: Tracking error, Information ratio, Correlation, Excess returns
-  - [ ] Visual benchmark line overlay on NAV chart
-- [ ] **Risk Metrics Dashboard Widget**:
-  - [ ] Grid display: Sharpe, Sortino, Max DD, VaR, Beta, Alpha, Treynor, Calmar, Ulcer Index
-  - [ ] Color-coded thresholds (green/yellow/red)
-**Status:** 📋 Pending
+### Phase 8: Professional Charting & Benchmark Visualization ✅ **COMPLETED**
+**Goal:** Upgrade from basic Plotly charts to professional-grade financial visualizations using TradingView Lightweight Charts.
+- [x] **Charting Library**: Installed TradingView Lightweight Charts v4 (industry standard for financial charting)
+- [x] **Backend NAV Enhancement**: New `nav_history.py` service that builds proper historical NAV from transaction records
+  - Processes BUY/SELL/DIVIDEND/FEE/DEPOSIT/WITHDRAWAL transactions chronologically
+  - Computes cumulative portfolio value after each event
+  - Supports SPY/QQQ benchmark overlay from yfinance
+- [x] **New Chart API Endpoints**:
+  - `GET /{id}/charts/nav-history` — NAV + benchmark overlay data for TradingView
+  - `GET /{id}/charts/nav` — Enhanced NAV with benchmark support
+  - `GET /{id}/charts/drawdown` — Drawdown time series from transaction history
+  - `GET /{id}/charts/allocation` — Asset allocation with color-coded asset classes
+  - `GET /{id}/charts/monthly-returns` — Monthly returns heatmap data
+  - `GET /{id}/charts/returns-distribution` — Returns histogram
+  - `GET /{id}/charts/benchmark-comparison` — Stats + aligned price series for overlay
+  - `GET /{id}/risk-report` — 9 professional risk metrics
+- [x] **Frontend — NAV + Benchmark Overlay Chart** (`NavBenchmarkChart`):
+  - Line chart with portfolio (emerald) and benchmark (amber, dashed) series
+  - Interactive crosshair, zoom, pan
+  - Time range selector: 1M, 3M, 6M, 1Y, ALL
+  - Summary stats (start, end, change %)
+- [x] **Frontend — Drawdown Chart** (`DrawdownChart`):
+  - Area chart showing portfolio drawdown over time
+  - Color-coded by severity (light red → deep red)
+  - Max drawdown display
+- [x] **Frontend — Monthly Returns Heatmap** (`MonthlyReturnsChart`):
+  - Grid showing performance by month/year
+  - Green for positive, red for negative returns
+  - Color intensity scales with magnitude
+  - Hover tooltips with exact percentages
+- [x] **Frontend — Benchmark Comparison Panel** (`BenchmarkComparison`):
+  - Overlay chart with portfolio vs benchmark
+  - Stats: Excess Return, Tracking Error, Information Ratio, Correlation
+  - Color-coded correlation (green >0.7, amber >0.4, red <0.4)
+- [x] **Frontend — Risk Metrics Widget** (`RiskMetricsWidget`):
+  - 9 metrics in color-coded grid: Sharpe, Sortino, Max DD, VaR, Beta, Alpha, Treynor, Calmar, Ulcer Index
+  - Threshold-based coloring (green/yellow/red)
+  - Descriptive subtext for each metric
+- [x] **AnalyticsPage**: Completely rebuilt with all professional charts, organized in responsive grid layout
+- [x] **API Service**: Updated with new chart types and endpoints in `api.ts`
+**Status:** ✅ 100% Complete
 
 ### Phase 10: Robustness, Testing & Polish ✅ **COMPLETED**
 **Goal:** Ensure reliability, maintainability, and production-readiness.
@@ -288,22 +303,21 @@ portfolio-manager/
 ### What is Left to Build ❌
 | Priority | Component | Description |
 |---|---|---|
-| **P1** | **Professional Charts (Phase 8)** | TradingView Lightweight Charts or Recharts, NAV + benchmark overlay. |
-|| **P2** | **Global Exception Handlers** | FastAPI exception handlers for consistent error responses. |
-| **P3** | **Production Data Feed** | Replace `yfinance` with a paid API provider (Polygon, Alpha Vantage, IEX Cloud). |
-| **P3** | **Benchmark Data Integration** | Wire up actual benchmark data (SPY, QQQ) from data feed service. |
-| **P4** | **Portfolio Classification Enhancement** | Integrate with a free ticker API for live sector/industry lookups. |
-| **P4** | **Export/Import** | CSV/Excel export for positions, import from broker statements. |
-| **P4** | **User Authentication** | Multi-user support with JWT auth. |
+| **P1** | **Global Exception Handlers** | FastAPI exception handlers for consistent error responses. |
+| **P2** | **Production Data Feed** | Replace `yfinance` with a paid API provider (Polygon, Alpha Vantage, IEX Cloud). |
+| **P2** | **Benchmark Data Integration** | Wire up actual benchmark data (SPY, QQQ) from data feed service. |
+| **P3** | **Portfolio Classification Enhancement** | Integrate with a free ticker API for live sector/industry lookups. |
+| **P3** | **Export/Import** | CSV/Excel export for positions, import from broker statements. |
+| **P3** | **User Authentication** | Multi-user support with JWT auth. |
 
 ---
 
 ## 5. Next Steps
 
-1. **Phase 8 (Professional Charting)** — Upgrade to TradingView Lightweight Charts or Recharts, benchmark overlay, risk metrics dashboard widget.
-2. **Phase 10 (Production Readiness)** — Global exception handlers, production data feed (paid API), Docker volume mount updates.
-5. **Phase 11 (Enhanced Features)** — Benchmark data integration (SPY/QQQ), enhanced portfolio classification via live API.
-6. **Phase 12 (Exporter)** — CSV/Excel export for positions, import from broker statements.
-7. **Phase 13 (Multi-User)** — JWT authentication, user registration, portfolio sharing.
+1. **Phase 9 (Global Exception Handlers)** — Consistent error responses across FastAPI, detailed error logging.
+2. **Phase 10 (Production Readiness)** — Production data feed (paid API), Docker volume mount updates, caching layer.
+3. **Phase 11 (Enhanced Features)** — Benchmark data integration (SPY/QQQ), enhanced portfolio classification via live API.
+4. **Phase 12 (Exporter)** — CSV/Excel export for positions, import from broker statements.
+5. **Phase 13 (Multi-User)** — JWT authentication, user registration, portfolio sharing.
 
-*Phase 8 (Professional Charting) is the next milestone. Ready to build?*
+*Phase 8 (Professional Charting) is now complete. Next is global exception handlers and production readiness.*

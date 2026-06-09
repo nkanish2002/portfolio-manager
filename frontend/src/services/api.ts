@@ -82,6 +82,70 @@ export interface SellResponse {
   avg_cost_basis: number;
 }
 
+// Chart data types
+export interface NavChartData {
+  portfolio: Array<{ time: string; value: number }>;
+  benchmark: Array<{ time: string; value: number }> | null;
+  benchmark_symbol: string;
+}
+
+export interface DrawdownData {
+  dates: string[];
+  drawdown: number[];
+  nav: number[];
+}
+
+export interface AllocationData {
+  labels: string[];
+  values: number[];
+  colors: string[];
+  total_value: number;
+}
+
+export interface MonthlyReturnsData {
+  years: number[];
+  months: string[];
+  values: number[][];
+}
+
+export interface ReturnsDistributionData {
+  bins: number[];
+  counts: number[];
+  mean_return: number;
+  std_return: number;
+}
+
+export interface BenchmarkComparisonData {
+  dates: string[];
+  portfolio: number[];
+  benchmark: number[];
+  excess_return: number;
+  tracking_error: number;
+  information_ratio: number;
+  correlation: number;
+  benchmark_symbol: string;
+}
+
+export interface RiskReportData {
+  sharpe_ratio: number;
+  sortino_ratio: number;
+  max_drawdown: number;
+  var_95: number;
+  beta: number;
+  alpha: number;
+  treynor_ratio: number;
+  calmar_ratio: number;
+  ulcer_index: number;
+  portfolio_returns_count: number;
+  benchmark_sharpe?: number;
+  benchmark_sortino?: number;
+  benchmark_max_drawdown?: number;
+  excess_return?: number;
+  tracking_error?: number;
+  information_ratio?: number;
+  correlation?: number;
+}
+
 export const portfolioService = {
   list: () => api.get('/portfolios/'),
   getById: (id: string) => api.get(`/portfolios/${id}`),
@@ -114,6 +178,26 @@ export const transactionService = {
   list: (portfolioId: string) => api.get(`/portfolios/${portfolioId}/transactions`),
   create: (portfolioId: string, data: Transaction) =>
     api.post(`/portfolios/${portfolioId}/transactions`, data),
+};
+
+// Chart API endpoints
+export const chartService = {
+  nav: (portfolioId: string, benchmark = 'SPY') =>
+    api.get<NavChartData>(`/portfolios/${portfolioId}/charts/nav?benchmark=${benchmark}`),
+  navHistory: (portfolioId: string, benchmark = 'SPY') =>
+    api.get<NavChartData>(`/portfolios/${portfolioId}/charts/nav-history?benchmark=${benchmark}`),
+  drawdown: (portfolioId: string) =>
+    api.get<DrawdownData>(`/portfolios/${portfolioId}/charts/drawdown`),
+  allocation: (portfolioId: string) =>
+    api.get<AllocationData>(`/portfolios/${portfolioId}/charts/allocation`),
+  monthlyReturns: (portfolioId: string) =>
+    api.get<MonthlyReturnsData>(`/portfolios/${portfolioId}/charts/monthly-returns`),
+  returnsDistribution: (portfolioId: string) =>
+    api.get<ReturnsDistributionData>(`/portfolios/${portfolioId}/charts/returns-distribution`),
+  benchmarkComparison: (portfolioId: string, benchmark = 'SPY') =>
+    api.get<BenchmarkComparisonData>(`/portfolios/${portfolioId}/charts/benchmark-comparison?benchmark=${benchmark}`),
+  riskReport: (portfolioId: string) =>
+    api.get<RiskReportData>(`/portfolios/${portfolioId}/risk-report`),
 };
 
 export default api;
