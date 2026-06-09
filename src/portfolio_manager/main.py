@@ -16,11 +16,19 @@ FRONTEND_DIST = Path(__file__).parent.parent.parent / "frontend" / "dist"
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Initialize DB on startup."""
+    """Initialize DB and start WebSocket manager on startup."""
     from portfolio_manager.database import init_db
+    from portfolio_manager.services.ws_service import ws_manager
 
     await init_db()
+
+    # Start WebSocket polling loop
+    await ws_manager.start()
+
     yield
+
+    # Shutdown: stop WebSocket polling
+    await ws_manager.stop()
 
 
 app = FastAPI(
@@ -44,11 +52,14 @@ from portfolio_manager.routes import portfolios  # noqa: E402
 from portfolio_manager.routes import dashboard  # noqa: E402
 from portfolio_manager.routes import charts  # noqa: E402
 from portfolio_manager.routes import ui  # noqa: E402
+from portfolio_manager.routes import ws  # noqa: E402
 
 app.include_router(portfolios.router, prefix="/api/v1")
 app.include_router(dashboard.router)
 app.include_router(charts.router, prefix="/api/v1")
 app.include_router(ui.router)
+# WebSocket endpoint (no HTTP prefix — FastAPI detects @app.websocket)
+app.include_router(ws.router)
 
 
 @app.get("/{full_path:path}")

@@ -1,17 +1,30 @@
+import { useEffect, useState } from 'react';
 import type { Position } from '../services/api';
 
 interface PositionTableProps {
   positions: Position[];
 }
 
-function PositionCard({ position }: { position: Position }) {
+interface FlashState {
+  [symbol: string]: { direction: 'up' | 'down'; ts: number };
+}
+
+function PositionCard({ position, flashInfo }: { position: Position; flashInfo?: FlashState[string] }) {
   const currentPrice = position.current_price || 0;
   const totalValue = position.market_value || (position.quantity * currentPrice);
   const gain = position.gain || 0;
   const gainPct = position.gain_pct || 0;
+  const isFlash = flashInfo && (Date.now() - flashInfo.ts < 1500);
+
+  let cardBorder = '';
+  if (isFlash && flashInfo.direction === 'up') {
+    cardBorder = 'border-emerald-400 ring-1 ring-emerald-400/30';
+  } else if (isFlash && flashInfo.direction === 'down') {
+    cardBorder = 'border-red-400 ring-1 ring-red-400/30';
+  }
 
   return (
-    <div className="bg-gray-900/80 backdrop-blur border border-slate-dark rounded-lg p-4 mb-3">
+    <div className={`bg-gray-900/80 backdrop-blur border rounded-lg p-4 mb-3 transition-all duration-300 ${cardBorder}`}>
       <div className="flex items-center justify-between mb-2">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-full bg-emerald-900/30 flex items-center justify-center">
@@ -43,7 +56,10 @@ function PositionCard({ position }: { position: Position }) {
         </div>
         <div>
           <div className="text-slate-400 text-xs mb-0.5">Price</div>
-          <div className="text-white font-medium">${currentPrice.toFixed(2)}</div>
+          <div className={`text-white font-medium ${isFlash ? (flashInfo.direction === 'up' ? 'text-emerald-400' : 'text-red-400') : ''}`}>
+            ${currentPrice.toFixed(2)}
+            {isFlash && <span className="ml-1 text-xs">{flashInfo.direction === 'up' ? '▲' : '▼'}</span>}
+          </div>
         </div>
         <div>
           <div className="text-slate-400 text-xs mb-0.5">Value</div>
@@ -55,6 +71,46 @@ function PositionCard({ position }: { position: Position }) {
 }
 
 export function PositionTable({ positions }: PositionTableProps) {
+  const [flashState, setFlashState] = useState<FlashState>({});
+
+  // Clear flash states after animation duration
+  useEffect(() => {
+    if (Object.keys(flashState).length === 0) return;
+
+    const interval = setInterval(() => {
+      const now = Date.now();
+      setFlashState((prev) => {
+        const next = { ...prev };
+        for (const sym in next) {
+          if (now - next[sym].ts > 1500) {
+            delete next[sym];
+          }
+        }
+        return next;
+      });
+    }, 250);
+
+    return () => clearInterval(interval);
+  }, [flashState]);
+
+  // Expose flash update function to parent via custom event
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const detail = (e as CustomEvent).detail as { symbol: string; prev: number; price: number } | null;
+      if (!detail) return;
+      setFlashState((prev) => ({
+        ...prev,
+        [detail.symbol]: {
+          direction: detail.price > detail.prev ? 'up' : 'down',
+          ts: Date.now(),
+        },
+      }));
+    };
+
+    window.addEventListener('ws-price-flash', handler);
+    return () => window.removeEventListener('ws-price-flash', handler);
+  }, []);
+
   if (positions.length === 0) {
     return (
       <div className="text-center py-10 sm:py-12">
@@ -98,9 +154,16 @@ export function PositionTable({ positions }: PositionTableProps) {
                 const totalValue = position.market_value || (position.quantity * currentPrice);
                 const gain = position.gain || 0;
                 const gainPct = position.gain_pct || 0;
+                const flash = flashState[position.symbol];
+                const isFlash = flash && (Date.now() - flash.ts < 1500);
 
                 return (
-                  <tr key={position.id} className="hover:bg-black/30">
+                  <tr
+                    key={position.id}
+                    className={`hover:bg-black/30 transition-colors ${
+                      isFlash ? (flash.direction === 'up' ? 'price-up-flash' : 'price-down-flash') : ''
+                    }`}
+                  >
                     <td className="px-6 py-4 whitespace-nowrap sticky left-0 bg-gray-900/90 backdrop-blur">
                       <div className="text-sm font-medium text-white">{position.symbol}</div>
                     </td>
@@ -112,8 +175,10 @@ export function PositionTable({ positions }: PositionTableProps) {
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm text-white">
                       {position.quantity}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm text-slate-300">
-                      ${currentPrice.toFixed(2)}
+                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm">
+                      <span className={isFlash ? (flash.direction === 'up' ? 'text-emerald-400 font-semibold' : 'text-red-400 font-semibold') : 'text-slate-300'}>
+                        ${currentPrice.toFixed(2)}
+                      </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm text-white">
                       ${totalValue.toFixed(2)}
@@ -132,7 +197,11 @@ export function PositionTable({ positions }: PositionTableProps) {
       {/* Mobile Card View (<768px) */}
       <div className="sm:hidden">
         {positions.map((position) => (
-          <PositionCard key={position.id} position={position} />
+          <PositionCard
+            key={position.id}
+            position={position}
+            flashInfo={flashState[position.symbol]}
+          />
         ))}
       </div>
     </>

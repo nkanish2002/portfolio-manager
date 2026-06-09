@@ -3,14 +3,39 @@
 @tailwind utilities;
 
 :root {
-  font-family: 'Inter', system-ui, -apple-system, sans-serif;
-  line-height: 1.5;
-  color-scheme: dark;
+  --color-bg: #000000;
+  --color-text: #E2E8F0;
+  --color-slate-dark: #1E293B;
+  --color-emerald-400: #34D399;
+  --color-emerald-500: #10B981;
+  --color-red-400: #F87171;
+  --color-red-500: #EF4444;
 }
 
 body {
+  background: var(--color-bg);
+  color: var(--color-text);
   margin: 0;
-  min-height: 100vh;
-  background: #000000;
-  color: #E2E8F0;
+  padding: 0;
+  -webkit-font-smoothing: antialiased;
+  -moz-osfont-smoothing: grayscale;
+}
+
+/* Price flash animation — green for up, red for down */
+@keyframes price-flash-green {
+  0% { background-color: rgba(52, 211, 153, 0.3); }
+  100% { background-color: transparent; }
+}
+
+@keyframes price-flash-red {
+  0% { background-color: rgba(248, 113, 113, 0.3); }
+  100% { background-color: transparent; }
+}
+
+.price-up-flash {
+  animation: price-flash-green 1.5s ease-out;
+}
+
+.price-down-flash {
+  animation: price-flash-red 1.5s ease-out;
 }

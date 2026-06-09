@@ -2,6 +2,7 @@ import { useEffect, useState, useRef, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router';
 import { usePortfolioStore, usePositionStore } from '../store';
 import { PositionTable } from '../components/PositionTable';
+import useWebSocket, { type WebSocketMessage } from '../hooks/useWebSocket';
 
 interface SummaryStatsProps {
   positions: Array<{
@@ -48,12 +49,13 @@ export function PositionsPage() {
   const { portfolioId } = useParams<{ portfolioId: string }>();
   const navigate = useNavigate();
   const { currentPortfolio, setCurrentPortfolio, clearCurrentPortfolio } = usePortfolioStore();
-  const { positions, loading, error, fetchPositions, refreshPrices } = usePositionStore();
+  const { positions, loading, error, fetchPositions, refreshPrices, applyLivePrices } = usePositionStore();
   const [refreshing, setRefreshing] = useState(false);
   const [pullStart, setPullStart] = useState(0);
   const [pullDistance, setPullDistance] = useState(0);
   const containerRef = useRef<HTMLDivElement>(null);
   const isPulling = useRef(false);
+  const lastSymbols = useRef<string[]>([]);
 
   const handleRefresh = useCallback(async () => {
     if (!portfolioId || refreshing) return;
@@ -64,6 +66,40 @@ export function PositionsPage() {
       setRefreshing(false);
     }
   }, [portfolioId, refreshPrices, refreshing]);
+
+  // WebSocket: connect and subscribe to position symbols
+  const handleMessage = useCallback((msg: WebSocketMessage) => {
+    if (msg.type === 'batch' && 'updates' in msg) {
+      // Apply live prices to the store
+      applyLivePrices(msg.updates);
+
+      // Dispatch custom events for flash animation
+      for (const update of msg.updates) {
+        window.dispatchEvent(new CustomEvent('ws-price-flash', {
+          detail: { symbol: update.symbol, prev: update.prev, price: update.price },
+        }));
+      }
+    }
+  }, [applyLivePrices]);
+
+  const { connected } = useWebSocket('/ws/quotes', handleMessage);
+
+  // Subscribe to position symbols on load / change
+  useEffect(() => {
+    if (!portfolioId || loading) return;
+
+    const symbols = positions.map((p) => p.symbol).filter(Boolean);
+    if (symbols.length === 0) return;
+
+    // Only subscribe if symbols changed
+    const symSet = new Set(symbols);
+    const lastSet = new Set(lastSymbols.current);
+    if (symSet.size === lastSet.size && [...symSet].every((s) => lastSet.has(s))) {
+      return; // No change
+    }
+
+    lastSymbols.current = symbols;
+  }, [portfolioId, positions.length, loading]);
 
   useEffect(() => {
     if (portfolioId) {
@@ -107,6 +143,14 @@ export function PositionsPage() {
       onTouchEnd={handleTouchEnd}
       className="space-y-4 sm:space-y-6"
     >
+      {/* Live indicator */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <div className={`w-2 h-2 rounded-full ${connected ? 'bg-emerald-400 animate-pulse' : 'bg-slate-600'}`} />
+          <span className="text-xs text-slate-500">{connected ? 'Live' : 'Offline'}</span>
+        </div>
+      </div>
+
       {/* Pull-to-refresh indicator */}
       {pullDistance > 0 && (
         <div className="text-center py-2 text-sm text-slate-400">
