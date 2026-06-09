@@ -13,6 +13,7 @@ export function PageLayout({ children }: PageLayoutProps) {
   const navItems = [
     { path: '/dashboard', label: 'Dashboard' },
     { path: '/positions', label: 'Positions' },
+    { path: '/trades', label: 'Trade Audit' },
     { path: '/analytics', label: 'Analytics' },
     { path: '/settings', label: 'Settings' },
   ];

@@ -67,6 +67,15 @@ class TransactionCreate(BaseModel):
     notes: str | None = None
 
 
+class SellRequest(BaseModel):
+    """Sell position request."""
+    symbol: str = Field(..., description="Ticker symbol to sell")
+    quantity: float = Field(..., gt=0, description="Quantity to sell")
+    price: float = Field(..., gt=0, description="Sell price per share")
+    fees: float = 0
+    notes: str | None = None
+
+
 # --- Endpoints ---
 
 @router.get("/", response_model=list[PortfolioResponse])
@@ -124,6 +133,7 @@ async def delete_portfolio(portfolio_id: str, db: Annotated[AsyncSession, Depend
 @router.post("/{portfolio_id}/positions", response_model=PositionResponse, status_code=201)
 async def add_position(portfolio_id: str, data: PositionCreate, db: Annotated[AsyncSession, Depends(get_db)]):
     """Add or update a position in a portfolio."""
+    from datetime import date
     from sqlalchemy.orm import selectinload
 
     # Ensure portfolio exists
@@ -157,15 +167,27 @@ async def add_position(portfolio_id: str, data: PositionCreate, db: Annotated[As
     position = pos_result.scalar_one_or_none()
 
     if position:
-        # Update existing
+        # Update existing — record buy transaction for additional quantity
         old_qty = float(position.quantity)
         old_cost = float(position.avg_cost_basis) * old_qty
         new_qty = old_qty + float(data.quantity)
         position.avg_cost_basis = (old_cost + float(data.quantity) * float(data.price)) / new_qty if new_qty > 0 else 0
         position.quantity = new_qty
         position.current_price = float(data.price)
+        
+        # Record buy transaction
+        buy_transaction = Transaction(
+            portfolio_id=portfolio_id,
+            asset_id=asset.id,
+            transaction_type=TransactionType.BUY,
+            transaction_date=date.today(),
+            quantity=data.quantity,
+            price=data.price,
+            fees=0,
+        )
+        db.add(buy_transaction)
     else:
-        # Create new
+        # Create new position and buy transaction
         position = Position(
             portfolio_id=portfolio_id,
             asset_id=asset.id,
@@ -174,6 +196,17 @@ async def add_position(portfolio_id: str, data: PositionCreate, db: Annotated[As
             current_price=data.price,
         )
         db.add(position)
+        
+        buy_transaction = Transaction(
+            portfolio_id=portfolio_id,
+            asset_id=asset.id,
+            transaction_type=TransactionType.BUY,
+            transaction_date=date.today(),
+            quantity=data.quantity,
+            price=data.price,
+            fees=0,
+        )
+        db.add(buy_transaction)
 
     await db.commit()
     await db.refresh(position, {"asset"})
@@ -246,7 +279,108 @@ async def add_transaction(portfolio_id: str, data: TransactionCreate, db: Annota
     return {"id": str(transaction.id), "status": "recorded"}
 
 
-@router.get("/{portfolio_id}/positions/refresh", response_model=list[dict])
+@router.post("/{portfolio_id}/positions/sell", response_model=dict, status_code=201)
+async def sell_position(
+    portfolio_id: str,
+    data: SellRequest,
+    db: Annotated[AsyncSession, Depends(get_db)],
+):
+    """Sell a quantity of an existing position (partial or full).
+
+    Uses weighted average cost basis for P&L calculation.
+    """
+    from datetime import date
+    from sqlalchemy.orm import selectinload
+    from fastapi import HTTPException
+
+    # Ensure portfolio exists
+    result = await db.execute(select(Portfolio).where(Portfolio.id == portfolio_id))
+    portfolio = result.scalar_one_or_none()
+    if not portfolio:
+        raise HTTPException(status_code=404, detail="Portfolio not found")
+
+    # Find asset first
+    asset_result = await db.execute(
+        select(Asset).where(Asset.symbol == data.symbol.upper())
+    )
+    asset = asset_result.scalar_one_or_none()
+    if not asset:
+        raise HTTPException(status_code=404, detail="Asset not found")
+
+    # Find the position to sell
+    pos_result = await db.execute(
+        select(Position)
+        .options(selectinload(Position.asset))
+        .where(
+            Position.portfolio_id == portfolio_id,
+            Position.asset_id == asset.id,
+        )
+    )
+    position = pos_result.scalar_one_or_none()
+
+    if not position:
+        raise HTTPException(status_code=404, detail="Position not found")
+
+    # Validate quantity
+    qty_to_sell = float(data.quantity)
+    current_qty = float(position.quantity)
+
+    if qty_to_sell <= 0:
+        raise HTTPException(status_code=400, detail="Quantity must be positive")
+
+    if qty_to_sell > current_qty:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Cannot sell {qty_to_sell} shares. Current position: {current_qty} shares",
+        )
+
+    # Calculate realized P&L using weighted average cost
+    avg_cost = float(position.avg_cost_basis) if position.avg_cost_basis else 0
+    sell_price = float(data.price)
+    cost_of_sold = avg_cost * qty_to_sell
+    proceeds = sell_price * qty_to_sell
+    realized_pnl = proceeds - cost_of_sold - float(data.fees)
+
+    # Update position quantity
+    new_qty = current_qty - qty_to_sell
+    position.quantity = new_qty
+
+    # If fully liquidated, remove the position
+    if new_qty <= 0:
+        await db.delete(position)
+    # If partially sold, update current price
+    else:
+        position.current_price = sell_price
+
+    # Record the sell transaction
+    sell_transaction = Transaction(
+        portfolio_id=portfolio_id,
+        asset_id=position.asset_id,
+        transaction_type=TransactionType.SELL,
+        transaction_date=date.today(),
+        quantity=qty_to_sell,
+        price=sell_price,
+        fees=float(data.fees),
+        notes=data.notes,
+    )
+    db.add(sell_transaction)
+
+    await db.commit()
+
+    return {
+        "status": "sold",
+        "symbol": data.symbol.upper(),
+        "quantity_sold": qty_to_sell,
+        "price": sell_price,
+        "fees": float(data.fees),
+        "proceeds": round(proceeds, 2),
+        "realized_pnl": round(realized_pnl, 2),
+        "remaining_quantity": max(new_qty, 0),
+        "avg_cost_basis": avg_cost,
+    }
+
+
+@router.post("/{portfolio_id}/positions/refresh", response_model=list[dict])
 async def refresh_prices(portfolio_id: str, db: Annotated[AsyncSession, Depends(get_db)]):
     """Fetch latest prices for all positions in a portfolio."""
     from sqlalchemy.orm import selectinload

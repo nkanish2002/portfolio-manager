@@ -175,7 +175,7 @@ class TestPortfoliosAPI:
         })
 
         # Refresh prices (will fail to fetch from yfinance in test env, but should not crash)
-        response = await client.get(f"/api/v1/portfolios/{portfolio_id}/positions/refresh")
+        response = await client.post(f"/api/v1/portfolios/{portfolio_id}/positions/refresh")
         assert response.status_code == 200
         data = response.json()
         assert len(data) == 1

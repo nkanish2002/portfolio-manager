@@ -2,7 +2,9 @@ import { useEffect, useState, useRef, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router';
 import { usePortfolioStore, usePositionStore } from '../store';
 import { PositionTable } from '../components/PositionTable';
+import { SellModal } from '../components/SellModal';
 import useWebSocket, { type WebSocketMessage } from '../hooks/useWebSocket';
+import type { Position } from '../services/api';
 
 interface SummaryStatsProps {
   positions: Array<{
@@ -57,6 +59,10 @@ export function PositionsPage() {
   const isPulling = useRef(false);
   const lastSymbols = useRef<string[]>([]);
 
+  // Sell modal state
+  const [sellPosition, setSellPosition] = useState<Position | null>(null);
+  const [sellOpen, setSellOpen] = useState(false);
+
   const handleRefresh = useCallback(async () => {
     if (!portfolioId || refreshing) return;
     setRefreshing(true);
@@ -67,13 +73,22 @@ export function PositionsPage() {
     }
   }, [portfolioId, refreshPrices, refreshing]);
 
+  const handleSell = useCallback((position: Position) => {
+    setSellPosition(position);
+    setSellOpen(true);
+  }, []);
+
+  const handleSellComplete = useCallback(() => {
+    setSellOpen(false);
+    setSellPosition(null);
+    if (portfolioId) fetchPositions(portfolioId);
+  }, [portfolioId, fetchPositions]);
+
   // WebSocket: connect and subscribe to position symbols
   const handleMessage = useCallback((msg: WebSocketMessage) => {
     if (msg.type === 'batch' && 'updates' in msg) {
-      // Apply live prices to the store
       applyLivePrices(msg.updates);
 
-      // Dispatch custom events for flash animation
       for (const update of msg.updates) {
         window.dispatchEvent(new CustomEvent('ws-price-flash', {
           detail: { symbol: update.symbol, prev: update.prev, price: update.price },
@@ -91,7 +106,6 @@ export function PositionsPage() {
     const symbols = positions.map((p) => p.symbol).filter(Boolean);
     if (symbols.length === 0) return;
 
-    // Only subscribe if symbols changed
     const symSet = new Set(symbols);
     const lastSet = new Set(lastSymbols.current);
     if (symSet.size === lastSet.size && [...symSet].every((s) => lastSet.has(s))) {
@@ -201,7 +215,16 @@ export function PositionsPage() {
       )}
 
       {/* Positions */}
-      {!loading && <PositionTable positions={positions} />}
+      {!loading && <PositionTable positions={positions} onSell={handleSell} />}
+
+      {/* Sell Modal */}
+      <SellModal
+        position={sellPosition}
+        portfolioId={portfolioId}
+        isOpen={sellOpen}
+        onClose={() => { setSellOpen(false); setSellPosition(null); }}
+        onSellComplete={handleSellComplete}
+      />
     </div>
   );
 }

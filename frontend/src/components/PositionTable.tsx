@@ -3,13 +3,14 @@ import type { Position } from '../services/api';
 
 interface PositionTableProps {
   positions: Position[];
+  onSell?: (position: Position) => void;
 }
 
 interface FlashState {
   [symbol: string]: { direction: 'up' | 'down'; ts: number };
 }
 
-function PositionCard({ position, flashInfo }: { position: Position; flashInfo?: FlashState[string] }) {
+function PositionCard({ position, flashInfo, onSell }: { position: Position; flashInfo?: FlashState[string]; onSell?: () => void }) {
   const currentPrice = position.current_price || 0;
   const totalValue = position.market_value || (position.quantity * currentPrice);
   const gain = position.gain || 0;
@@ -48,8 +49,8 @@ function PositionCard({ position, flashInfo }: { position: Position; flashInfo?:
           </div>
         </div>
       </div>
-      
-      <div className="grid grid-cols-3 gap-2 text-sm">
+
+      <div className="grid grid-cols-3 gap-2 text-sm mb-3">
         <div>
           <div className="text-slate-400 text-xs mb-0.5">Qty</div>
           <div className="text-white font-medium">{position.quantity.toLocaleString()}</div>
@@ -66,20 +67,27 @@ function PositionCard({ position, flashInfo }: { position: Position; flashInfo?:
           <div className="text-white font-medium">${totalValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
         </div>
       </div>
+
+      {onSell && (
+        <button
+          onClick={onSell}
+          className="w-full py-2 text-sm font-medium bg-red-600/20 text-red-400 hover:bg-red-600/30 rounded-lg transition-colors min-h-[44px]"
+        >
+          Sell
+        </button>
+      )}
     </div>
   );
 }
 
-export function PositionTable({ positions }: PositionTableProps) {
+export function PositionTable({ positions, onSell }: PositionTableProps) {
   const [flashState, setFlashState] = useState<FlashState>({});
 
-  // Clear flash states after animation duration
   useEffect(() => {
     if (Object.keys(flashState).length === 0) return;
-
     const interval = setInterval(() => {
-      const now = Date.now();
       setFlashState((prev) => {
+        const now = Date.now();
         const next = { ...prev };
         for (const sym in next) {
           if (now - next[sym].ts > 1500) {
@@ -89,24 +97,18 @@ export function PositionTable({ positions }: PositionTableProps) {
         return next;
       });
     }, 250);
-
     return () => clearInterval(interval);
   }, [flashState]);
 
-  // Expose flash update function to parent via custom event
   useEffect(() => {
     const handler = (e: Event) => {
       const detail = (e as CustomEvent).detail as { symbol: string; prev: number; price: number } | null;
       if (!detail) return;
       setFlashState((prev) => ({
         ...prev,
-        [detail.symbol]: {
-          direction: detail.price > detail.prev ? 'up' : 'down',
-          ts: Date.now(),
-        },
+        [detail.symbol]: { direction: detail.price > detail.prev ? 'up' : 'down', ts: Date.now() },
       }));
     };
-
     window.addEventListener('ws-price-flash', handler);
     return () => window.removeEventListener('ws-price-flash', handler);
   }, []);
@@ -128,24 +130,13 @@ export function PositionTable({ positions }: PositionTableProps) {
           <table className="w-full">
             <thead>
               <tr className="bg-black/50">
-                <th className="px-6 py-3 text-left text-xs font-medium text-slate-400 uppercase tracking-wider sticky left-0 bg-black/70 backdrop-blur">
-                  Symbol
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-slate-400 uppercase tracking-wider">
-                  Class
-                </th>
-                <th className="px-6 py-3 text-right text-xs font-medium text-slate-400 uppercase tracking-wider">
-                  Quantity
-                </th>
-                <th className="px-6 py-3 text-right text-xs font-medium text-slate-400 uppercase tracking-wider">
-                  Price
-                </th>
-                <th className="px-6 py-3 text-right text-xs font-medium text-slate-400 uppercase tracking-wider">
-                  Value
-                </th>
-                <th className="px-6 py-3 text-right text-xs font-medium text-slate-400 uppercase tracking-wider">
-                  P&L
-                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-slate-400 uppercase tracking-wider sticky left-0 bg-black/70 backdrop-blur">Symbol</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-slate-400 uppercase tracking-wider">Class</th>
+                <th className="px-6 py-3 text-right text-xs font-medium text-slate-400 uppercase tracking-wider">Quantity</th>
+                <th className="px-6 py-3 text-right text-xs font-medium text-slate-400 uppercase tracking-wider">Price</th>
+                <th className="px-6 py-3 text-right text-xs font-medium text-slate-400 uppercase tracking-wider">Value</th>
+                <th className="px-6 py-3 text-right text-xs font-medium text-slate-400 uppercase tracking-wider">P&L</th>
+                {onSell && <th className="px-6 py-3 text-right text-xs font-medium text-slate-400 uppercase tracking-wider">Action</th>}
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-dark">
@@ -158,34 +149,33 @@ export function PositionTable({ positions }: PositionTableProps) {
                 const isFlash = flash && (Date.now() - flash.ts < 1500);
 
                 return (
-                  <tr
-                    key={position.id}
-                    className={`hover:bg-black/30 transition-colors ${
-                      isFlash ? (flash.direction === 'up' ? 'price-up-flash' : 'price-down-flash') : ''
-                    }`}
-                  >
+                  <tr key={position.id} className={`hover:bg-black/30 transition-colors ${isFlash ? (flash.direction === 'up' ? 'price-up-flash' : 'price-down-flash') : ''}`}>
                     <td className="px-6 py-4 whitespace-nowrap sticky left-0 bg-gray-900/90 backdrop-blur">
                       <div className="text-sm font-medium text-white">{position.symbol}</div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-emerald-900/30 text-emerald-400">
-                        {position.asset_class || 'N/A'}
-                      </span>
+                      <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-emerald-900/30 text-emerald-400">{position.asset_class || 'N/A'}</span>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm text-white">
-                      {position.quantity}
-                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm text-white">{position.quantity}</td>
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm">
                       <span className={isFlash ? (flash.direction === 'up' ? 'text-emerald-400 font-semibold' : 'text-red-400 font-semibold') : 'text-slate-300'}>
                         ${currentPrice.toFixed(2)}
                       </span>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm text-white">
-                      ${totalValue.toFixed(2)}
-                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm text-white">${totalValue.toFixed(2)}</td>
                     <td className={`px-6 py-4 whitespace-nowrap text-right text-sm font-medium ${gain >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
                       {gain >= 0 ? '+' : ''}${gain.toFixed(2)} ({gainPct >= 0 ? '+' : ''}{gainPct.toFixed(2)}%)
                     </td>
+                    {onSell && (
+                      <td className="px-6 py-4 whitespace-nowrap text-right">
+                        <button
+                          onClick={(e) => { e.stopPropagation(); onSell(position); }}
+                          className="px-3 py-1.5 text-xs font-medium bg-red-600/20 text-red-400 hover:bg-red-600/30 rounded transition-colors min-h-[32px]"
+                        >
+                          Sell
+                        </button>
+                      </td>
+                    )}
                   </tr>
                 );
               })}
@@ -197,11 +187,7 @@ export function PositionTable({ positions }: PositionTableProps) {
       {/* Mobile Card View (<768px) */}
       <div className="sm:hidden">
         {positions.map((position) => (
-          <PositionCard
-            key={position.id}
-            position={position}
-            flashInfo={flashState[position.symbol]}
-          />
+          <PositionCard key={position.id} position={position} flashInfo={flashState[position.symbol]} onSell={onSell ? () => onSell(position) : undefined} />
         ))}
       </div>
     </>

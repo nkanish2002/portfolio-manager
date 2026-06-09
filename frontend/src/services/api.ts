@@ -35,6 +35,28 @@ export interface Position {
   updated_at: string;
 }
 
+export interface Trade {
+  id: string;
+  portfolio_id: string;
+  symbol: string;
+  type: 'BUY' | 'SELL' | 'DIVIDEND' | 'SPLIT' | 'FEE';
+  quantity: number;
+  price: number;
+  fees: number;
+  p_and_l: number;
+  notes?: string;
+  transaction_date: string;
+}
+
+export interface TradeSummary {
+  total_trades: number;
+  total_buys: number;
+  total_sells: number;
+  realized_gain: number;
+  realized_loss: number;
+  net_realized_p_and_l: number;
+}
+
 export interface Transaction {
   id: string;
   portfolio_id: string;
@@ -48,6 +70,18 @@ export interface Transaction {
   created_at: string;
 }
 
+export interface SellResponse {
+  status: 'sold';
+  symbol: string;
+  quantity_sold: number;
+  price: number;
+  fees: number;
+  proceeds: number;
+  realized_pnl: number;
+  remaining_quantity: number;
+  avg_cost_basis: number;
+}
+
 export const portfolioService = {
   list: () => api.get('/portfolios/'),
   getById: (id: string) => api.get(`/portfolios/${id}`),
@@ -59,7 +93,21 @@ export const positionService = {
   list: (portfolioId: string) => api.get(`/portfolios/${portfolioId}/positions`),
   create: (portfolioId: string, data: { symbol: string; quantity: number; price: number }) =>
     api.post(`/portfolios/${portfolioId}/positions`, data),
+  sell: (portfolioId: string, data: { symbol: string; quantity: number; price: number; fees?: number; notes?: string }) =>
+    api.post(`/portfolios/${portfolioId}/positions/sell`, data),
   refreshPrices: (portfolioId: string) => api.post(`/portfolios/${portfolioId}/positions/refresh`),
+};
+
+export const tradeService = {
+  list: (portfolioId: string, params?: {
+    symbol?: string;
+    trade_type?: string;
+    start_date?: string;
+    end_date?: string;
+    sort_by?: string;
+    sort_order?: string;
+  }) => api.get(`/portfolios/${portfolioId}/trades`, { params }),
+  summary: (portfolioId: string) => api.get(`/portfolios/${portfolioId}/trades/summary`),
 };
 
 export const transactionService = {
