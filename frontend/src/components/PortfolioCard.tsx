@@ -11,7 +11,7 @@ export function PortfolioCard({ portfolio, onClick }: PortfolioCardProps) {
   return (
     <div
       onClick={onClick}
-      className="bg-gray-900/80 backdrop-blur border border-slate-dark rounded-lg p-6 cursor-pointer hover:border-emerald-500/50 transition-all hover:shadow-lg hover:shadow-emerald-500/10"
+      className="bg-gray-900/80 backdrop-blur border border-slate-dark rounded-none p-6 cursor-pointer hover:border-emerald-500/50 transition-all hover:shadow-lg hover:shadow-emerald-500/10"
     >
       <div className="flex items-center justify-between mb-4">
         <h3 className="text-xl font-semibold text-white">{name}</h3>

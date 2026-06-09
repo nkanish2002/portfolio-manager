@@ -93,7 +93,7 @@ export function SellModal({ position, portfolioId, isOpen, onClose, onSellComple
       />
 
       {/* Modal */}
-      <div className="relative w-full max-w-lg bg-gray-900 border border-slate-dark rounded-xl shadow-2xl p-6 max-h-[90vh] overflow-y-auto">
+      <div className="relative w-full max-w-lg bg-gray-900 border border-slate-dark rounded-none shadow-2xl p-6 max-h-[90vh] overflow-y-auto">
         {/* Close button */}
         <button
           onClick={handleClose}
@@ -111,7 +111,7 @@ export function SellModal({ position, portfolioId, isOpen, onClose, onSellComple
 
         {/* Error */}
         {error && (
-          <div className="mb-4 bg-red-900/30 border border-red-500/50 text-red-400 p-3 rounded-lg text-sm">
+          <div className="mb-4 bg-red-900/30 border border-red-500/50 text-red-400 p-3 rounded-none text-sm">
             {error}
           </div>
         )}
@@ -119,7 +119,7 @@ export function SellModal({ position, portfolioId, isOpen, onClose, onSellComple
         {step === 'details' && (
           <>
             {/* Position Info */}
-            <div className="mb-6 p-4 bg-gray-800/50 rounded-lg border border-slate-dark">
+            <div className="mb-6 p-4 bg-gray-800/50 rounded-none border border-slate-dark">
               <div className="flex items-center justify-between mb-2">
                 <span className="text-slate-400 text-sm">Current Position</span>
                 <span className="text-white font-bold text-lg">
@@ -145,7 +145,7 @@ export function SellModal({ position, portfolioId, isOpen, onClose, onSellComple
                   step="0.01"
                   value={quantity}
                   onChange={(e) => handleQuantityChange(parseFloat(e.target.value) || 0)}
-                  className="flex-1 bg-gray-800 border border-slate-dark text-white px-4 py-3 rounded-lg focus:outline-none focus:border-emerald-500 transition-colors text-lg"
+                  className="flex-1 bg-gray-800 border border-slate-dark text-white px-4 py-3 rounded-none focus:outline-none focus:border-emerald-500 transition-colors text-lg"
                 />
                 <span className="text-slate-400 text-sm whitespace-nowrap">
                   ({pctOfPosition.toFixed(1)}% of position)
@@ -158,7 +158,7 @@ export function SellModal({ position, portfolioId, isOpen, onClose, onSellComple
                     key={pct}
                     type="button"
                     onClick={() => handleQuantityChange(Math.round((maxQty * pct) / 10000) / 100 * 100)}
-                    className="flex-1 py-2 text-sm bg-gray-800 hover:bg-gray-700 border border-slate-dark rounded-lg text-slate-300 hover:text-white transition-colors min-h-[44px]"
+                    className="flex-1 py-2 text-sm bg-gray-800 hover:bg-gray-700 border border-slate-dark rounded-none text-slate-300 hover:text-white transition-colors min-h-[44px]"
                   >
                     {pct}%
                   </button>
@@ -178,7 +178,7 @@ export function SellModal({ position, portfolioId, isOpen, onClose, onSellComple
                 step="0.01"
                 value={price}
                 onChange={(e) => setPrice(parseFloat(e.target.value) || 0)}
-                className="w-full bg-gray-800 border border-slate-dark text-white px-4 py-3 rounded-lg focus:outline-none focus:border-emerald-500 transition-colors text-lg"
+                className="w-full bg-gray-800 border border-slate-dark text-white px-4 py-3 rounded-none focus:outline-none focus:border-emerald-500 transition-colors text-lg"
               />
             </div>
 
@@ -194,7 +194,7 @@ export function SellModal({ position, portfolioId, isOpen, onClose, onSellComple
                 step="0.01"
                 value={fees}
                 onChange={(e) => setFees(parseFloat(e.target.value) || 0)}
-                className="w-full bg-gray-800 border border-slate-dark text-white px-4 py-3 rounded-lg focus:outline-none focus:border-emerald-500 transition-colors text-lg"
+                className="w-full bg-gray-800 border border-slate-dark text-white px-4 py-3 rounded-none focus:outline-none focus:border-emerald-500 transition-colors text-lg"
               />
             </div>
 
@@ -208,13 +208,13 @@ export function SellModal({ position, portfolioId, isOpen, onClose, onSellComple
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
                 rows={2}
-                className="w-full bg-gray-800 border border-slate-dark text-white px-4 py-3 rounded-lg focus:outline-none focus:border-emerald-500 transition-colors resize-none"
+                className="w-full bg-gray-800 border border-slate-dark text-white px-4 py-3 rounded-none focus:outline-none focus:border-emerald-500 transition-colors resize-none"
                 placeholder="Why are you selling?"
               />
             </div>
 
             {/* P&L Preview */}
-            <div className={`mb-6 p-4 rounded-lg border ${estimatedPnL >= 0 ? 'bg-emerald-900/20 border-emerald-500/30' : 'bg-red-900/20 border-red-500/30'}`}>
+            <div className={`mb-6 p-4 rounded-none border ${estimatedPnL >= 0 ? 'bg-emerald-900/20 border-emerald-500/30' : 'bg-red-900/20 border-red-500/30'}`}>
               <div className="text-sm text-slate-400 mb-1">Estimated P&L</div>
               <div className={`text-2xl font-bold ${estimatedPnL >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
                 {estimatedPnL >= 0 ? '+' : ''}${estimatedPnL.toFixed(2)}
@@ -230,7 +230,7 @@ export function SellModal({ position, portfolioId, isOpen, onClose, onSellComple
             <button
               onClick={() => setStep('confirm')}
               disabled={quantity <= 0 || price <= 0}
-              className="w-full py-4 text-lg font-semibold bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg transition-colors min-h-[44px]"
+              className="w-full py-4 text-lg font-semibold bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 disabled:cursor-not-allowed rounded-none transition-colors min-h-[44px]"
             >
               Review Sale
             </button>
@@ -245,7 +245,7 @@ export function SellModal({ position, portfolioId, isOpen, onClose, onSellComple
                 <div className="text-center text-lg text-white font-semibold">
                   Confirm Sale
                 </div>
-                <div className="bg-gray-800/50 rounded-lg border border-slate-dark p-4 space-y-3">
+                <div className="bg-gray-800/50 rounded-none border border-slate-dark p-4 space-y-3">
                   <div className="flex justify-between">
                     <span className="text-slate-400">Symbol</span>
                     <span className="text-white font-bold">{position.symbol}</span>
@@ -285,14 +285,14 @@ export function SellModal({ position, portfolioId, isOpen, onClose, onSellComple
                   <button
                     type="button"
                     onClick={() => setStep('details')}
-                    className="flex-1 py-4 text-lg font-semibold bg-gray-700 hover:bg-gray-600 rounded-lg transition-colors min-h-[44px]"
+                    className="flex-1 py-4 text-lg font-semibold bg-gray-700 hover:bg-gray-600 rounded-none transition-colors min-h-[44px]"
                   >
                     Back
                   </button>
                   <button
                     onClick={handleConfirm}
                     disabled={selling}
-                    className="flex-1 py-4 text-lg font-semibold bg-red-600 hover:bg-red-500 disabled:opacity-50 rounded-lg transition-colors min-h-[44px]"
+                    className="flex-1 py-4 text-lg font-semibold bg-red-600 hover:bg-red-500 disabled:opacity-50 rounded-none transition-colors min-h-[44px]"
                   >
                     {selling ? 'Selling...' : 'Sell'}
                   </button>
@@ -305,7 +305,7 @@ export function SellModal({ position, portfolioId, isOpen, onClose, onSellComple
                   <div className="text-4xl mb-2">✅</div>
                   <div className="text-xl font-bold text-white">Sale Completed</div>
                 </div>
-                <div className="bg-gray-800/50 rounded-lg border border-slate-dark p-4 space-y-3">
+                <div className="bg-gray-800/50 rounded-none border border-slate-dark p-4 space-y-3">
                   <div className="flex justify-between">
                     <span className="text-slate-400">Symbol</span>
                     <span className="text-white font-bold">{sellResult.symbol}</span>
@@ -333,7 +333,7 @@ export function SellModal({ position, portfolioId, isOpen, onClose, onSellComple
                 </div>
                 <button
                   onClick={handleClose}
-                  className="w-full py-4 text-lg font-semibold bg-emerald-600 hover:bg-emerald-500 rounded-lg transition-colors min-h-[44px]"
+                  className="w-full py-4 text-lg font-semibold bg-emerald-600 hover:bg-emerald-500 rounded-none transition-colors min-h-[44px]"
                 >
                   Done
                 </button>

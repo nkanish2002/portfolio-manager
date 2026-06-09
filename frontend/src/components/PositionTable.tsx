@@ -25,17 +25,17 @@ function PositionCard({ position, flashInfo, onSell }: { position: Position; fla
   }
 
   return (
-    <div className={`bg-gray-900/80 backdrop-blur border rounded-lg p-4 mb-3 transition-all duration-300 ${cardBorder}`}>
+    <div className={`bg-gray-900/80 backdrop-blur border rounded-none p-4 mb-3 transition-all duration-300 ${cardBorder}`}>
       <div className="flex items-center justify-between mb-2">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-full bg-emerald-900/30 flex items-center justify-center">
+          <div className="w-10 h-10 rounded-none bg-emerald-900/30 flex items-center justify-center">
             <span className="text-emerald-400 font-bold text-sm">
               {position.symbol.slice(0, 2)}
             </span>
           </div>
           <div>
             <h4 className="text-white font-semibold text-lg">{position.symbol}</h4>
-            <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-emerald-900/30 text-emerald-400">
+            <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-none bg-emerald-900/30 text-emerald-400">
               {position.asset_class || 'N/A'}
             </span>
           </div>
@@ -71,7 +71,7 @@ function PositionCard({ position, flashInfo, onSell }: { position: Position; fla
       {onSell && (
         <button
           onClick={onSell}
-          className="w-full py-2 text-sm font-medium bg-red-600/20 text-red-400 hover:bg-red-600/30 rounded-lg transition-colors min-h-[44px]"
+          className="w-full py-2 text-sm font-medium bg-red-600/20 text-red-400 hover:bg-red-600/30 rounded-none transition-colors min-h-[44px]"
         >
           Sell
         </button>
@@ -125,7 +125,7 @@ export function PositionTable({ positions, onSell }: PositionTableProps) {
   return (
     <>
       {/* Desktop Table View (≥768px) */}
-      <div className="hidden sm:block bg-gray-900/80 backdrop-blur border border-slate-dark rounded-lg overflow-hidden">
+      <div className="hidden sm:block bg-gray-900/80 backdrop-blur border border-slate-dark rounded-none overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead>
@@ -154,7 +154,7 @@ export function PositionTable({ positions, onSell }: PositionTableProps) {
                       <div className="text-sm font-medium text-white">{position.symbol}</div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-emerald-900/30 text-emerald-400">{position.asset_class || 'N/A'}</span>
+                      <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-none bg-emerald-900/30 text-emerald-400">{position.asset_class || 'N/A'}</span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm text-white">{position.quantity}</td>
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm">
@@ -170,7 +170,7 @@ export function PositionTable({ positions, onSell }: PositionTableProps) {
                       <td className="px-6 py-4 whitespace-nowrap text-right">
                         <button
                           onClick={(e) => { e.stopPropagation(); onSell(position); }}
-                          className="px-3 py-1.5 text-xs font-medium bg-red-600/20 text-red-400 hover:bg-red-600/30 rounded transition-colors min-h-[32px]"
+                          className="px-3 py-1.5 text-xs font-medium bg-red-600/20 text-red-400 hover:bg-red-600/30 rounded-none transition-colors min-h-[32px]"
                         >
                           Sell
                         </button>

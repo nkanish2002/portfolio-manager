@@ -28,7 +28,7 @@ interface SummaryCardProps {
 function SummaryCard({ title, value, positive, negative }: SummaryCardProps) {
   const colorClass = positive ? 'text-emerald-400' : negative ? 'text-red-400' : 'text-white';
   return (
-    <div className="bg-gray-900/80 border border-slate-dark rounded-lg p-4">
+    <div className="bg-gray-900/80 border border-slate-dark rounded-none p-4">
       <div className="text-slate-400 text-xs mb-1">{title}</div>
       <div className={`font-bold text-xl ${colorClass}`}>
         {value.toLocaleString()}
@@ -135,7 +135,7 @@ export function TradeAuditPage() {
         <button
           onClick={handleExportCSV}
           disabled={trades.length === 0}
-          className="w-full sm:w-auto inline-flex items-center justify-center gap-2 text-sm font-medium px-4 py-3 rounded-lg bg-slate-700 text-emerald-400 hover:bg-slate-600 disabled:opacity-50 transition-colors min-h-[44px]"
+          className="w-full sm:w-auto inline-flex items-center justify-center gap-2 text-sm font-medium px-4 py-3 rounded-none bg-slate-700 text-emerald-400 hover:bg-slate-600 disabled:opacity-50 transition-colors min-h-[44px]"
         >
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
@@ -162,7 +162,7 @@ export function TradeAuditPage() {
       )}
 
       {/* Filters */}
-      <div className="bg-gray-900/80 border border-slate-dark rounded-lg p-4">
+      <div className="bg-gray-900/80 border border-slate-dark rounded-none p-4">
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
           <div>
             <label className="block text-xs text-slate-400 mb-1">Symbol</label>
@@ -171,7 +171,7 @@ export function TradeAuditPage() {
               placeholder="AAPL, TSLA..."
               value={symbolFilter}
               onChange={(e) => setSymbolFilter(e.target.value)}
-              className="w-full bg-gray-800 border border-slate-dark text-white px-3 py-2 rounded-lg focus:outline-none focus:border-emerald-500 text-sm"
+              className="w-full bg-gray-800 border border-slate-dark text-white px-3 py-2 rounded-none focus:outline-none focus:border-emerald-500 text-sm"
             />
           </div>
           <div>
@@ -179,7 +179,7 @@ export function TradeAuditPage() {
             <select
               value={typeFilter}
               onChange={(e) => setTypeFilter(e.target.value)}
-              className="w-full bg-gray-800 border border-slate-dark text-white px-3 py-2 rounded-lg focus:outline-none focus:border-emerald-500 text-sm"
+              className="w-full bg-gray-800 border border-slate-dark text-white px-3 py-2 rounded-none focus:outline-none focus:border-emerald-500 text-sm"
             >
               <option value="">All Types</option>
               <option value="BUY">Buy</option>
@@ -195,7 +195,7 @@ export function TradeAuditPage() {
               type="date"
               value={startDate}
               onChange={(e) => setStartDate(formatDateForInput(e.target.value))}
-              className="w-full bg-gray-800 border border-slate-dark text-white px-3 py-2 rounded-lg focus:outline-none focus:border-emerald-500 text-sm"
+              className="w-full bg-gray-800 border border-slate-dark text-white px-3 py-2 rounded-none focus:outline-none focus:border-emerald-500 text-sm"
             />
           </div>
           <div>
@@ -204,7 +204,7 @@ export function TradeAuditPage() {
               type="date"
               value={endDate}
               onChange={(e) => setEndDate(formatDateForInput(e.target.value))}
-              className="w-full bg-gray-800 border border-slate-dark text-white px-3 py-2 rounded-lg focus:outline-none focus:border-emerald-500 text-sm"
+              className="w-full bg-gray-800 border border-slate-dark text-white px-3 py-2 rounded-none focus:outline-none focus:border-emerald-500 text-sm"
             />
           </div>
           <div>
@@ -213,7 +213,7 @@ export function TradeAuditPage() {
               <select
                 value={sortBy}
                 onChange={(e) => setSortBy(e.target.value)}
-                className="flex-1 bg-gray-800 border border-slate-dark text-white px-2 py-2 rounded-lg focus:outline-none focus:border-emerald-500 text-sm"
+                className="flex-1 bg-gray-800 border border-slate-dark text-white px-2 py-2 rounded-none focus:outline-none focus:border-emerald-500 text-sm"
               >
                 <option value="date">Date</option>
                 <option value="symbol">Symbol</option>
@@ -222,7 +222,7 @@ export function TradeAuditPage() {
               <button
                 type="button"
                 onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}
-                className="px-3 py-2 bg-gray-800 border border-slate-dark text-slate-300 hover:text-white rounded-lg text-sm min-h-[38px]"
+                className="px-3 py-2 bg-gray-800 border border-slate-dark text-slate-300 hover:text-white rounded-none text-sm min-h-[38px]"
               >
                 {sortOrder === 'asc' ? '↑' : '↓'}
               </button>
@@ -234,7 +234,7 @@ export function TradeAuditPage() {
       {/* Loading/Error */}
       {loading && (
         <div className="flex items-center justify-center py-8 sm:py-12">
-          <div className="animate-spin rounded-full h-8 w-8 sm:h-10 sm:w-10 border-b-2 border-emerald-400"></div>
+          <div className="animate-spin rounded-none h-8 w-8 sm:h-10 sm:w-10 border-b-2 border-emerald-400"></div>
         </div>
       )}
 
@@ -246,7 +246,7 @@ export function TradeAuditPage() {
 
       {/* Trades Table */}
       {!loading && (
-        <div className="bg-gray-900/80 border border-slate-dark rounded-lg overflow-hidden">
+        <div className="bg-gray-900/80 border border-slate-dark rounded-none overflow-hidden">
           {/* Desktop Table View (≥768px) */}
           <div className="hidden sm:block overflow-x-auto">
             <table className="w-full">
@@ -272,7 +272,7 @@ export function TradeAuditPage() {
                       {trade.symbol}
                     </td>
                     <td className="px-4 sm:px-6 py-3 whitespace-nowrap">
-                      <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                      <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-none ${
                         trade.type === 'SELL' ? 'bg-red-900/30 text-red-400' :
                         trade.type === 'DIVIDEND' ? 'bg-amber-900/30 text-amber-400' :
                         trade.type === 'SPLIT' ? 'bg-blue-900/30 text-blue-400' :
@@ -311,7 +311,7 @@ export function TradeAuditPage() {
                 <div className="flex items-center justify-between mb-2">
                   <div className="flex items-center gap-2">
                     <span className="text-white font-bold">{trade.symbol}</span>
-                    <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                    <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-none ${
                       trade.type === 'SELL' ? 'bg-red-900/30 text-red-400' :
                       trade.type === 'DIVIDEND' ? 'bg-amber-900/30 text-amber-400' :
                       trade.type === 'SPLIT' ? 'bg-blue-900/30 text-blue-400' :

@@ -41,7 +41,7 @@ export function PageLayout({ children }: PageLayoutProps) {
                 <Link
                   key={item.path}
                   to={item.path}
-                  className={`px-3 py-2 rounded-md text-sm font-medium transition-colors min-w-[44px] min-h-[44px] flex items-center justify-center ${
+                  className={`px-3 py-2 rounded-none text-sm font-medium transition-colors min-w-[44px] min-h-[44px] flex items-center justify-center ${
                     isActive(item.path)
                       ? 'bg-slate-dark text-white'
                       : 'text-slate-300 hover:text-white hover:bg-slate-dark/50'
@@ -55,7 +55,7 @@ export function PageLayout({ children }: PageLayoutProps) {
             {/* Mobile Menu Button */}
             <button
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              className="md:hidden p-2 rounded-md text-slate-300 hover:text-white hover:bg-slate-dark/50 transition-colors min-w-[44px] min-h-[44px] flex items-center justify-center"
+              className="md:hidden p-2 rounded-none text-slate-300 hover:text-white hover:bg-slate-dark/50 transition-colors min-w-[44px] min-h-[44px] flex items-center justify-center"
               aria-label="Toggle menu"
             >
               <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -88,7 +88,7 @@ export function PageLayout({ children }: PageLayoutProps) {
                   key={item.path}
                   to={item.path}
                   onClick={() => setMobileMenuOpen(false)}
-                  className={`block px-3 py-3 rounded-md text-base font-medium transition-colors min-h-[44px] flex items-center ${
+                  className={`block px-3 py-3 rounded-none text-base font-medium transition-colors min-h-[44px] flex items-center ${
                     isActive(item.path)
                       ? 'bg-slate-dark text-white'
                       : 'text-slate-300 hover:text-white hover:bg-slate-dark/50'
