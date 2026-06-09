@@ -1,10 +1,11 @@
 # Portfolio Manager — Master Plan
 
 |> **Status:** Foundation, Core Logic, Analytics, React SPA, Real-Time Data & Sell Operations Complete. 🚀
-|> **Last Updated:** June 08, 2026
-|> **Tech Stack:** Python 3.11+, FastAPI, SQLAlchemy (Async), SQLite, HTMX/Tailwind (legacy), Plotly, yfinance, React (new).
+|> **Last Updated:** June 09, 2026
+|> **Tech Stack:** Python 3.11+, FastAPI, SQLAlchemy (Async), SQLite, React + TypeScript + Vite + Tailwind, Plotly, yfinance.
 |> **Tests:** 73/73 passing (pytest).
-> **Docker:** Dockerfile + docker-compose.yaml ready for deployment.
+|> **Docker:** Dockerfile + docker-compose.yaml ready for deployment.
+|> **UI:** Sharp square corners (no rounded edges), pure black bg (#000), off-white text, emerald accents.
 
 ---
 
@@ -205,6 +206,23 @@ portfolio-manager/
 - [x] **Nav link** — "Trade Audit" added to PageLayout navigation
 **Status:** ✅ 100% Complete
 
+### Phase 7.1: Sharp Edges UI (No Rounded Corners) ✅ **COMPLETED**
+**Goal:** Replace all rounded corners across the UI with sharp square edges for a clean, professional look.
+- [x] **Global CSS Replacement**: Replaced all `rounded-*` Tailwind classes with `rounded-none` across:
+  - [x] Navigation bar links (`.rounded-none` on nav items)
+  - [x] Portfolio cards (`rounded-none` on card containers)
+  - [x] Modals (`rounded-none` on modal containers and buttons)
+  - [x] Position tables (`rounded-none` on table headers, cells, buttons)
+  - [x] Forms and inputs (`rounded-none` on input fields)
+  - [x] Loaders/spinners (`rounded-none` on spinner elements)
+- [x] **SPA Serving Fix**: Dashboard routes now properly serve the React SPA instead of deprecated Jinja2 templates
+  - [x] `/dashboard` → React SPA (was serving Jinja2 with Tailwind CDN)
+  - [x] `/dashboard/{id}` → React SPA (was serving Jinja2 with Plotly/HTMX CDN)
+  - [x] Removed unused Jinja2 template rendering from dashboard routes
+  - [x] React SPA now handles all client-side routing
+- [x] **Theme Consistency**: Pure black background (`#000`), off-white text (`#E2E8F0`), emerald accents, sharp edges throughout
+**Status:** ✅ 100% Complete
+
 ### Phase 8: Professional Charting & Benchmark Visualization
 **Goal:** Upgrade from basic Plotly charts to professional-grade financial visualizations.
 - [ ] **Charting Library Selection & Setup**:
@@ -232,25 +250,6 @@ portfolio-manager/
   - [ ] Color-coded thresholds (green/yellow/red)
 **Status:** 📋 Pending
 
-### Phase 9: Visual Theme Overhaul
-**Goal:** Switch to a pure black background with off-white text for a cleaner, more professional look.
-- [ ] **Tailwind Theme Configuration**:
-  - [ ] Background: `#000000` (pure black)
-  - [ ] Text: `#E2E8F0` (off-white)
-  - [ ] Borders: `#1E293B` (subtle slate)
-  - [ ] Cards: `bg-gray-900/80` with `backdrop-blur` for depth
-  - [ ] Accent: Keep emerald-500/emerald-400 for positive, red-500/red-400 for negative
-- [ ] **Component Updates**:
-  - [ ] Nav bar — transparent bg, white text, hover effects
-  - [ ] Cards — dark with subtle borders, hover elevation
-  - [ ] Tables — zebra striping with semi-transparent rows
-  - [ ] Charts — dark background, white grid lines, high-contrast data series
-  - [ ] Modals — frosted glass effect over black backdrop
-- [ ] **Consistency Pass**:
-  - [ ] Ensure all pages (Dashboard, Positions, Analytics, Trade Audit, Settings) use new theme
-  - [ ] Dark mode only (no toggle needed — this IS the theme)
-**Status:** 📋 Pending
-
 ### Phase 10: Robustness, Testing & Polish ✅ **COMPLETED**
 **Goal:** Ensure reliability, maintainability, and production-readiness.
 - [x] **Git Repository**: Initialized, `.gitignore` added, commits tracking all changes.
@@ -274,15 +273,17 @@ portfolio-manager/
 
 ### What's Already Done ✅
 | Component | Details |
-|---|---|
-| **App Skeleton** | FastAPI app, lifespan management, config loading. |
-| **Database** | Async SQLAlchemy setup, SQLite file, 6 fully defined ORM models with relationships. |
-| **API Endpoints** | 8 functional REST endpoints (Portfolios CRUD, Positions, Transactions, Refresh). |
-| **Risk Engine** | 9 professional-grade metrics implemented (`risk.py`, 175 lines). |
-| **Calc Engine** | NAV, returns, allocation, P&L calculations (`portfolio_calc.py`, 125 lines). |
-| **Data Feed** | `yfinance` wrapper with price lookup and historical data fetching (`data_feed.py`, 71 lines). |
-| **Web UI** | Dark-themed layout, responsive design, dynamic nav, create portfolio modal, position table with conditional formatting. |
-| **Dependencies** | All dev/production deps installed in `.venv`. |
+||---|---|
+|| **App Skeleton** | FastAPI app, lifespan management, config loading. |
+|| **Database** | Async SQLAlchemy setup, SQLite file, 6 fully defined ORM models with relationships. |
+|| **API Endpoints** | 8 functional REST endpoints (Portfolios CRUD, Positions, Transactions, Refresh). |
+|| **Risk Engine** | 9 professional-grade metrics implemented (`risk.py`, 175 lines). |
+|| **Calc Engine** | NAV, returns, allocation, P&L calculations (`portfolio_calc.py`, 125 lines). |
+|| **Data Feed** | `yfinance` wrapper with price lookup and historical data fetching (`data_feed.py`, 71 lines). |
+|| **React SPA** | Vite + React + TypeScript + Tailwind, sharp square corners, pure black theme. |
+|| **WebSocket** | Real-time price streaming with flash highlights. |
+|| **Sell Operations** | Partial/full sell with FIFO P&L, SellModal, TradeAudit page. |
+|| **Dependencies** | All dev/production deps installed in `.venv`. |
 
 ### What is Left to Build ❌
 | Priority | Component | Description |
@@ -300,8 +301,7 @@ portfolio-manager/
 ## 5. Next Steps
 
 1. **Phase 8 (Professional Charting)** — Upgrade to TradingView Lightweight Charts or Recharts, benchmark overlay, risk metrics dashboard widget.
-2. **Phase 9 (Visual Theme Overhaul)** — Pure black background, off-white text, frosted glass cards, consistent across all pages.
-4. **Phase 10 (Production Readiness)** — Global exception handlers, production data feed (paid API), Docker volume mount updates.
+2. **Phase 10 (Production Readiness)** — Global exception handlers, production data feed (paid API), Docker volume mount updates.
 5. **Phase 11 (Enhanced Features)** — Benchmark data integration (SPY/QQQ), enhanced portfolio classification via live API.
 6. **Phase 12 (Exporter)** — CSV/Excel export for positions, import from broker statements.
 7. **Phase 13 (Multi-User)** — JWT authentication, user registration, portfolio sharing.
