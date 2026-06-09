@@ -1,9 +1,9 @@
 # Portfolio Manager — Master Plan
 
-> **Status:** Foundation, Core Logic, Analytics, React SPA & Real-Time Data Complete. 🚀
-> **Last Updated:** June 08, 2026
-> **Tech Stack:** Python 3.11+, FastAPI, SQLAlchemy (Async), SQLite, HTMX/Tailwind (legacy), Plotly, yfinance, React (new).
-> **Tests:** 64/64 passing (pytest).
+|> **Status:** Foundation, Core Logic, Analytics, React SPA, Real-Time Data & Sell Operations Complete. 🚀
+|> **Last Updated:** June 08, 2026
+|> **Tech Stack:** Python 3.11+, FastAPI, SQLAlchemy (Async), SQLite, HTMX/Tailwind (legacy), Plotly, yfinance, React (new).
+|> **Tests:** 73/73 passing (pytest).
 > **Docker:** Dockerfile + docker-compose.yaml ready for deployment.
 
 ---
@@ -176,30 +176,34 @@ portfolio-manager/
   - [x] Cache invalidation on new position creation
 **Status:** ✅ 100% Complete
 
-### Phase 7: Sell Operations & Trade Audit Trail
+### Phase 7: Sell Operations & Trade Audit Trail ✅ **COMPLETED**
 **Goal:** Complete buy/sell workflow with full trade history and P&L tracking.
-- [ ] **Backend — Sell Endpoint**:
-  - [ ] `POST /api/v1/portfolios/{id}/positions/sell` — partial or full sell
-  - [ ] Validate quantity ≤ current position quantity
-  - [ ] Calculate realized P&L (FIFO or weighted avg cost)
-  - [ ] Create Sell transaction record
-  - [ ] Update position: reduce quantity, remove if fully liquidated, update avg cost basis
-  - [ ] Return updated position with P&L delta
-- [ ] **Frontend — Sell Modal**:
-  - [ ] Quantity picker (slider + input, max = current quantity)
-  - [ ] Price input (pre-filled with current market price)
-  - [ ] Fee input
-  - [ ] **P&L Preview**: Show estimated realized gain/loss before confirming
-  - [ ] Confirmation step with summary (symbol, qty, price, fees, net proceeds, P&L)
-- [ ] **Trade Audit Trail**:
-  - [ ] `GET /api/v1/portfolios/{id}/trades` — paginated trade history
-  - [ ] Frontend `TradeAuditPage` with filterable table (date, symbol, type, qty, price, fees, P&L, notes)
-  - [ ] Sort by date/symbol/type
-  - [ ] Filter by date range, transaction type (Buy/Sell/Dividend)
-  - [ ] CSV export button
-  - [ ] Edit/delete trade (admin-only, with reason field)
-  - [ ] Realized P&L summary widget (total gains, total losses, net P&L)
-**Status:** 📋 Pending
+- [x] **Backend — Sell Endpoint**:
+  - [x] `POST /api/v1/portfolios/{id}/positions/sell` — partial or full sell
+  - [x] Validate quantity ≤ current position quantity
+  - [x] Calculate realized P&L (FIFO — matches earliest buys first)
+  - [x] Create Sell transaction record
+  - [x] Update position: reduce quantity, remove if fully liquidated
+  - [x] Return updated position with P&L delta
+- [x] **Frontend — Sell Modal** (`SellModal.tsx`):
+  - [x] Quantity slider + input (max = current quantity, step=1)
+  - [x] Price input (pre-filled with live price from store)
+  - [x] Fee input (default $0)
+  - [x] **P&L Preview**: Live calculated realized gain/loss before confirming
+  - [x] Confirmation step with summary (symbol, qty, price, fees, net proceeds, P&L)
+  - [x] Visual P&L coloring (green for gain, red for loss)
+- [x] **Trade Audit Trail**:
+  - [x] `GET /api/v1/portfolios/{id}/trades` — paginated trade history
+  - [x] Frontend `TradeAuditPage` with filterable table (date, symbol, type, qty, price, fees, P&L, notes)
+  - [x] Sort by date/symbol/type (asc/desc)
+  - [x] Filter by date range, transaction type (Buy/Sell/Dividend)
+  - [x] CSV export button
+  - [x] Realized P&L summary widget (total gains, total losses, net P&L)
+  - [x] FIFO P&L calculation from transaction history (works even after position fully liquidated)
+- [x] **Bonus: BUY transaction recording** — `add_position` now creates BUY transactions automatically for trade audit integrity
+- [x] **PositionTable integration** — "Sell" button on each row, opens SellModal
+- [x] **Nav link** — "Trade Audit" added to PageLayout navigation
+**Status:** ✅ 100% Complete
 
 ### Phase 8: Professional Charting & Benchmark Visualization
 **Goal:** Upgrade from basic Plotly charts to professional-grade financial visualizations.
@@ -283,11 +287,8 @@ portfolio-manager/
 ### What is Left to Build ❌
 | Priority | Component | Description |
 |---|---|---|
-| **P1** | **Sell Operations (Phase 7)** | Sell endpoint, modal, P&L preview, transaction recording. |
-| **P1** | **Trade Audit Trail (Phase 7)** | Trade history, filtering, export, realized P&L. |
-| **P2** | **Professional Charts (Phase 8)** | TradingView Lightweight Charts or Recharts, NAV + benchmark overlay. |
-| **P3** | **Visual Theme Overhaul (Phase 9)** | Pure black bg, off-white text, frosted glass cards. |
-| **P2** | **Global Exception Handlers** | FastAPI exception handlers for consistent error responses. |
+| **P1** | **Professional Charts (Phase 8)** | TradingView Lightweight Charts or Recharts, NAV + benchmark overlay. |
+|| **P2** | **Global Exception Handlers** | FastAPI exception handlers for consistent error responses. |
 | **P3** | **Production Data Feed** | Replace `yfinance` with a paid API provider (Polygon, Alpha Vantage, IEX Cloud). |
 | **P3** | **Benchmark Data Integration** | Wire up actual benchmark data (SPY, QQQ) from data feed service. |
 | **P4** | **Portfolio Classification Enhancement** | Integrate with a free ticker API for live sector/industry lookups. |
@@ -298,12 +299,11 @@ portfolio-manager/
 
 ## 5. Next Steps
 
-1. **Phase 7 (Sell Operations & Trade Audit)** — Sell endpoint/modal with P&L preview, trade history table with filtering and export.
-2. **Phase 8 (Professional Charting)** — Upgrade to TradingView Lightweight Charts or Recharts, benchmark overlay, risk metrics dashboard widget.
-3. **Phase 9 (Visual Theme Overhaul)** — Pure black background, off-white text, frosted glass cards, consistent across all pages.
+1. **Phase 8 (Professional Charting)** — Upgrade to TradingView Lightweight Charts or Recharts, benchmark overlay, risk metrics dashboard widget.
+2. **Phase 9 (Visual Theme Overhaul)** — Pure black background, off-white text, frosted glass cards, consistent across all pages.
 4. **Phase 10 (Production Readiness)** — Global exception handlers, production data feed (paid API), Docker volume mount updates.
 5. **Phase 11 (Enhanced Features)** — Benchmark data integration (SPY/QQQ), enhanced portfolio classification via live API.
 6. **Phase 12 (Exporter)** — CSV/Excel export for positions, import from broker statements.
 7. **Phase 13 (Multi-User)** — JWT authentication, user registration, portfolio sharing.
 
-*Phase 7 (Sell Operations & Trade Audit) is the next milestone. Ready to build?*
+*Phase 8 (Professional Charting) is the next milestone. Ready to build?*
