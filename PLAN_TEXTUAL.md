@@ -1,14 +1,17 @@
-# Portfolio Manager - Textual Frontend Migration Plan
+# Portfolio Manager - Solara Frontend Migration Plan
 
 ## Overview
-Replace the React hash-router frontend with Textual (desktop) and Textual-Web (browser), using Python as the primary stack. This eliminates JavaScript complexity, hash routing issues, and provides a consistent terminal-first UI.
+Replace the React hash-router frontend with Solara, a modern Python web framework that builds high-quality web applications in pure Python. This eliminates JavaScript complexity, hash routing issues, and provides a consistent, maintainable solution.
 
-## Why Textual?
-- **No hash router issues**: Textual uses direct navigation, no `#/analytics/:id` complexity
+## Why Solara?
+- **No hash router issues**: Solara uses direct navigation, no `#/analytics/:id` complexity
 - **Python-first**: Same stack as backend, shared models, no TypeScript bridging
-- **Terminal-first**: Works in terminal, SSH, Docker, no browser dependencies
-- **Textual-Web**: Browser version via `textual-web` (HTTP/WS streaming)
-- **Responsive**: Built-in responsive layouts, works on mobile/desktop
+- **Production-ready**: Built on fast, production-grade tooling (Starlette, ipyvuetify)
+- **Fully reactive**: Automatic UI updates like spreadsheets - no manual re-rendering
+- **Type-safe**: Python's optional typing throughout state management to UI components
+- **Testable**: Unit tests and end-to-end tests without browser
+- **Component library**: Built-in components (ipyvuetify) + custom function components
+- **Browser support**: Runs in browser natively, no separate frontend build process
 
 ## Architecture
 
@@ -17,63 +20,71 @@ portfolio-manager/
 ├── src/portfolio_manager/
 │   ├── main.py                    # FastAPI backend (unchanged)
 │   └── routes/                    # API endpoints (unchanged)
-├── textual-ui/                      # NEW: Textual frontend
+├── solara-ui/                       # NEW: Solara frontend
 │   ├── __init__.py
-│   ├── app.py                       # Main TextualApp
-│   ├── screens/
+│   ├── app.py                       # Main SolaraApp
+│   ├── components/
 │   │   ├── __init__.py
-│   │   ├── dashboard.py             # Portfolio overview
+│   │   ├── dashboard.py             # Portfolio overview (Function Component)
 │   │   ├── positions.py             # Position list/management
 │   │   ├── trades.py                # Trade audit log
-│   │   ├── analytics.py             # Charts/metrics (text-based)
-│   │   └── settings.py              # App settings
-│   ├── widgets/
-│   │   ├── portfolio_dropdown.py    # Portfolio selector
-│   │   ├── nav_header.py            # Navigation bar
-│   │   └── data_tables.py           # Custom tables
+│   │   ├── analytics.py             # Charts/metrics (Solara charts)
+│   │   ├── portfolio_selector.py    # Portfolio dropdown (Widget Component)
+│   │   └── nav_header.py            # Navigation bar
 │   ├── services/
 │   │   └── api.py                   # Async HTTP client
 │   └── models/
 │       └── schemas.py               # Pydantic models (shared with backend)
-└── pyproject.toml                   # Textual dependencies
+└── pyproject.toml                   # Solara dependencies
 ```
 
 ## Tech Stack
 
 | Component | Technology |
 |-----------|------------|
-| UI Framework | Textual (desktop), Textual-Web (browser) |
+| UI Framework | Solara (Python web framework) |
+| Widget Components | ipyvuetify (Vuetify/Vue components) |
 | HTTP Client | `httpx` (async) |
 | Data Validation | Pydantic (shared with backend) |
-| Styling | Textual CSS (CSS-like syntax) |
-| Charts | Rich + text-based visualization (ASCII plots) |
-| Build | uv + textual-web for browser |
+| Charts | Solara's built-in reactive charts or Plotly |
+| Build | uv + `solara-server` (Starlette-based) |
+| Styling | ipyvuetify themes, CSS-in-Python |
 
 ## Key Changes
 
 ### 1. Routing (No Hash Router!)
-Textual uses direct screen navigation:
+Solara uses direct component composition, no URL parsing needed:
 ```python
 # Instead of: navigate('/analytics/:id')
-await self.push_screen(AnalyticsScreen(portfolio_id=id))
+# Solara uses component composition - no routing needed for internal navigation
 
-# Navigation is explicit, no URL parsing needed
+@component
+def PortfolioApp():
+    return VStack([
+        PortfolioSelector(),
+        DashboardScreen() if show_dashboard else PositionsScreen() if show_positions else AnalyticsScreen()
+    ])
 ```
 
 ### 2. Portfolio Context
-Store current portfolio in app state:
+Store current portfolio in component state:
 ```python
-class PortfolioApp(App):
-    current_portfolio: Portfolio | None = None
-    portfolios: list[Portfolio] = []
+@component
+def PortfolioApp():
+    portfolios = use_state(list[Portfolio], [])
+    current_portfolio = use_state(Portfolio | None, None)
+    
+    # Auto-updates UI when state changes
+    def on_portfolio_select(id):
+        current_portfolio.value = next(p for p in portfolios.value if p.id == id)
 ```
 
-### 3. Charts (Text-Based)
-For terminal compatibility, use:
-- **ASCII plots** with `rich` library
-- **Text tables** for data
-- **Progress bars** for loading
-- **Markdown rendering** for reports
+### 3. Charts (Reactive)
+Solara's built-in reactive charts:
+- **Plotly charts** (reactive, browser-native)
+- **Solara charts** (built-in reactive visualizations)
+- **Custom components** for specialized charts
+- **Automatic updates** when data changes
 
 Example:
 ```
@@ -108,10 +119,11 @@ class PortfolioAPI:
 ## Migration Steps
 
 ### Phase 1: Core Infrastructure (3-5 days)
-1. **Setup Textual project structure**
-   - Create `textual-ui/` directory
-   - Set up `pyproject.toml` with Textual dependencies
+1. **Setup Solara project structure**
+   - Create `solara-ui/` directory
+   - Set up `pyproject.toml` with Solara dependencies
    - Configure `uv` for dependency management
+   - Install `solara[assets]` for air-gapped environments if needed
 
 2. **API Service Layer**
    - Create `PortfolioAPI` client
@@ -122,45 +134,40 @@ class PortfolioAPI:
    - Move Pydantic schemas to shared location
    - Ensure backend/frontend model compatibility
 
-### Phase 2: Core Screens (5-7 days)
-4. **Dashboard Screen**
+### Phase 2: Core Components (5-7 days)
+4. **Dashboard Component**
    - Portfolio overview cards
    - Total value, P&L, position count
-   - Portfolio dropdown selector
+   - Portfolio dropdown selector (Widget Component)
 
-5. **Positions Screen**
+5. **Positions Component**
    - Position table with columns
    - Edit/sell functionality
    - Refresh prices button
 
-6. **Trades Screen**
+6. **Trades Component**
    - Trade history table
    - Filtering by type/date
    - Summary statistics
 
-7. **Analytics Screen**
-   - Text-based charts (ASCII plots)
+7. **Analytics Component**
+   - Reactive charts (Plotly/Solara)
    - Risk metrics display
    - Monthly returns table
 
-8. **Settings Screen**
+8. **Settings Component**
    - API URL configuration
    - Theme settings
 
-### Phase 3: Navigation & State (2-3 days)
-9. **App Navigation**
-   - Sidebar navigation
-   - Portfolio switching
-   - Screen routing
+### Phase 3: State Management (2-3 days)
+9. **App State**
+   - Global portfolio state
+   - Auto-refresh on switch
+   - Clean shutdown
 
-10. **Portfolio Context**
-    - Global portfolio state
-    - Auto-refresh on switch
-    - Clean shutdown
-
-### Phase 4: Browser Support (3-5 days)
-11. **Textual-Web Setup**
-    - Configure `textual-web` for HTTP/WS
+### Phase 4: Deployment (3-5 days)
+10. **Solara Server Setup**
+    - Configure `solara-server[starlette,dev]`
     - Set up reverse proxy (if needed)
     - Test browser compatibility
 
@@ -170,17 +177,17 @@ class PortfolioAPI:
     - Adaptive navigation
 
 ### Phase 5: Polish & Testing (3-5 days)
-13. **Styling**
+11. **Styling**
     - Custom theme
     - Dark mode support
     - Consistent spacing
 
-14. **Error Handling**
+12. **Error Handling**
     - Network errors
     - Validation errors
     - User-friendly messages
 
-15. **Testing**
+13. **Testing**
     - Manual testing
     - Edge cases
     - Performance tuning
@@ -189,17 +196,18 @@ class PortfolioAPI:
 
 ```toml
 [project]
-name = "portfolio-manager-textual"
+name = "portfolio-manager-solara"
 version = "0.1.0"
-description = "Portfolio Manager Textual Frontend"
+description = "Portfolio Manager Solara Frontend"
 requires-python = ">=3.11"
 
 dependencies = [
-    "textual>=1.0.0",
-    "textual-web>=0.1.0",
+    "solara>=0.1.0",
+    "solara-ui[all]",
+    "solara-server[starlette,dev]",
     "httpx>=0.24.0",
     "pydantic>=2.0",
-    "rich>=13.0",
+    "plotly>=6.0",
 ]
 
 [tool.uv]
@@ -211,16 +219,16 @@ dev-dependencies = [
 
 ## Browser Access
 
-### Option 1: Textual-Web Direct
+### Option 1: Solara Server Direct
 ```bash
-# Run textual-web server
-textual-web run textual-ui/app.py --host 0.0.0.0 --port 8001
+# Run solara-server
+solara-server run solara-ui/app.py --host 0.0.0.0 --port 8001
 ```
 
 ### Option 2: Reverse Proxy
 ```nginx
 # nginx config
-location /textual/ {
+location /solara/ {
     proxy_pass http://localhost:8001;
     proxy_set_header Host $host;
     proxy_set_header X-Real-IP $remote_addr;
@@ -234,24 +242,24 @@ location /textual/ {
 ### Option 3: Docker
 ```dockerfile
 # In docker-compose.yml
-textual-web:
+solara-server:
     image: python:3.11-slim
-    command: textual-web run /app/textual-ui/app.py
+    command: solara-server run /app/solara-ui/app.py
     ports:
         - "8001:8001"
     volumes:
-        - ./textual-ui:/app/textual-ui
+        - ./solara-ui:/app/solara-ui
 ```
 
 ## Benefits of This Approach
 
-| Issue | React Solution | Textual Solution |
-|-------|---------------|------------------|
-| Hash routing bugs | Complex router logic | Direct screen navigation |
+| Issue | React Solution | Solara Solution |
+|-------|---------------|-----------------|
+| Hash routing bugs | Complex router logic | Direct component composition |
 | JavaScript complexity | TypeScript, React, Vite | Pure Python |
-| Build process | npm, webpack, build steps | `uv run textual` |
+| Build process | npm, webpack, build steps | `uv run solara` |
 | Browser compatibility | Cross-browser testing | One codebase |
-| Performance | React re-renders | Direct DOM updates |
+| Performance | React re-renders | Automatic reactive updates |
 | Debugging | Browser devtools | Terminal logs, print |
 | Deployment | Static files, CDN | Single Python process |
 
@@ -274,18 +282,20 @@ textual-web:
 
 ## Future Enhancements
 
-- **Desktop app**: Package with PyInstaller
-- **Mobile app**: Textual + BeeWare for iOS/Android
-- **Plugin system**: Custom widgets, themes
+- **Mobile app**: Solara + WebView for iOS/Android
+- **Plugin system**: Custom components, themes
 - **Offline mode**: Local caching, queue operations
+- **Dark mode**: ipyvuetify dark theme support
+- **Export functionality**: PDF reports, CSV exports
 
 ## Conclusion
 
-This migration replaces a complex React frontend with a simpler, more maintainable Textual solution that:
+This migration replaces a complex React frontend with a simpler, more maintainable Solara solution that:
 - Eliminates routing bugs
 - Uses Python throughout
-- Works in terminal, SSH, and browser
-- Provides consistent user experience
+- Runs in browser natively (no separate frontend build)
+- Provides automatic reactive updates (like spreadsheets)
 - Reduces technical debt
+- Offers production-grade tooling (Starlette, ipyvuetify)
 
 The investment of 3-4 weeks will save ongoing maintenance of React hash router issues and provide a more robust, maintainable codebase.
