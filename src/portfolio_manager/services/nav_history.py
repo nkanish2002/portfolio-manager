@@ -123,8 +123,12 @@ def build_nav_with_benchmark(
         benchmark_data = source.get_historical(benchmark_symbol, start, end)
 
         if benchmark_data is not None and not benchmark_data.empty:
-            # Use 'Date' column if available, else use index
-            date_col = "Date" if "Date" in benchmark_data.columns else benchmark_data.index.name or "Date"
+            # Require 'Date' column for benchmark data
+            date_col = "Date"
+            if date_col not in benchmark_data.columns:
+                # Benchmark data missing required Date column
+                return result
+            
             close_col = "Close" if "Close" in benchmark_data.columns else None
             if close_col is not None and len(benchmark_data) > 0:
                 # Normalize benchmark to same starting point (100)
@@ -132,10 +136,7 @@ def build_nav_with_benchmark(
                 if bm_start > 0:
                     benchmark_nav = (benchmark_data[close_col] / bm_start * 100).round(2)
                     # Get dates as strings
-                    if "Date" in benchmark_data.columns:
-                        dates = [str(d) for d in benchmark_data["Date"]]
-                    else:
-                        dates = [str(d) for d in benchmark_data.index]
+                    dates = [str(d) for d in benchmark_data[date_col]]
                     result["benchmark_dates"] = dates
                     result["benchmark_nav"] = list(benchmark_nav)
     except Exception:

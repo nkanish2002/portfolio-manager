@@ -12,10 +12,19 @@ from portfolio_manager.config import settings
 # Templates (now in database.py to avoid circular imports)
 from portfolio_manager.database import templates
 
-# Setup logging
-import logging
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+# Setup structlog for structured JSON logging
+import structlog
+structlog.configure(
+    processors=[
+        structlog.processors.add_log_level,
+        structlog.processors.TimeStamper(fmt="iso"),
+        structlog.processors.dict_tracebacks,
+        structlog.processors.JSONRenderer(),
+    ],
+    context_class=dict,
+    logger_class=structlog.BoundLogger,
+)
+logger = structlog.getLogger(__name__)
 
 FRONTEND_DIST = Path(__file__).parent.parent.parent / "frontend" / "dist"
 
