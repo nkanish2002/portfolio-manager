@@ -37,6 +37,12 @@ export function PageLayout({ children }: PageLayoutProps) {
     const currentPath = location.pathname;
     if (currentPath === '/dashboard' || currentPath === '/') {
       navigate(`/dashboard/${id}`);
+    } else if (currentPath === '/analytics') {
+      navigate(`/analytics/${id}`);
+    } else if (currentPath === '/positions') {
+      navigate(`/positions/${id}`);
+    } else if (currentPath === '/trades') {
+      navigate(`/trades/${id}`);
     } else {
       // For other pages, set the portfolio and navigate there
       const pathWithPortfolio = `/positions/${id}`;

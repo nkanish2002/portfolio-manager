@@ -6,10 +6,17 @@ interface PositionState {
   positions: Position[];
   loading: boolean;
   error: string | null;
+  priceCache: Record<string, number>;
+  autoRefreshInterval: number | null;
   fetchPositions: (portfolioId: string) => Promise<void>;
   refreshPrices: (portfolioId: string) => Promise<void>;
+  startAutoRefresh: (portfolioId: string, intervalMs?: number) => void;
+  stopAutoRefresh: () => void;
   applyLivePrices: (updates: Array<{ symbol: string; price: number; prev: number }>) => void;
 }
+
+const priceCache: Record<string, number> = {};
+let autoRefreshInterval: number | null = null;
 
 function recomputePositions(
   positions: Position[],
@@ -37,10 +44,12 @@ function recomputePositions(
   });
 }
 
-export const usePositionStore = create<PositionState>((set) => ({
+export const usePositionStore = create<PositionState>((set, get) => ({
   positions: [],
   loading: false,
   error: null,
+  priceCache: priceCache,
+  autoRefreshInterval: null,
 
   fetchPositions: async (portfolioId: string) => {
     set({ loading: true, error: null });
@@ -55,12 +64,36 @@ export const usePositionStore = create<PositionState>((set) => ({
   refreshPrices: async (portfolioId: string) => {
     set({ loading: true, error: null });
     try {
-      await positionService.refreshPrices(portfolioId);
-      const response = await positionService.list(portfolioId);
+      const response = await positionService.refreshPrices(portfolioId);
       set({ positions: response.data, loading: false });
     } catch (err: any) {
       set({ error: err.message, loading: false });
     }
+  },
+
+  startAutoRefresh: (portfolioId: string, intervalMs: number = 30000) => {
+    if (autoRefreshInterval) {
+      clearInterval(autoRefreshInterval);
+    }
+    
+    const refresh = async () => {
+      const { refreshPrices } = get();
+      await refreshPrices(portfolioId);
+    };
+    
+    autoRefreshInterval = window.setInterval(refresh, intervalMs);
+    set({ autoRefreshInterval: autoRefreshInterval });
+    
+    // Initial fetch
+    refresh();
+  },
+
+  stopAutoRefresh: () => {
+    if (autoRefreshInterval) {
+      clearInterval(autoRefreshInterval);
+      autoRefreshInterval = null;
+    }
+    set({ autoRefreshInterval: null });
   },
 
   /**

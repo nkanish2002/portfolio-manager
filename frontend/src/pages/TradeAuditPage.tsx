@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from 'react';
-import { useNavigate } from 'react-router';
+import { useNavigate, useParams } from 'react-router';
 import { tradeService, type Trade, type TradeSummary } from '../services/api';
 import { usePortfolioStore } from '../store';
 
@@ -39,6 +39,7 @@ function SummaryCard({ title, value, positive, negative }: SummaryCardProps) {
 
 export function TradeAuditPage() {
   const navigate = useNavigate();
+  const { portfolioId: routeId } = useParams<{ portfolioId: string }>();
   const { currentPortfolio } = usePortfolioStore();
   const [trades, setTrades] = useState<Trade[]>([]);
   const [summary, setSummary] = useState<TradeSummary | null>(null);
@@ -53,7 +54,7 @@ export function TradeAuditPage() {
   const [sortBy, setSortBy] = useState('date');
   const [sortOrder, setSortOrder] = useState('desc');
 
-  const portfolioId = currentPortfolio?.id || null;
+  const portfolioId = currentPortfolio?.id || routeId || null;
 
   const fetchTrades = useCallback(async () => {
     if (!portfolioId) return;

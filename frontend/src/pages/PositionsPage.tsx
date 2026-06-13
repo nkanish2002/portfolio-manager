@@ -117,6 +117,15 @@ export function PositionsPage() {
   }, []);
 
   const { connected } = useWebSocket('/ws/quotes', handleMessage);
+  const { startAutoRefresh, stopAutoRefresh } = usePositionStore();
+
+  // Auto-refresh prices every 30 seconds when on positions page
+  useEffect(() => {
+    if (portfolioId) {
+      startAutoRefresh(portfolioId, 30000);
+    }
+    return () => stopAutoRefresh();
+  }, [portfolioId, startAutoRefresh, stopAutoRefresh]);
 
   // Load positions on route change — NO MORE GUARD that redirects to dashboard
   useEffect(() => {

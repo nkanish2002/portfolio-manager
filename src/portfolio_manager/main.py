@@ -22,7 +22,6 @@ structlog.configure(
         structlog.processors.JSONRenderer(),
     ],
     context_class=dict,
-    logger_class=structlog.BoundLogger,
 )
 logger = structlog.getLogger(__name__)
 

@@ -27,7 +27,7 @@ function PositionCard({ position, onSell }: { position: Position; onSell?: () =>
           </div>
           <div>
             <h4 className="text-white font-semibold text-lg">{position.name}</h4>
-            <div className="text-xs text-slate-500 font-mono">{position.cusip || position.symbol}</div>
+            <div className="text-xs text-slate-500 font-mono">{position.symbol}</div>
             <span className="px-2 inline-flex text-xs leading-5 font-semibold bg-slate-800 text-slate-400">
               {position.asset_class || 'N/A'}
             </span>
@@ -120,8 +120,8 @@ export function PositionTable({ positions, onSell }: PositionTableProps) {
           <table className="w-full">
             <thead>
               <tr className="bg-black/50">
-                <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider sticky left-0 bg-black/70 backdrop-blur">CUSIP</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Symbol</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider sticky left-0 bg-black/70 backdrop-blur">Symbol</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Name</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Class</th>
                 <th className="px-6 py-3 text-right text-xs font-medium text-slate-500 uppercase tracking-wider">Quantity</th>
                 <th className="px-6 py-3 text-right text-xs font-medium text-slate-500 uppercase tracking-wider">Price</th>
@@ -136,7 +136,7 @@ export function PositionTable({ positions, onSell }: PositionTableProps) {
                 const totalValue = position.market_value || (position.quantity * currentPrice);
                 const gain = position.gain || 0;
                 const gainPct = position.gain_pct || 0;
-                const flashKey = position.cusip || position.symbol;
+                const flashKey = position.symbol;
                 const flash = flashState[flashKey];
                 const isFlash = flash && (Date.now() - flash.ts < 1500);
 
@@ -145,7 +145,7 @@ export function PositionTable({ positions, onSell }: PositionTableProps) {
                     <td className="px-6 py-4 whitespace-nowrap sticky left-0 bg-gray-900/90 backdrop-blur">
                       <div className="text-sm font-medium text-white font-mono">{flashKey}</div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-300">{position.symbol}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-300">{position.name}</td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span className="px-2 inline-flex text-xs leading-5 font-semibold bg-slate-800 text-slate-400">{position.asset_class || 'N/A'}</span>
                     </td>
