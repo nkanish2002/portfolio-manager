@@ -60,7 +60,7 @@ def _build_nav_df(transactions: list[Transaction]) -> pd.DataFrame:
     return pd.DataFrame({"date": nav_series.index, "nav": nav_series.values})
 
 
-@router.get("/{portfolio_id}/charts/nav-history")
+@router.get("/charts/nav-history")
 async def get_nav_history(portfolio_id: str,
                           db: Annotated[AsyncSession, Depends(get_db)],
                           benchmark: str = "SPY") -> dict:
@@ -108,7 +108,7 @@ async def get_nav_history(portfolio_id: str,
     }
 
 
-@router.get("/{portfolio_id}/charts/nav")
+@router.get("/charts/nav")
 async def get_nav_chart(portfolio_id: str,
                         db: Annotated[AsyncSession, Depends(get_db)],
                         benchmark: str = "SPY") -> dict:
@@ -135,7 +135,7 @@ async def get_nav_chart(portfolio_id: str,
     return nav_data
 
 
-@router.get("/{portfolio_id}/charts/drawdown")
+@router.get("/charts/drawdown")
 async def get_drawdown_chart(portfolio_id: str,
                              db: Annotated[AsyncSession, Depends(get_db)]) -> dict:
     """Get drawdown chart data from transaction history."""
@@ -164,7 +164,7 @@ async def get_drawdown_chart(portfolio_id: str,
     }
 
 
-@router.get("/{portfolio_id}/charts/allocation")
+@router.get("/charts/allocation")
 async def get_allocation_chart(portfolio_id: str,
                                db: Annotated[AsyncSession, Depends(get_db)]) -> dict:
     """Get asset allocation pie chart data."""
@@ -212,7 +212,7 @@ async def get_allocation_chart(portfolio_id: str,
     return result
 
 
-@router.get("/{portfolio_id}/charts/monthly-returns")
+@router.get("/charts/monthly-returns")
 async def get_monthly_returns(portfolio_id: str,
                               db: Annotated[AsyncSession, Depends(get_db)]) -> dict:
     """Get monthly returns heatmap data from transaction history."""
@@ -265,7 +265,7 @@ def _generate_monthly_from_nav(nav_series: pd.Series) -> dict:
     }
 
 
-@router.get("/{portfolio_id}/charts/returns-distribution")
+@router.get("/charts/returns-distribution")
 async def get_returns_distribution(portfolio_id: str,
                                    db: Annotated[AsyncSession, Depends(get_db)]) -> dict:
     """Get returns distribution histogram data."""
@@ -285,7 +285,7 @@ async def get_returns_distribution(portfolio_id: str,
     return generate_returns_distribution(pd.DataFrame({"nav": nav_series}))
 
 
-@router.get("/{portfolio_id}/charts/benchmark-comparison")
+@router.get("/charts/benchmark-comparison")
 async def get_benchmark_comparison(portfolio_id: str,
                                    db: Annotated[AsyncSession, Depends(get_db)],
                                    benchmark: str = "SPY") -> dict:
@@ -387,7 +387,7 @@ async def get_benchmark_comparison(portfolio_id: str,
         }
 
 
-@router.get("/{portfolio_id}/risk-report")
+@router.get("/risk-report")
 async def get_risk_report(portfolio_id: str,
                           db: Annotated[AsyncSession, Depends(get_db)]) -> dict:
     """Get comprehensive risk report for a portfolio."""
