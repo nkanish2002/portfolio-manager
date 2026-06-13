@@ -1,6 +1,6 @@
 """Portfolio CRUD API with CUSIP support."""
 
-from typing import Annotated
+from typing import Annotated, Optional
 
 from uuid import UUID
 
@@ -67,10 +67,11 @@ class PositionResponse(BaseModel):
     name: str
     quantity: float
     price: float
-    cost_basis: float
+    avg_cost_basis: float
     market_value: float
     gain: float
     gain_pct: float
+    asset_class: Optional[str] = None
 
     model_config = {"from_attributes": True}
 
