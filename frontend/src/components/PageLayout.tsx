@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router';
 import type { ReactNode } from 'react';
-import { usePortfolioStore } from '../store';
+import { usePortfolioStore, usePositionStore } from '../store';
 
 interface PageLayoutProps {
   children: ReactNode;
@@ -30,26 +30,35 @@ export function PageLayout({ children }: PageLayoutProps) {
   ];
 
   const isActive = (path: string) =>
-    location.pathname === path || location.pathname.startsWith(path + '/');
+     location.pathname === path || location.pathname.startsWith(path + '/');
 
-  const handlePortfolioSelect = (id: string) => {
-    // Determine which page we're on and navigate with portfolio
-    const currentPath = location.pathname;
-    if (currentPath === '/dashboard' || currentPath === '/') {
-      navigate(`/dashboard/${id}`);
-    } else if (currentPath === '/analytics') {
-      navigate(`/analytics/${id}`);
-    } else if (currentPath === '/positions') {
-      navigate(`/positions/${id}`);
-    } else if (currentPath === '/trades') {
-      navigate(`/trades/${id}`);
-    } else {
-      // For other pages, set the portfolio and navigate there
-      const pathWithPortfolio = `/positions/${id}`;
-      navigate(pathWithPortfolio);
-    }
-    setPortfolioDropdownOpen(false);
-  };
+   const { setCurrentPortfolio } = usePortfolioStore();
+   const { stopAutoRefresh } = usePositionStore();
+
+   const handlePortfolioSelect = async (id: string) => {
+     // Update the current portfolio in the store
+     await setCurrentPortfolio(id);
+    
+     // Stop auto-refresh to prevent conflicts when switching portfolios
+     stopAutoRefresh();
+    
+     // Determine which page we's on and navigate with portfolio
+     const currentPath = location.pathname;
+     if (currentPath === '/dashboard' || currentPath === '/') {
+       navigate(`/dashboard/${id}`);
+     } else if (currentPath === '/analytics') {
+       navigate(`/analytics/${id}`);
+     } else if (currentPath === '/positions') {
+       navigate(`/positions/${id}`);
+     } else if (currentPath === '/trades') {
+       navigate(`/trades/${id}`);
+     } else {
+       // For other pages, set the portfolio and navigate there
+       const pathWithPortfolio = `/positions/${id}`;
+       navigate(pathWithPortfolio);
+     }
+     setPortfolioDropdownOpen(false);
+   };
 
   // Get current portfolio display name from URL
   const currentPortfolioName = (() => {

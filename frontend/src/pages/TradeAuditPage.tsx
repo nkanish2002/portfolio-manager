@@ -85,7 +85,7 @@ export function TradeAuditPage() {
 
   useEffect(() => {
     fetchTrades();
-  }, [fetchTrades]);
+  }, [fetchTrades, currentPortfolio]);
 
   const handleExportCSV = useCallback(() => {
     if (trades.length === 0) return;

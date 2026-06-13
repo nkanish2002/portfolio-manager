@@ -77,7 +77,7 @@ export function AnalyticsPage() {
       setLoading(false);
     }
     return () => clearCurrentPortfolio();
-  }, [portfolioId]);
+  }, [portfolioId, currentPortfolio]);
 
   // Format drawdown data for TradingView chart
   const drawdownChartData = drawdownData?.dates.map((date, i) => ({
