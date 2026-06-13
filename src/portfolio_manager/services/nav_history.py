@@ -99,8 +99,6 @@ def build_nav_with_benchmark(
         dict with 'portfolio_dates', 'portfolio_nav', 'benchmark_dates',
         'benchmark_nav', and 'benchmark_symbol'.
     """
-    from portfolio_manager.services.data_feed import DataFeed
-
     portfolio_nav = build_nav_from_transactions(transactions)
 
     result: dict = {
@@ -125,13 +123,20 @@ def build_nav_with_benchmark(
         benchmark_data = source.get_historical(benchmark_symbol, start, end)
 
         if benchmark_data is not None and not benchmark_data.empty:
+            # Use 'Date' column if available, else use index
+            date_col = "Date" if "Date" in benchmark_data.columns else benchmark_data.index.name or "Date"
             close_col = "Close" if "Close" in benchmark_data.columns else None
             if close_col is not None and len(benchmark_data) > 0:
                 # Normalize benchmark to same starting point (100)
                 bm_start = float(benchmark_data[close_col].iloc[0])
                 if bm_start > 0:
                     benchmark_nav = (benchmark_data[close_col] / bm_start * 100).round(2)
-                    result["benchmark_dates"] = [str(d) for d in benchmark_data["Date"]]
+                    # Get dates as strings
+                    if "Date" in benchmark_data.columns:
+                        dates = [str(d) for d in benchmark_data["Date"]]
+                    else:
+                        dates = [str(d) for d in benchmark_data.index]
+                    result["benchmark_dates"] = dates
                     result["benchmark_nav"] = list(benchmark_nav)
     except Exception:
         # Gracefully degrade — return portfolio-only chart

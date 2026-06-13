@@ -321,8 +321,8 @@ async def list_positions(portfolio_id: str, db: Annotated[AsyncSession, Depends(
 @router.post("/{portfolio_id}/transactions", response_model=dict, status_code=201)
 async def add_transaction(portfolio_id: str, data: TransactionCreate, db: Annotated[AsyncSession, Depends(get_db)]):
     """Record a trade transaction."""
-    # Find or create asset
-    asset = await _find_or_create_asset(db, data.cusip, data.symbol, asset_class=data.transaction_type.value.split('_')[0].lower())
+    # Find or create asset (use default asset_class 'equity', not transaction_type)
+    asset = await _find_or_create_asset(db, data.cusip, data.symbol)
 
     from datetime import date
     transaction = Transaction(
