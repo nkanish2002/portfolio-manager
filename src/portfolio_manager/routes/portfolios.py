@@ -276,7 +276,8 @@ async def add_position(portfolio_id: str, data: PositionCreate, db: Annotated[As
         "cost_basis": float(position.avg_cost_basis),
         "market_value": round(market_val, 2),
         "gain": round(gain, 2),
-        "gain_pct": round(gain_pct, 2)
+        "gain_pct": round(gain_pct, 2),
+        "asset_class": asset.asset_class.value if asset.asset_class else "equity",
     }
 
 
@@ -309,6 +310,7 @@ async def list_positions(portfolio_id: str, db: Annotated[AsyncSession, Depends(
             "market_value": round(market_val, 2),
             "gain": round(gain, 2),
             "gain_pct": round(gain_pct, 2),
+            "asset_class": pos.asset.asset_class.value if pos.asset.asset_class else "equity",
         })
     return out
 
@@ -488,5 +490,6 @@ async def refresh_prices(portfolio_id: str, db: Annotated[AsyncSession, Depends(
             "market_value": round(market_val, 2),
             "gain": round(gain, 2),
             "gain_pct": round(gain_pct, 2),
+            "asset_class": pos.asset.asset_class.value if pos.asset.asset_class else "equity",
         })
     return out
