@@ -304,6 +304,7 @@ portfolio-manager/
 | Priority | Component | Description |
 |---|---|---|
 | ~~**P1**~~ ~~**Global Exception Handlers**~~ ✅ | ~~FastAPI exception handlers for consistent error responses.~~ | ~~COMPLETED~~ |
+| ~~**P2**~~ ~~**Production Readiness Fixes**~~ ✅ | ~~Portfolio dropdown, navigation fixes, B&W theme, CUSIP system~~ | ~~COMPLETED~~ |
 | **P2** | **Production Data Feed** | Replace `yfinance` with a paid API provider (Polygon, Alpha Vantage, IEX Cloud). |
 | **P2** | **Benchmark Data Integration** | Wire up actual benchmark data (SPY, QQQ) from data feed service. |
 | **P3** | **Portfolio Classification Enhancement** | Integrate with a free ticker API for live sector/industry lookups. |
@@ -315,9 +316,10 @@ portfolio-manager/
 ## 5. Next Steps
 
 1. ~~**Phase 9 (Global Exception Handlers)**~~ ✅ **COMPLETED** — Consistent error responses across FastAPI, detailed error logging.
-2. **Phase 10 (Production Readiness)** — Production data feed (paid API), Docker volume mount updates, caching layer.
-3. **Phase 11 (Enhanced Features)** — Benchmark data integration (SPY/QQQ), enhanced portfolio classification via live API.
-4. **Phase 12 (Exporter)** — CSV/Excel export for positions, import from broker statements.
-5. **Phase 13 (Multi-User)** — JWT authentication, user registration, portfolio sharing.
+2. ~~**Phase 9.1 (Production Readiness Fixes)**~~ ✅ **COMPLETED** — Portfolio dropdown, navigation fixes, B&W theme, CUSIP system.
+3. **Phase 10 (Production Readiness)** — Production data feed (paid API), Docker volume mount updates, caching layer.
+4. **Phase 11 (Enhanced Features)** — Benchmark data integration (SPY/QQQ), enhanced portfolio classification via live API.
+5. **Phase 12 (Exporter)** — CSV/Excel export for positions, import from broker statements.
+6. **Phase 13 (Multi-User)** — JWT authentication, user registration, portfolio sharing.
 
 *Phase 8 (Professional Charting) is now complete. Next is global exception handlers and production readiness.*

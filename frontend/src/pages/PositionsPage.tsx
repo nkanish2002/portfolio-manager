@@ -24,23 +24,23 @@ function SummaryStats({ positions }: SummaryStatsProps) {
 
   return (
     <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
-      <div className="bg-gray-900/80 border border-slate-dark rounded-none p-3 sm:p-4">
-        <div className="text-slate-400 text-xs mb-1">Total Value</div>
+      <div className="bg-gray-900/80 border border-slate-800 p-3 sm:p-4">
+        <div className="text-slate-500 text-xs mb-1">Total Value</div>
         <div className="text-white font-bold text-lg sm:text-xl">${totalValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
       </div>
-      <div className="bg-gray-900/80 border border-slate-dark rounded-none p-3 sm:p-4">
-        <div className="text-slate-400 text-xs mb-1">Cost Basis</div>
+      <div className="bg-gray-900/80 border border-slate-800 p-3 sm:p-4">
+        <div className="text-slate-500 text-xs mb-1">Cost Basis</div>
         <div className="text-white font-bold text-lg sm:text-xl">${totalCost.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
       </div>
-      <div className={`bg-gray-900/80 border border-slate-dark rounded-none p-3 sm:p-4 ${totalGain >= 0 ? 'border-emerald-500/30' : 'border-red-500/30'}`}>
-        <div className="text-slate-400 text-xs mb-1">P&L</div>
-        <div className={`font-bold text-lg sm:text-xl ${totalGain >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+      <div className="bg-gray-900/80 border border-slate-800 p-3 sm:p-4">
+        <div className="text-slate-500 text-xs mb-1">P&L</div>
+        <div className="font-bold text-lg sm:text-xl text-white">
           {totalGain >= 0 ? '+' : ''}${totalGain.toFixed(2)}
           <span className="text-xs ml-1">({totalGainPct >= 0 ? '+' : ''}{totalGainPct.toFixed(2)}%)</span>
         </div>
       </div>
-      <div className="bg-gray-900/80 border border-slate-dark rounded-none p-3 sm:p-4">
-        <div className="text-slate-400 text-xs mb-1">Positions</div>
+      <div className="bg-gray-900/80 border border-slate-800 p-3 sm:p-4">
+        <div className="text-slate-500 text-xs mb-1">Positions</div>
         <div className="text-white font-bold text-lg sm:text-xl">{positions.length}</div>
       </div>
     </div>
@@ -50,80 +50,19 @@ function SummaryStats({ positions }: SummaryStatsProps) {
 export function PositionsPage() {
   const { portfolioId } = useParams<{ portfolioId: string }>();
   const navigate = useNavigate();
-  const { currentPortfolio, setCurrentPortfolio, clearCurrentPortfolio } = usePortfolioStore();
-  const { positions, loading, error, fetchPositions, refreshPrices, applyLivePrices } = usePositionStore();
+  const { currentPortfolio } = usePortfolioStore();
+  const { positions, loading, error, fetchPositions, refreshPrices } = usePositionStore();
   const [refreshing, setRefreshing] = useState(false);
   const [pullStart, setPullStart] = useState(0);
   const [pullDistance, setPullDistance] = useState(0);
   const containerRef = useRef<HTMLDivElement>(null);
   const isPulling = useRef(false);
-  const lastSymbols = useRef<string[]>([]);
 
   // Sell modal state
   const [sellPosition, setSellPosition] = useState<Position | null>(null);
   const [sellOpen, setSellOpen] = useState(false);
 
-  const handleRefresh = useCallback(async () => {
-    if (!portfolioId || refreshing) return;
-    setRefreshing(true);
-    try {
-      await refreshPrices(portfolioId);
-    } finally {
-      setRefreshing(false);
-    }
-  }, [portfolioId, refreshPrices, refreshing]);
-
-  const handleSell = useCallback((position: Position) => {
-    setSellPosition(position);
-    setSellOpen(true);
-  }, []);
-
-  const handleSellComplete = useCallback(() => {
-    setSellOpen(false);
-    setSellPosition(null);
-    if (portfolioId) fetchPositions(portfolioId);
-  }, [portfolioId, fetchPositions]);
-
-  // WebSocket: connect and subscribe to position symbols
-  const handleMessage = useCallback((msg: WebSocketMessage) => {
-    if (msg.type === 'batch' && 'updates' in msg) {
-      applyLivePrices(msg.updates);
-
-      for (const update of msg.updates) {
-        window.dispatchEvent(new CustomEvent('ws-price-flash', {
-          detail: { symbol: update.symbol, prev: update.prev, price: update.price },
-        }));
-      }
-    }
-  }, [applyLivePrices]);
-
-  const { connected } = useWebSocket('/ws/quotes', handleMessage);
-
-  // Subscribe to position symbols on load / change
-  useEffect(() => {
-    if (!portfolioId || loading) return;
-
-    const symbols = positions.map((p) => p.symbol).filter(Boolean);
-    if (symbols.length === 0) return;
-
-    const symSet = new Set(symbols);
-    const lastSet = new Set(lastSymbols.current);
-    if (symSet.size === lastSet.size && [...symSet].every((s) => lastSet.has(s))) {
-      return; // No change
-    }
-
-    lastSymbols.current = symbols;
-  }, [portfolioId, positions.length, loading]);
-
-  useEffect(() => {
-    if (portfolioId) {
-      setCurrentPortfolio(portfolioId);
-      fetchPositions(portfolioId);
-    }
-    return () => clearCurrentPortfolio();
-  }, [portfolioId, setCurrentPortfolio, fetchPositions, clearCurrentPortfolio]);
-
-  // Pull-to-refresh handlers
+  // Pull-to-refresh handlers — defined AFTER handleRefresh so it's available
   const handleTouchStart = useCallback((e: React.TouchEvent) => {
     if (window.scrollY > 0) return;
     isPulling.current = true;
@@ -136,6 +75,17 @@ export function PositionsPage() {
     setPullDistance(distance);
   }, [pullStart]);
 
+  // handleRefresh MUST be defined before handleTouchEnd uses it
+  const handleRefresh = useCallback(async () => {
+    if (!portfolioId || refreshing) return;
+    setRefreshing(true);
+    try {
+      await refreshPrices(portfolioId);
+    } finally {
+      setRefreshing(false);
+    }
+  }, [portfolioId, refreshPrices, refreshing]);
+
   const handleTouchEnd = useCallback(() => {
     if (pullDistance > 80) {
       handleRefresh();
@@ -144,10 +94,36 @@ export function PositionsPage() {
     setPullDistance(0);
   }, [pullDistance, handleRefresh]);
 
-  if (!portfolioId || !currentPortfolio) {
-    navigate('/dashboard');
-    return null;
-  }
+  const handleSell = useCallback((position: Position) => {
+    setSellPosition(position);
+    setSellOpen(true);
+  }, []);
+
+  const handleSellComplete = useCallback(() => {
+    setSellOpen(false);
+    setSellPosition(null);
+    if (portfolioId) fetchPositions(portfolioId);
+  }, [portfolioId, fetchPositions]);
+
+  // WebSocket
+  const handleMessage = useCallback((msg: WebSocketMessage) => {
+    if (msg.type === 'batch' && 'updates' in msg) {
+      for (const update of msg.updates) {
+        window.dispatchEvent(new CustomEvent('ws-price-flash', {
+          detail: { symbol: update.cusip || update.symbol, prev: update.prev, price: update.price },
+        }));
+      }
+    }
+  }, []);
+
+  const { connected } = useWebSocket('/ws/quotes', handleMessage);
+
+  // Load positions on route change — NO MORE GUARD that redirects to dashboard
+  useEffect(() => {
+    if (portfolioId) {
+      fetchPositions(portfolioId);
+    }
+  }, [portfolioId, fetchPositions]);
 
   return (
     <div
@@ -160,8 +136,11 @@ export function PositionsPage() {
       {/* Live indicator */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <div className={`w-2 h-2 rounded-none ${connected ? 'bg-emerald-400 animate-pulse' : 'bg-slate-600'}`} />
+          <div className={`w-2 h-2 rounded-none ${connected ? 'bg-white animate-pulse' : 'bg-slate-600'}`} />
           <span className="text-xs text-slate-500">{connected ? 'Live' : 'Offline'}</span>
+        </div>
+        <div className="text-xs text-slate-500">
+          {currentPortfolio ? currentPortfolio.name : (portfolioId ? portfolioId.substring(0, 8) : '')}
         </div>
       </div>
 
@@ -184,12 +163,14 @@ export function PositionsPage() {
             </svg>
             Back to Dashboard
           </button>
-          <h1 className="text-2xl sm:text-3xl font-bold text-white">{currentPortfolio.name}</h1>
+          <h1 className="text-2xl sm:text-3xl font-bold text-white">
+            {currentPortfolio?.name || (portfolioId ? `Portfolio ${portfolioId.substring(0, 8)}` : 'Select Portfolio')}
+          </h1>
         </div>
         <button
           onClick={handleRefresh}
           disabled={refreshing}
-          className="w-full sm:w-auto inline-flex items-center justify-center gap-2 text-sm font-medium px-4 py-3 rounded-none bg-slate-700 text-emerald-400 hover:bg-slate-600 disabled:opacity-50 transition-colors min-h-[44px]"
+          className="w-full sm:w-auto inline-flex items-center justify-center gap-2 text-sm font-medium px-4 py-3 rounded-none bg-slate-800 text-white hover:bg-slate-700 disabled:opacity-50 transition-colors min-h-[44px]"
         >
           <svg className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
@@ -204,12 +185,12 @@ export function PositionsPage() {
       {/* Loading/Error */}
       {loading && (
         <div className="flex items-center justify-center py-8 sm:py-12">
-          <div className="animate-spin rounded-none h-8 w-8 sm:h-10 sm:w-10 border-b-2 border-emerald-400"></div>
+          <div className="animate-spin rounded-none h-8 w-8 sm:h-10 sm:w-10 border-b-2 border-white"></div>
         </div>
       )}
 
       {error && (
-        <div className="bg-red-900/30 border border-red-500 text-red-400 p-3 sm:p-4 rounded">
+        <div className="bg-slate-800 border border-slate-700 text-white p-3 sm:p-4 rounded-none">
           {error}
         </div>
       )}
@@ -220,7 +201,7 @@ export function PositionsPage() {
       {/* Sell Modal */}
       <SellModal
         position={sellPosition}
-        portfolioId={portfolioId}
+        portfolioId={portfolioId ?? null}
         isOpen={sellOpen}
         onClose={() => { setSellOpen(false); setSellPosition(null); }}
         onSellComplete={handleSellComplete}

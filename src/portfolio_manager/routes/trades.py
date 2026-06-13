@@ -22,7 +22,9 @@ class TradeResponse(BaseModel):
     """A single trade record."""
     id: str
     portfolio_id: str
+    cusip: str
     symbol: str
+    name: str
     type: str
     quantity: float
     price: float
@@ -159,7 +161,10 @@ async def list_trades(
     # Convert to response objects using FIFO P&L calculation
     out = []
     for t in transactions:
-        sym = t.asset.symbol if t.asset else "?"
+        asset = t.asset
+        sym = asset.symbol or ""
+        cusip = asset.cusip or ""
+        name = asset.name or "?"
 
         # Calculate P&L from transaction history
         p_and_l = _calc_pnl_from_history(t, all_txns, sym)
@@ -167,7 +172,9 @@ async def list_trades(
         out.append(TradeResponse(
             id=str(t.id),
             portfolio_id=str(t.portfolio_id),
+            cusip=cusip,
             symbol=sym,
+            name=name,
             type=t.transaction_type.value.upper(),
             quantity=float(t.quantity),
             price=float(t.price),

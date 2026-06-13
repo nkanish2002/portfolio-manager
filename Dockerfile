@@ -27,6 +27,8 @@ WORKDIR /app
 COPY --from=builder /app/.venv /app/.venv
 # Copy Python source
 COPY --from=builder /app/src /app/src
+# Copy migrations
+COPY migrations /app/migrations
 # Copy React SPA build
 COPY --from=frontend-builder /app/dist /app/frontend/dist
 

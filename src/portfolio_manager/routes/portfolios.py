@@ -1,11 +1,11 @@
-"""Portfolio CRUD API."""
+"""Portfolio CRUD API with CUSIP support."""
 
 from typing import Annotated
 
 from uuid import UUID
 
 from fastapi import APIRouter, Depends
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -39,15 +39,28 @@ class PortfolioResponse(BaseModel):
 
 
 class PositionCreate(BaseModel):
-    symbol: str
+    cusip: str = Field(..., description="CUSIP identifier")
+    symbol: str | None = None
     quantity: float = Field(..., gt=0)
     price: float = Field(..., gt=0)
+    name: str | None = None
     notes: str | None = None
+    asset_class: str = "equity"
+
+    @model_validator(mode='after')
+    def normalize(self):
+        if self.symbol:
+            self.symbol = self.symbol.upper()
+        if self.cusip:
+            self.cusip = self.cusip.upper().replace("-", "")
+        return self
 
 
 class PositionResponse(BaseModel):
     id: str
+    cusip: str
     symbol: str
+    name: str
     quantity: float
     price: float
     cost_basis: float
@@ -59,7 +72,8 @@ class PositionResponse(BaseModel):
 
 
 class TransactionCreate(BaseModel):
-    symbol: str
+    cusip: str = Field(..., description="CUSIP identifier")
+    symbol: str | None = None
     transaction_type: TransactionType
     quantity: float = Field(..., gt=0)
     price: float = Field(..., gt=0)
@@ -69,11 +83,40 @@ class TransactionCreate(BaseModel):
 
 class SellRequest(BaseModel):
     """Sell position request."""
-    symbol: str = Field(..., description="Ticker symbol to sell")
+    cusip: str = Field(..., description="CUSIP of security to sell")
     quantity: float = Field(..., gt=0, description="Quantity to sell")
     price: float = Field(..., gt=0, description="Sell price per share")
     fees: float = 0
     notes: str | None = None
+
+
+async def _find_or_create_asset(db: AsyncSession, cusip: str, symbol: str | None = None,
+                                 name: str | None = None, asset_class: str = "equity") -> Asset:
+    """Look up asset by CUSIP first, then symbol. Create if not found."""
+    cusip_clean = cusip.upper().replace("-", "")
+    
+    # Try CUSIP first
+    asset_result = await db.execute(select(Asset).where(Asset.cusip == cusip_clean))
+    asset = asset_result.scalars().first()
+    
+    if not asset and symbol:
+        # Try symbol
+        symbol_upper = symbol.upper()
+        asset_result = await db.execute(select(Asset).where(Asset.symbol == symbol_upper))
+        asset = asset_result.scalars().first()
+    
+    if not asset:
+        # Create new asset
+        asset = Asset(
+            cusip=cusip_clean if cusip_clean else None,
+            symbol=symbol.upper() if symbol else None,
+            name=name or (symbol.upper() if symbol else cusip_clean),
+            asset_class=AssetClass(asset_class.lower()),
+        )
+        db.add(asset)
+        await db.flush()
+    
+    return asset
 
 
 # --- Endpoints ---
@@ -82,7 +125,6 @@ class SellRequest(BaseModel):
 async def list_portfolios(db: Annotated[AsyncSession, Depends(get_db)]):
     result = await db.execute(select(Portfolio).order_by(Portfolio.created_at.desc()))
     portfolios = result.scalars().all()
-    # Convert ORM objects to dicts to avoid Pydantic from_attributes issues
     return [{"id": str(p.id), "name": p.name, "description": p.description,
              "currency": p.currency, "position_count": 0, "total_value": 0.0}
             for p in portfolios]
@@ -143,17 +185,8 @@ async def add_position(portfolio_id: str, data: PositionCreate, db: Annotated[As
         from fastapi import HTTPException
         raise HTTPException(status_code=404, detail="Portfolio not found")
 
-    # Upsert asset
-    asset_result = await db.execute(select(Asset).where(Asset.symbol == data.symbol.upper()))
-    asset = asset_result.scalar_one_or_none()
-    if not asset:
-        asset = Asset(
-            symbol=data.symbol.upper(),
-            name=data.symbol.upper(),
-            asset_class=AssetClass.EQUITY,
-        )
-        db.add(asset)
-        await db.flush()
+    # Find or create asset
+    asset = await _find_or_create_asset(db, data.cusip, data.symbol, data.name, data.asset_class)
 
     # Check for existing position
     pos_result = await db.execute(
@@ -214,10 +247,19 @@ async def add_position(portfolio_id: str, data: PositionCreate, db: Annotated[As
     cost = float(position.quantity) * float(position.avg_cost_basis)
     gain = market_val - cost
     gain_pct = (gain / cost * 100) if cost > 0 else 0
-    return {"id": str(position.id), "symbol": position.asset.symbol if position.asset else "?",
-            "quantity": float(position.quantity), "price": float(position.current_price or 0),
-            "cost_basis": float(position.avg_cost_basis), "market_value": round(market_val, 2),
-            "gain": round(gain, 2), "gain_pct": round(gain_pct, 2)}
+    
+    return {
+        "id": str(position.id),
+        "cusip": asset.cusip or "",
+        "symbol": asset.symbol or "",
+        "name": asset.name or "",
+        "quantity": float(position.quantity),
+        "price": float(position.current_price or 0),
+        "cost_basis": float(position.avg_cost_basis),
+        "market_value": round(market_val, 2),
+        "gain": round(gain, 2),
+        "gain_pct": round(gain_pct, 2)
+    }
 
 
 @router.get("/{portfolio_id}/positions", response_model=list[PositionResponse])
@@ -239,10 +281,16 @@ async def list_positions(portfolio_id: str, db: Annotated[AsyncSession, Depends(
         gain = market_val - cost
         gain_pct = (gain / cost * 100) if cost > 0 else 0
         out.append({
-            "id": str(pos.id), "symbol": pos.asset.symbol if pos.asset else "?",
-            "quantity": float(pos.quantity), "price": float(pos.current_price or 0),
-            "cost_basis": float(pos.avg_cost_basis), "market_value": round(market_val, 2),
-            "gain": round(gain, 2), "gain_pct": round(gain_pct, 2),
+            "id": str(pos.id),
+            "cusip": pos.asset.cusip or "",
+            "symbol": pos.asset.symbol or "",
+            "name": pos.asset.name or "",
+            "quantity": float(pos.quantity),
+            "price": float(pos.current_price or 0),
+            "cost_basis": float(pos.avg_cost_basis),
+            "market_value": round(market_val, 2),
+            "gain": round(gain, 2),
+            "gain_pct": round(gain_pct, 2),
         })
     return out
 
@@ -250,17 +298,8 @@ async def list_positions(portfolio_id: str, db: Annotated[AsyncSession, Depends(
 @router.post("/{portfolio_id}/transactions", response_model=dict, status_code=201)
 async def add_transaction(portfolio_id: str, data: TransactionCreate, db: Annotated[AsyncSession, Depends(get_db)]):
     """Record a trade transaction."""
-    # Upsert asset
-    asset_result = await db.execute(select(Asset).where(Asset.symbol == data.symbol.upper()))
-    asset = asset_result.scalar_one_or_none()
-    if not asset:
-        asset = Asset(
-            symbol=data.symbol.upper(),
-            name=data.symbol.upper(),
-            asset_class=AssetClass.EQUITY,
-        )
-        db.add(asset)
-        await db.flush()
+    # Find or create asset
+    asset = await _find_or_create_asset(db, data.cusip, data.symbol, asset_class=data.transaction_type.value.split('_')[0].lower())
 
     from datetime import date
     transaction = Transaction(
@@ -293,19 +332,21 @@ async def sell_position(
     from sqlalchemy.orm import selectinload
     from fastapi import HTTPException
 
+    cusip_clean = data.cusip.upper().replace("-", "")
+    
     # Ensure portfolio exists
     result = await db.execute(select(Portfolio).where(Portfolio.id == portfolio_id))
     portfolio = result.scalar_one_or_none()
     if not portfolio:
         raise HTTPException(status_code=404, detail="Portfolio not found")
 
-    # Find asset first
+    # Find asset by CUSIP
     asset_result = await db.execute(
-        select(Asset).where(Asset.symbol == data.symbol.upper())
+        select(Asset).where(Asset.cusip == cusip_clean)
     )
     asset = asset_result.scalar_one_or_none()
     if not asset:
-        raise HTTPException(status_code=404, detail="Asset not found")
+        raise HTTPException(status_code=404, detail=f"Asset not found for CUSIP: {data.cusip}")
 
     # Find the position to sell
     pos_result = await db.execute(
@@ -369,7 +410,9 @@ async def sell_position(
 
     return {
         "status": "sold",
-        "symbol": data.symbol.upper(),
+        "cusip": asset.cusip,
+        "symbol": asset.symbol or "",
+        "name": asset.name,
         "quantity_sold": qty_to_sell,
         "price": sell_price,
         "fees": float(data.fees),
@@ -394,7 +437,7 @@ async def refresh_prices(portfolio_id: str, db: Annotated[AsyncSession, Depends(
 
     for pos in positions:
         # Get asset symbol
-        if pos.asset and pos.asset.asset_class == AssetClass.EQUITY:
+        if pos.asset and pos.asset.asset_class == AssetClass.EQUITY and pos.asset.symbol:
             price = get_price(pos.asset.symbol)
             if price is not None:
                 pos.current_price = price
@@ -414,9 +457,15 @@ async def refresh_prices(portfolio_id: str, db: Annotated[AsyncSession, Depends(
         gain = market_val - cost
         gain_pct = (gain / cost * 100) if cost > 0 else 0
         out.append({
-            "id": str(pos.id), "symbol": pos.asset.symbol if pos.asset else "?",
-            "quantity": float(pos.quantity), "price": float(pos.current_price or 0),
-            "cost_basis": float(pos.avg_cost_basis), "market_value": round(market_val, 2),
-            "gain": round(gain, 2), "gain_pct": round(gain_pct, 2),
+            "id": str(pos.id),
+            "cusip": pos.asset.cusip or "",
+            "symbol": pos.asset.symbol or "",
+            "name": pos.asset.name or "",
+            "quantity": float(pos.quantity),
+            "price": float(pos.current_price or 0),
+            "cost_basis": float(pos.avg_cost_basis),
+            "market_value": round(market_val, 2),
+            "gain": round(gain, 2),
+            "gain_pct": round(gain_pct, 2),
         })
     return out

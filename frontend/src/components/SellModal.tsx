@@ -56,7 +56,7 @@ export function SellModal({ position, portfolioId, isOpen, onClose, onSellComple
     setError(null);
     try {
       const response = await positionService.sell(portfolioId, {
-        symbol: position.symbol,
+        cusip: position.cusip || position.symbol,
         quantity,
         price,
         fees,
@@ -106,12 +106,12 @@ export function SellModal({ position, portfolioId, isOpen, onClose, onSellComple
         </button>
 
         <h2 className="text-2xl font-bold text-white mb-4">
-          Sell {position.symbol}
+          Sell {position.name} ({position.cusip || position.symbol})
         </h2>
 
         {/* Error */}
         {error && (
-          <div className="mb-4 bg-red-900/30 border border-red-500/50 text-red-400 p-3 rounded-none text-sm">
+          <div className="mb-4 bg-slate-900/30 border border-slate-800/50 text-white p-3 rounded-none text-sm">
             {error}
           </div>
         )}
@@ -145,7 +145,7 @@ export function SellModal({ position, portfolioId, isOpen, onClose, onSellComple
                   step="0.01"
                   value={quantity}
                   onChange={(e) => handleQuantityChange(parseFloat(e.target.value) || 0)}
-                  className="flex-1 bg-gray-800 border border-slate-dark text-white px-4 py-3 rounded-none focus:outline-none focus:border-emerald-500 transition-colors text-lg"
+                  className="flex-1 bg-gray-800 border border-slate-dark text-white px-4 py-3 rounded-none focus:outline-none focus:border-slate-800 transition-colors text-lg"
                 />
                 <span className="text-slate-400 text-sm whitespace-nowrap">
                   ({pctOfPosition.toFixed(1)}% of position)
@@ -178,7 +178,7 @@ export function SellModal({ position, portfolioId, isOpen, onClose, onSellComple
                 step="0.01"
                 value={price}
                 onChange={(e) => setPrice(parseFloat(e.target.value) || 0)}
-                className="w-full bg-gray-800 border border-slate-dark text-white px-4 py-3 rounded-none focus:outline-none focus:border-emerald-500 transition-colors text-lg"
+                className="w-full bg-gray-800 border border-slate-dark text-white px-4 py-3 rounded-none focus:outline-none focus:border-slate-800 transition-colors text-lg"
               />
             </div>
 
@@ -194,7 +194,7 @@ export function SellModal({ position, portfolioId, isOpen, onClose, onSellComple
                 step="0.01"
                 value={fees}
                 onChange={(e) => setFees(parseFloat(e.target.value) || 0)}
-                className="w-full bg-gray-800 border border-slate-dark text-white px-4 py-3 rounded-none focus:outline-none focus:border-emerald-500 transition-colors text-lg"
+                className="w-full bg-gray-800 border border-slate-dark text-white px-4 py-3 rounded-none focus:outline-none focus:border-slate-800 transition-colors text-lg"
               />
             </div>
 
@@ -208,15 +208,15 @@ export function SellModal({ position, portfolioId, isOpen, onClose, onSellComple
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
                 rows={2}
-                className="w-full bg-gray-800 border border-slate-dark text-white px-4 py-3 rounded-none focus:outline-none focus:border-emerald-500 transition-colors resize-none"
+                className="w-full bg-gray-800 border border-slate-dark text-white px-4 py-3 rounded-none focus:outline-none focus:border-slate-800 transition-colors resize-none"
                 placeholder="Why are you selling?"
               />
             </div>
 
             {/* P&L Preview */}
-            <div className={`mb-6 p-4 rounded-none border ${estimatedPnL >= 0 ? 'bg-emerald-900/20 border-emerald-500/30' : 'bg-red-900/20 border-red-500/30'}`}>
+            <div className={`mb-6 p-4 rounded-none border ${estimatedPnL >= 0 ? 'bg-slate-800/20 border-slate-800/30' : 'bg-slate-900/20 border-slate-800/30'}`}>
               <div className="text-sm text-slate-400 mb-1">Estimated P&L</div>
-              <div className={`text-2xl font-bold ${estimatedPnL >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+              <div className={`text-2xl font-bold ${estimatedPnL >= 0 ? 'text-white' : 'text-white'}`}>
                 {estimatedPnL >= 0 ? '+' : ''}${estimatedPnL.toFixed(2)}
               </div>
               {quantity > 0 && price > 0 && (
@@ -230,7 +230,7 @@ export function SellModal({ position, portfolioId, isOpen, onClose, onSellComple
             <button
               onClick={() => setStep('confirm')}
               disabled={quantity <= 0 || price <= 0}
-              className="w-full py-4 text-lg font-semibold bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 disabled:cursor-not-allowed rounded-none transition-colors min-h-[44px]"
+              className="w-full py-4 text-lg font-semibold bg-white hover:bg-slate-800 disabled:opacity-50 disabled:cursor-not-allowed rounded-none transition-colors min-h-[44px]"
             >
               Review Sale
             </button>
@@ -246,6 +246,10 @@ export function SellModal({ position, portfolioId, isOpen, onClose, onSellComple
                   Confirm Sale
                 </div>
                 <div className="bg-gray-800/50 rounded-none border border-slate-dark p-4 space-y-3">
+                  <div className="flex justify-between">
+                    <span className="text-slate-400">CUSIP</span>
+                    <span className="text-white font-bold font-mono">{position.cusip || position.symbol}</span>
+                  </div>
                   <div className="flex justify-between">
                     <span className="text-slate-400">Symbol</span>
                     <span className="text-white font-bold">{position.symbol}</span>
@@ -270,7 +274,7 @@ export function SellModal({ position, portfolioId, isOpen, onClose, onSellComple
                   </div>
                   <div className="flex justify-between border-t border-slate-dark pt-3">
                     <span className="text-slate-400">Est. P&L</span>
-                    <span className={`font-bold text-lg ${estimatedPnL >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                    <span className={`font-bold text-lg ${estimatedPnL >= 0 ? 'text-white' : 'text-white'}`}>
                       {estimatedPnL >= 0 ? '+' : ''}${estimatedPnL.toFixed(2)}
                     </span>
                   </div>
@@ -292,7 +296,7 @@ export function SellModal({ position, portfolioId, isOpen, onClose, onSellComple
                   <button
                     onClick={handleConfirm}
                     disabled={selling}
-                    className="flex-1 py-4 text-lg font-semibold bg-red-600 hover:bg-red-500 disabled:opacity-50 rounded-none transition-colors min-h-[44px]"
+                    className="flex-1 py-4 text-lg font-semibold bg-slate-800 hover:bg-slate-800 disabled:opacity-50 rounded-none transition-colors min-h-[44px]"
                   >
                     {selling ? 'Selling...' : 'Sell'}
                   </button>
@@ -307,6 +311,10 @@ export function SellModal({ position, portfolioId, isOpen, onClose, onSellComple
                 </div>
                 <div className="bg-gray-800/50 rounded-none border border-slate-dark p-4 space-y-3">
                   <div className="flex justify-between">
+                    <span className="text-slate-400">CUSIP</span>
+                    <span className="text-white font-bold font-mono">{sellResult.cusip}</span>
+                  </div>
+                  <div className="flex justify-between">
                     <span className="text-slate-400">Symbol</span>
                     <span className="text-white font-bold">{sellResult.symbol}</span>
                   </div>
@@ -320,7 +328,7 @@ export function SellModal({ position, portfolioId, isOpen, onClose, onSellComple
                   </div>
                   <div className="flex justify-between border-t border-slate-dark pt-3">
                     <span className="text-slate-400">Realized P&L</span>
-                    <span className={`font-bold text-lg ${sellResult.realized_pnl >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                    <span className={`font-bold text-lg ${sellResult.realized_pnl >= 0 ? 'text-white' : 'text-white'}`}>
                       {sellResult.realized_pnl >= 0 ? '+' : ''}${sellResult.realized_pnl.toFixed(2)}
                     </span>
                   </div>
@@ -333,7 +341,7 @@ export function SellModal({ position, portfolioId, isOpen, onClose, onSellComple
                 </div>
                 <button
                   onClick={handleClose}
-                  className="w-full py-4 text-lg font-semibold bg-emerald-600 hover:bg-emerald-500 rounded-none transition-colors min-h-[44px]"
+                  className="w-full py-4 text-lg font-semibold bg-white hover:bg-slate-800 rounded-none transition-colors min-h-[44px]"
                 >
                   Done
                 </button>

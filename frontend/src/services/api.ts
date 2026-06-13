@@ -21,7 +21,9 @@ export interface Portfolio {
 export interface Position {
   id: string;
   portfolio_id: string;
+  cusip: string;
   symbol: string;
+  name: string;
   quantity: number;
   avg_cost_basis: number;
   current_price?: number;
@@ -38,7 +40,9 @@ export interface Position {
 export interface Trade {
   id: string;
   portfolio_id: string;
+  cusip: string;
   symbol: string;
+  name: string;
   type: 'BUY' | 'SELL' | 'DIVIDEND' | 'SPLIT' | 'FEE';
   quantity: number;
   price: number;
@@ -62,6 +66,7 @@ export interface Transaction {
   portfolio_id: string;
   position_id?: string;
   type: string;
+  cusip: string;
   symbol: string;
   quantity: number;
   price: number;
@@ -72,7 +77,9 @@ export interface Transaction {
 
 export interface SellResponse {
   status: 'sold';
+  cusip: string;
   symbol: string;
+  name: string;
   quantity_sold: number;
   price: number;
   fees: number;
@@ -155,9 +162,9 @@ export const portfolioService = {
 
 export const positionService = {
   list: (portfolioId: string) => api.get(`/portfolios/${portfolioId}/positions`),
-  create: (portfolioId: string, data: { symbol: string; quantity: number; price: number }) =>
+  create: (portfolioId: string, data: { cusip: string; symbol?: string; quantity: number; price: number; name?: string }) =>
     api.post(`/portfolios/${portfolioId}/positions`, data),
-  sell: (portfolioId: string, data: { symbol: string; quantity: number; price: number; fees?: number; notes?: string }) =>
+  sell: (portfolioId: string, data: { cusip: string; quantity: number; price: number; fees?: number; notes?: string }) =>
     api.post(`/portfolios/${portfolioId}/positions/sell`, data),
   refreshPrices: (portfolioId: string) => api.post(`/portfolios/${portfolioId}/positions/refresh`),
 };
@@ -165,6 +172,7 @@ export const positionService = {
 export const tradeService = {
   list: (portfolioId: string, params?: {
     symbol?: string;
+    cusip?: string;
     trade_type?: string;
     start_date?: string;
     end_date?: string;

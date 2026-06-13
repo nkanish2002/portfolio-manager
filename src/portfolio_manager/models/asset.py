@@ -32,7 +32,8 @@ class AssetClass(StrEnum):
 class Asset(UuidMixin, TimestampMixin, Base):
     __tablename__ = "assets"
 
-    symbol: Mapped[str] = mapped_column(String(20), unique=True, nullable=False, index=True)
+    symbol: Mapped[str | None] = mapped_column(String(20), unique=True, nullable=True, index=True)
+    cusip: Mapped[str | None] = mapped_column(String(12), unique=True, nullable=True, index=True)
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     asset_class: Mapped[AssetClass] = mapped_column(
         Enum(AssetClass), nullable=False, default=AssetClass.EQUITY

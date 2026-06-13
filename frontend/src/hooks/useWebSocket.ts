@@ -24,6 +24,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 export interface PriceUpdate {
   type: 'price';
   symbol: string;
+  cusip?: string;
   price: number;
   prev: number;
 }
