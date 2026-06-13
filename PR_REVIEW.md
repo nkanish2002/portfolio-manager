@@ -15,63 +15,98 @@ Comprehensive review of the portfolio-manager codebase with suggestions for impr
 
 ## 🚨 Critical Issues
 
-### 1. Missing Portfolio Import in `routes/portfolios.py`
-**Line 126**: `select(Portfolio)` but Portfolio not imported
-
-**Fix**: Add `from portfolio_manager.models.portfolio import Portfolio`
-
-### 2. PortfolioResponse Hardcodes position_count=0
+### 1. PortfolioResponse Hardcodes position_count=0
 **Lines 128-130**: Returns hardcoded 0 instead of actual count
 
 **Impact**: Dashboard shows wrong counts
 
-### 3. Asset.cusip Nullable But Position Requires It
-- `PositionCreate.cusip` is `Field(...)` (required)
-- But `Asset.cusip` is `nullable=True`
-- Can create asset without CUSIP, then fail on position creation
+**Fix**: Query actual position count for each portfolio
 
-### 4. Missing Error Handling for Price Fetch Failures
+```python
+# Line 128-130 currently:
+return [{"id": str(p.id), "name": p.name, "description": p.description,
+         "currency": p.currency, "position_count": 0, "total_value": 0.0}
+        for p in portfolios]
+
+# Should be:
+return [{
+    "id": str(p.id), 
+    "name": p.name, 
+    "description": p.description,
+    "currency": p.currency, 
+    "position_count": len(p.positions),
+    "total_value": 0.0
+} for p in portfolios]
+```
+
+### 2. Missing Error Handling for Price Fetch Failures
 In `routes/ui.py:refresh_prices()`:
 - No try/except around `get_price` — yfinance failure crashes the endpoint
 
-### 5. BenchmarkPortfolioAssociation Table Not Created
+**Fix**:
+```python
+# Around line 441:
+try:
+    price = get_price(pos.asset.symbol)
+    if price is not None:
+        pos.current_price = price
+except Exception as e:
+    # Log warning but continue processing
+    logging.warning(f"Failed to fetch price for {pos.asset.symbol}: {e}")
+```
+
+### 3. BenchmarkPortfolioAssociation Table Not Created
 - Defined in `models/benchmark.py` but never referenced in models `__init__.py`
 - `portfolio.benchmarks` relationship uses `secondary="benchmark_portfolios"` but table not registered
+
+**Fix**: Add to `models/__init__.py`:
+```python
+from portfolio_manager.models.benchmark import (
+    Benchmark,
+    BenchmarkData,
+    BenchmarkPortfolioAssociation,
+)
+__all__.append("BenchmarkPortfolioAssociation")
+```
 
 ---
 
 ## ⚨ High Priority Issues
 
-### 6. Date Comparison Mismatch in `build_nav_from_transactions`
+### 4. Date Comparison Mismatch in `build_nav_from_transactions`
 **Lines 74-78**: Creates DatetimeIndex but uses `.date()`
 - `.date()` returns `date` objects, not `Timestamp` — may cause issues with resampling
 
-### 7. PortfolioDashboardPage Returns HTML for React SPA Instead of API
+**Fix**: Use proper datetime index without `.date()`:
+```python
+# Line 74-78:
+series = pd.Series(
+    [v for _, v in nav_series],
+    index=pd.to_datetime([d for d, _ in nav_series]),
+    dtype=float,
+)
+```
+
+### 5. PortfolioDashboardPage Returns HTML for React SPA Instead of API
 - `/dashboard/{portfolio_id}` returns `FileResponse(SPA_INDEX)` instead of portfolio data
 - React should fetch portfolio data from `/api/v1/portfolios/{id}`
 
-### 8. Missing Input Validation on Price Updates
+### 6. Missing Input Validation on Price Updates
 - No check that `quantity > 0` before creating/updating position
 - No validation of `price >= 0`
-
-### 9. AssetClass.CASH Typo
-```python
-class AssetClass(StrEnum):
-    CASH = "cash"  # Should be CASH but typo in name
-```
 
 ---
 
 ## ⚨ Medium Priority Issues
 
-### 10. No Rate Limiting on Price Fetching
+### 7. No Rate Limiting on Price Fetching
 - `refresh_prices` calls `get_price` per position — no batching or caching
 - Could hit yfinance rate limits on large portfolios
 
-### 11. Transaction.total_amount Doesn't Handle All Types
+### 8. Transaction.total_amount Doesn't Handle All Types
 - Should handle SPLIT, REINVEST explicitly
 
-### 12. No Migration System
+### 9. No Migration System
 - Uses `Base.metadata.create_all()` — no Alembic
 - Schema changes will require manual DB drops
 
@@ -79,23 +114,23 @@ class AssetClass(StrEnum):
 
 ## 🟡 Lower Priority / Suggestions
 
-### 13. Missing Unit Tests for Charts API
+### 10. Missing Unit Tests for Charts API
 - `tests/test_api.py` exists but chart endpoints untested
 
-### 14. No Logging
+### 11. No Logging
 - All `print` statements missing — should add `logging` module
 
-### 15. Missing Cache Layer
+### 12. Missing Cache Layer
 - Price fetching hits yfinance every refresh
 - Could add Redis or in-memory cache (5-min TTL)
 
-### 16. Asset.name Required But Can Be Auto-Generated
+### 13. Asset.name Required But Can Be Auto-Generated
 - If `symbol` exists, name could default to symbol
 
-### 17. Portfolio.currency Not Enforced
+### 14. Portfolio.currency Not Enforced
 - No enum validation — could allow invalid 3-letter codes
 
-### 18. Missing CORS Configuration
+### 15. Missing CORS Configuration
 - No `CORSMiddleware` — frontend on different origin will fail
 
 ---
@@ -104,19 +139,20 @@ class AssetClass(StrEnum):
 
 | Priority | Issue | Impact |
 |----------|-------|--------|
-| **Critical** | Missing `Portfolio` import | API broken |
 | **Critical** | `PortfolioResponse` hardcodes position_count | UI shows wrong data |
+| **Critical** | Price fetch errors crash endpoint | Data refresh fails |
 | **High** | `BenchmarkPortfolioAssociation` not registered | Many-to-many broken |
-| **High** | Price fetch errors crash endpoint | Data refresh fails |
-| **Medium** | Date index mismatch in NAV building | Chart alignment issues |
+| **High** | Date index mismatch in NAV building | Chart alignment issues |
 | **Medium** | No migration system | Schema evolution blocked |
+| **Medium** | No rate limiting on price fetch | Yfinance rate limits |
 
 ---
 
 ## 🛠️ Quick Fixes (To Implement First)
 
-1. Add `Portfolio` import in `routes/portfolios.py`
-2. Fix `PortfolioResponse` to count actual positions
+1. Fix `PortfolioResponse` to count actual positions
+2. Add try/except around `get_price` in `routes/ui.py`
 3. Register `BenchmarkPortfolioAssociation` in `models/__init__.py`
-4. Add try/except around `get_price` in `routes/ui.py`
+4. Fix date index in `build_nav_from_transactions`
 5. Add CORS middleware to `main.py`
+6. Add logging setup to `main.py`
