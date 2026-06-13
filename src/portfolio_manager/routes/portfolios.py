@@ -9,12 +9,18 @@ from pydantic import BaseModel, Field, model_validator
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
+import logging
+
 from portfolio_manager.database import async_session, get_db
 from portfolio_manager.models.asset import Asset, AssetClass
 from portfolio_manager.models.portfolio import Portfolio
 from portfolio_manager.models.position import Position
 from portfolio_manager.models.transaction import Transaction, TransactionType
 from portfolio_manager.services.data_feed import get_price
+
+# Setup logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/portfolios", tags=["portfolios"])
 
@@ -123,11 +129,28 @@ async def _find_or_create_asset(db: AsyncSession, cusip: str, symbol: str | None
 
 @router.get("/", response_model=list[PortfolioResponse])
 async def list_portfolios(db: Annotated[AsyncSession, Depends(get_db)]):
+    from sqlalchemy import func, select
+    from portfolio_manager.models.position import Position
+
     result = await db.execute(select(Portfolio).order_by(Portfolio.created_at.desc()))
     portfolios = result.scalars().all()
-    return [{"id": str(p.id), "name": p.name, "description": p.description,
-             "currency": p.currency, "position_count": 0, "total_value": 0.0}
-            for p in portfolios]
+    
+    # Build position counts with a single query per portfolio
+    portfolio_responses = []
+    for p in portfolios:
+        pos_count_result = await db.execute(
+            select(func.count(Position.id)).where(Position.portfolio_id == p.id)
+        )
+        pos_count = pos_count_result.scalar_one()
+        portfolio_responses.append({
+            "id": str(p.id), 
+            "name": p.name, 
+            "description": p.description,
+            "currency": p.currency, 
+            "position_count": pos_count or 0,
+            "total_value": 0.0
+        })
+    return portfolio_responses
 
 
 @router.post("/", response_model=PortfolioResponse, status_code=201)
@@ -438,9 +461,12 @@ async def refresh_prices(portfolio_id: str, db: Annotated[AsyncSession, Depends(
     for pos in positions:
         # Get asset symbol
         if pos.asset and pos.asset.asset_class == AssetClass.EQUITY and pos.asset.symbol:
-            price = get_price(pos.asset.symbol)
-            if price is not None:
-                pos.current_price = price
+            try:
+                price = get_price(pos.asset.symbol)
+                if price is not None:
+                    pos.current_price = price
+            except Exception as e:
+                logger.warning(f"Failed to fetch price for {pos.asset.symbol}: {e}")
 
     await db.commit()
 

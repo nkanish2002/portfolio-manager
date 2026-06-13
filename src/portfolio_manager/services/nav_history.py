@@ -73,7 +73,7 @@ def build_nav_from_transactions(transactions: list[Transaction]) -> pd.Series:
 
     series = pd.Series(
         [v for _, v in nav_series],
-        index=pd.to_datetime([d for d, _ in nav_series]).date,
+        index=pd.to_datetime([d for d, _ in nav_series]),
         dtype=float,
     )
 
