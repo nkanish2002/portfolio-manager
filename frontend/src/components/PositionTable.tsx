@@ -22,22 +22,19 @@ function PositionCard({ position, onSell }: { position: Position; onSell?: () =>
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-none bg-slate-800 flex items-center justify-center">
             <span className="text-white font-bold text-sm">
-              {position.name.slice(0, 2).toUpperCase()}
+              {position.symbol.slice(0, 2).toUpperCase()}
             </span>
           </div>
           <div>
-            <h4 className="text-white font-semibold text-lg">{position.name}</h4>
-            <div className="text-xs text-slate-500 font-mono">{position.symbol}</div>
-            <span className="px-2 inline-flex text-xs leading-5 font-semibold bg-slate-800 text-slate-400">
-              {position.asset_class || 'N/A'}
-            </span>
+            <h4 className="text-white font-semibold text-lg">{position.symbol}</h4>
+            <div className="text-xs text-slate-500 font-mono">{position.asset_class || 'N/A'}</div>
           </div>
         </div>
         <div className="text-right">
-          <div className="text-lg font-bold text-white">
+          <div className={`text-lg font-bold ${gain >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
             {gain >= 0 ? '+' : ''}${gain.toFixed(2)}
           </div>
-          <div className="text-sm text-slate-400">
+          <div className={`text-sm ${gain >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
             ({gainPct >= 0 ? '+' : ''}{gainPct.toFixed(2)}%)
           </div>
         </div>
@@ -121,7 +118,6 @@ export function PositionTable({ positions, onSell }: PositionTableProps) {
             <thead>
               <tr className="bg-black/50">
                 <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider sticky left-0 bg-black/70 backdrop-blur">Symbol</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Name</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Class</th>
                 <th className="px-6 py-3 text-right text-xs font-medium text-slate-500 uppercase tracking-wider">Quantity</th>
                 <th className="px-6 py-3 text-right text-xs font-medium text-slate-500 uppercase tracking-wider">Price</th>
@@ -139,13 +135,13 @@ export function PositionTable({ positions, onSell }: PositionTableProps) {
                 const flashKey = position.symbol;
                 const flash = flashState[flashKey];
                 const isFlash = flash && (Date.now() - flash.ts < 1500);
+                const gainColor = gain >= 0 ? 'text-emerald-400' : 'text-red-400';
 
                 return (
                   <tr key={position.id} className="hover:bg-black/30 transition-colors">
                     <td className="px-6 py-4 whitespace-nowrap sticky left-0 bg-gray-900/90 backdrop-blur">
                       <div className="text-sm font-medium text-white font-mono">{flashKey}</div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-300">{position.name}</td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span className="px-2 inline-flex text-xs leading-5 font-semibold bg-slate-800 text-slate-400">{position.asset_class || 'N/A'}</span>
                     </td>
@@ -155,7 +151,7 @@ export function PositionTable({ positions, onSell }: PositionTableProps) {
                       {isFlash && <span className="ml-1 text-xs">{flash.direction === 'up' ? '▲' : '▼'}</span>}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm text-white">${totalValue.toFixed(2)}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium text-white">
+                    <td className={`px-6 py-4 whitespace-nowrap text-right text-sm font-medium ${gainColor}`}>
                       {gain >= 0 ? '+' : ''}${gain.toFixed(2)} ({gainPct >= 0 ? '+' : ''}{gainPct.toFixed(2)}%)
                     </td>
                     {onSell && (
