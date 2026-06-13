@@ -78,19 +78,12 @@ async def health():
 
 # Import routes after app creation to avoid circular imports
 from portfolio_manager.routes import portfolios  # noqa: E402
-from portfolio_manager.routes import dashboard  # noqa: E402
 from portfolio_manager.routes import charts  # noqa: E402
-from portfolio_manager.routes import ui  # noqa: E402
-from portfolio_manager.routes import ws  # noqa: E402
 from portfolio_manager.routes import trades  # noqa: E402
 
 app.include_router(portfolios.router, prefix="/api/v1")
-app.include_router(dashboard.router)
 app.include_router(charts.router, prefix="/api/v1")
-app.include_router(ui.router)
 app.include_router(trades.router, prefix="/api/v1")
-# WebSocket endpoint (no HTTP prefix — FastAPI detects @app.websocket)
-app.include_router(ws.router)
 
 
 @app.get("/{full_path:path}")
