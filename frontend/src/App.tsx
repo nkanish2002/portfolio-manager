@@ -12,11 +12,15 @@ function App() {
       <PageLayout>
         <Routes>
           <Route path="/dashboard" element={<DashboardPage />} />
-          <Route path="/dashboard/:portfolioId" element={<PositionsPage />} />
+          <Route path="/dashboard/:portfolioId" element={<DashboardPage />} />
           <Route path="/positions" element={<PositionsPage />} />
+          <Route path="/positions/:portfolioId" element={<PositionsPage />} />
           <Route path="/trades" element={<TradeAuditPage />} />
+          <Route path="/trades/:portfolioId" element={<TradeAuditPage />} />
           <Route path="/analytics" element={<AnalyticsPage />} />
+          <Route path="/analytics/:portfolioId" element={<AnalyticsPage />} />
           <Route path="/settings" element={<SettingsPage />} />
+          <Route path="/settings/:portfolioId" element={<SettingsPage />} />
           <Route path="/" element={<Navigate to="/dashboard" replace />} />
           <Route path="*" element={<Navigate to="/dashboard" replace />} />
         </Routes>
