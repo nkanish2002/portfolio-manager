@@ -5,14 +5,13 @@ from typing import TYPE_CHECKING
 from sqlalchemy import String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from portfolio_manager.models.base import TimestampMixin, UuidMixin
 from portfolio_manager.database import Base
-
+from portfolio_manager.models.base import TimestampMixin, UuidMixin
 
 if TYPE_CHECKING:
+    from portfolio_manager.models.benchmark import Benchmark  # noqa: F821
     from portfolio_manager.models.position import Position  # noqa: F821
     from portfolio_manager.models.transaction import Transaction  # noqa: F821
-    from portfolio_manager.models.benchmark import Benchmark  # noqa: F821
 
 
 class Portfolio(UuidMixin, TimestampMixin, Base):

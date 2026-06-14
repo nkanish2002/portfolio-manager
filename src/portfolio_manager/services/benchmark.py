@@ -8,15 +8,14 @@ Calculates:
 - Correlation between portfolio and benchmark returns
 """
 
-import math
-from typing import Optional
 
 import numpy as np
 import pandas as pd
 
 
-def calculate_excess_returns(portfolio_returns: pd.Series,
-                              benchmark_returns: pd.Series) -> pd.Series:
+def calculate_excess_returns(
+    portfolio_returns: pd.Series, benchmark_returns: pd.Series
+) -> pd.Series:
     """Excess returns = portfolio − benchmark."""
     aligned = pd.concat([portfolio_returns, benchmark_returns], axis=1).dropna()
     return (aligned[0] - aligned[1]).dropna()
@@ -29,16 +28,16 @@ def calculate_tracking_error(excess_returns: pd.Series, annualization: int = 252
     return float(np.std(excess_returns, ddof=1) * np.sqrt(annualization))
 
 
-def calculate_information_ratio(excess_returns: pd.Series,
-                                  tracking_error: float) -> float:
+def calculate_information_ratio(excess_returns: pd.Series, tracking_error: float) -> float:
     """Information ratio = mean(excess) / tracking error."""
     if tracking_error == 0 or len(excess_returns) < 2:
         return 0.0
     return float((excess_returns.mean() * 252) / tracking_error)
 
 
-def calculate_benchmark_correlation(portfolio_returns: pd.Series,
-                                      benchmark_returns: pd.Series) -> float:
+def calculate_benchmark_correlation(
+    portfolio_returns: pd.Series, benchmark_returns: pd.Series
+) -> float:
     """Pearson correlation between portfolio and benchmark returns."""
     aligned = pd.concat([portfolio_returns, benchmark_returns], axis=1).dropna()
     if len(aligned) < 2:
@@ -47,8 +46,7 @@ def calculate_benchmark_correlation(portfolio_returns: pd.Series,
     return round(float(corr), 4) if not pd.isna(corr) else 0.0
 
 
-def generate_benchmark_overlay(portfolio_prices: pd.Series,
-                                 benchmark_prices: pd.Series) -> dict:
+def generate_benchmark_overlay(portfolio_prices: pd.Series, benchmark_prices: pd.Series) -> dict:
     """Generate aligned price series for overlay chart."""
     portfolio_prices = portfolio_prices.copy()
     benchmark_prices = benchmark_prices.copy()
@@ -89,11 +87,19 @@ def generate_allocation_pie(positions: pd.DataFrame) -> dict:
         return {"labels": [], "values": [], "colors": [], "total_value": 0}
 
     # Color palette
-    colors = ["#FF6384", "#36A2EB", "#FFCE56", "#4BC0C0", "#9966FF", "#FF9F40",
-              "#FF6384", "#C9CBCF"]
+    colors = [
+        "#FF6384",
+        "#36A2EB",
+        "#FFCE56",
+        "#4BC0C0",
+        "#9966FF",
+        "#FF9F40",
+        "#FF6384",
+        "#C9CBCF",
+    ]
     labels = by_class["asset_class"].tolist()
     values = by_class["total_value"].round(2).tolist()
-    pie_colors = colors[:len(labels)]
+    pie_colors = colors[: len(labels)]
 
     return {
         "labels": labels,
@@ -110,7 +116,7 @@ def generate_drawdown_chart(nav_series: pd.Series) -> dict:
 
     cumulative = nav_series / nav_series.cummax()
     drawdown = ((cumulative - 1) * 100).round(2)
-    dates = [str(d.date()) if hasattr(d, 'date') else str(d) for d in nav_series.index]
+    dates = [str(d.date()) if hasattr(d, "date") else str(d) for d in nav_series.index]
 
     return {
         "dates": dates,
@@ -119,13 +125,20 @@ def generate_drawdown_chart(nav_series: pd.Series) -> dict:
     }
 
 
-def calculate_risk_report(portfolio_returns: pd.Series,
-                            benchmark_returns: Optional[pd.Series] = None) -> dict:
+def calculate_risk_report(
+    portfolio_returns: pd.Series, benchmark_returns: pd.Series | None = None
+) -> dict:
     """Full risk report combining portfolio metrics with benchmark comparison."""
     from portfolio_manager.services.risk import (
-        calculate_sharpe, calculate_sortino, calculate_max_drawdown,
-        calculate_value_at_risk, calculate_beta, calculate_alpha,
-        calculate_treynor_ratio, calculate_calmar_ratio, calculate_ulcer_index,
+        calculate_alpha,
+        calculate_beta,
+        calculate_calmar_ratio,
+        calculate_max_drawdown,
+        calculate_sharpe,
+        calculate_sortino,
+        calculate_treynor_ratio,
+        calculate_ulcer_index,
+        calculate_value_at_risk,
     )
 
     report = {
@@ -161,19 +174,21 @@ def calculate_risk_report(portfolio_returns: pd.Series,
         treynor = calculate_treynor_ratio(portfolio_returns, benchmark_returns)
         calmar = calculate_calmar_ratio(portfolio_returns, mdd["max_drawdown_pct"])
 
-        report.update({
-            "benchmark_sharpe": round(calculate_sharpe(benchmark_returns), 2),
-            "benchmark_sortino": round(calculate_sortino(benchmark_returns), 2),
-            "benchmark_max_drawdown": round(bm_mdd["max_drawdown_pct"], 2),
-            "excess_return": round(float(excess.sum() * 100), 2),
-            "tracking_error": round(tracking_error, 2),
-            "information_ratio": round(info_ratio, 2),
-            "correlation": correlation,
-            "beta": round(beta, 2),
-            "alpha": round(alpha, 2),
-            "treynor_ratio": round(treynor, 2),
-            "calmar_ratio": round(calmar, 2),
-        })
+        report.update(
+            {
+                "benchmark_sharpe": round(calculate_sharpe(benchmark_returns), 2),
+                "benchmark_sortino": round(calculate_sortino(benchmark_returns), 2),
+                "benchmark_max_drawdown": round(bm_mdd["max_drawdown_pct"], 2),
+                "excess_return": round(float(excess.sum() * 100), 2),
+                "tracking_error": round(tracking_error, 2),
+                "information_ratio": round(info_ratio, 2),
+                "correlation": correlation,
+                "beta": round(beta, 2),
+                "alpha": round(alpha, 2),
+                "treynor_ratio": round(treynor, 2),
+                "calmar_ratio": round(calmar, 2),
+            }
+        )
 
     report["ulcer_index"] = round(calculate_ulcer_index(nav), 2)
 

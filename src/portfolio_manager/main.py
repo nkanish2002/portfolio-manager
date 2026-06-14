@@ -2,13 +2,16 @@
 
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, HTTPException
+import structlog
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from portfolio_manager.config import settings
+from portfolio_manager.database import init_db
+from portfolio_manager.exceptions import register_exception_handlers
+from portfolio_manager.routes import charts, portfolios, trades
 
 # Setup structlog for structured JSON logging
-import structlog
 structlog.configure(
     processors=[
         structlog.processors.add_log_level,
@@ -23,10 +26,7 @@ logger = structlog.getLogger(__name__)
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Initialize DB on startup."""
-    from portfolio_manager.database import init_db
-
     await init_db()
-
     yield
 
 
@@ -45,9 +45,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# ── Global Exception Handlers (Phase 9) ──────────────────────────────────────
-from portfolio_manager.exceptions import register_exception_handlers  # noqa: E402
-
+# Global Exception Handlers (Phase 9)
 register_exception_handlers(app)
 
 
@@ -55,11 +53,6 @@ register_exception_handlers(app)
 async def health():
     return {"status": "ok", "version": app.version}
 
-
-# Import routes after app creation to avoid circular imports
-from portfolio_manager.routes import portfolios  # noqa: E402
-from portfolio_manager.routes import charts  # noqa: E402
-from portfolio_manager.routes import trades  # noqa: E402
 
 app.include_router(portfolios.router, prefix="/api/v1")
 app.include_router(charts.router, prefix="/api/v1")

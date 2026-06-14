@@ -1274,6 +1274,11 @@ dev = [
     { name = "ruff" },
 ]
 
+[package.dev-dependencies]
+dev = [
+    { name = "ruff" },
+]
+
 [package.metadata]
 requires-dist = [
     { name = "aiosqlite", specifier = ">=0.20" },
@@ -1295,6 +1300,9 @@ requires-dist = [
     { name = "yfinance", specifier = ">=0.2" },
 ]
 provides-extras = ["dev"]
+
+[package.metadata.requires-dev]
+dev = [{ name = "ruff", specifier = ">=0.15.16" }]
 
 [[package]]
 name = "prompt-toolkit"

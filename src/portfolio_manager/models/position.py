@@ -1,15 +1,14 @@
 """Current holdings — shares, cost basis, market value."""
 
-from datetime import date, datetime
+from datetime import date
 from decimal import Decimal
 from typing import TYPE_CHECKING
 
-from sqlalchemy import Date, DateTime, ForeignKey, Numeric, String
+from sqlalchemy import Date, ForeignKey, Numeric, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from portfolio_manager.models.base import TimestampMixin, UuidMixin
 from portfolio_manager.database import Base
-
+from portfolio_manager.models.base import TimestampMixin, UuidMixin
 
 if TYPE_CHECKING:
     from portfolio_manager.models.asset import Asset  # noqa: F821

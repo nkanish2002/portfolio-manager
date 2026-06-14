@@ -5,7 +5,6 @@ Beta, Alpha (Jensen's), Treynor, Calmar, Ulcer Index.
 """
 
 import math
-from typing import Protocol
 
 import numpy as np
 import pandas as pd
@@ -75,7 +74,9 @@ def calculate_max_drawdown(prices: pd.Series) -> dict:
     }
 
 
-def calculate_var(returns: pd.Series, confidence: float = 0.95, portfolio_value: float = 1_000_000) -> dict:
+def calculate_var(
+    returns: pd.Series, confidence: float = 0.95, portfolio_value: float = 1_000_000
+) -> dict:
     """Value at Risk — both parametric and historical.
 
     Args:
@@ -124,7 +125,9 @@ def calculate_beta(portfolio_returns: pd.Series, benchmark_returns: pd.Series) -
     return round(float(covariance / benchmark_variance), 2)
 
 
-def calculate_alpha(portfolio_returns: pd.Series, benchmark_returns: pd.Series, risk_free_rate: float = 0.04) -> float:
+def calculate_alpha(
+    portfolio_returns: pd.Series, benchmark_returns: pd.Series, risk_free_rate: float = 0.04
+) -> float:
     """Jensen's Alpha = Rp - [Rf + Beta * (Rb - Rf)]."""
     beta = calculate_beta(portfolio_returns, benchmark_returns)
     rp = portfolio_returns.mean() * 252
@@ -133,7 +136,9 @@ def calculate_alpha(portfolio_returns: pd.Series, benchmark_returns: pd.Series, 
     return round(float(rp - (rf + beta * (rb - rf))) * 100, 2)  # Percentage
 
 
-def calculate_treynor(portfolio_returns: pd.Series, benchmark_returns: pd.Series, risk_free_rate: float = 0.04) -> float:
+def calculate_treynor(
+    portfolio_returns: pd.Series, benchmark_returns: pd.Series, risk_free_rate: float = 0.04
+) -> float:
     """Treynor ratio = (Rp - Rf) / Beta."""
     beta = calculate_beta(portfolio_returns, benchmark_returns)
     if beta == 0:
@@ -160,16 +165,20 @@ def calculate_ulcer_index(prices: pd.Series) -> float:
         return 0.0
     max_price = prices.cummax()
     drawdown = ((prices - max_price) / max_price) * 100
-    return round(float(np.sqrt((drawdown ** 2).mean())), 2)
+    return round(float(np.sqrt((drawdown**2).mean())), 2)
 
 
-def full_risk_report(returns: pd.Series, prices: pd.Series, benchmark_returns: pd.Series | None = None) -> dict:
+def full_risk_report(
+    returns: pd.Series, prices: pd.Series, benchmark_returns: pd.Series | None = None
+) -> dict:
     """Calculate all risk metrics at once."""
     report = {
         "sharpe_ratio": round(calculate_sharpe(returns), 2),
         "sortino_ratio": round(calculate_sortino(returns), 2),
         "max_drawdown": calculate_max_drawdown(prices),
-        "var": calculate_var(returns, portfolio_value=float(prices.iloc[-1]) if not prices.empty else 1_000_000),
+        "var": calculate_var(
+            returns, portfolio_value=float(prices.iloc[-1]) if not prices.empty else 1_000_000
+        ),
         "ulcer_index": calculate_ulcer_index(prices),
         "calmar_ratio": calculate_calmar(returns, prices),
     }

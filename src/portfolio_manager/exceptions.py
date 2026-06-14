@@ -21,8 +21,8 @@ import logging
 import sys
 import traceback
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
-from typing import Any, Optional
+from datetime import UTC, datetime
+from typing import Any
 
 from fastapi import FastAPI, HTTPException, Request, status
 from fastapi.exceptions import RequestValidationError
@@ -36,8 +36,9 @@ logger = logging.getLogger("portfolio_manager.errors")
 
 # ──────────────────────────── Custom Exceptions ───────────────────────────────
 
+
 @dataclass
-class AppException(Exception):
+class AppError(Exception):
     """Base exception for all domain-specific errors.
 
     Subclasses should set `status_code` and optionally override `detail`.
@@ -46,7 +47,7 @@ class AppException(Exception):
     status_code: int = status.HTTP_500_INTERNAL_SERVER_ERROR
     code: str = "INTERNAL_ERROR"
     message: str = "An internal error occurred"
-    detail: Optional[str] = None
+    detail: str | None = None
     extra: dict[str, Any] = field(default_factory=dict)
 
     def __str__(self) -> str:
@@ -54,51 +55,52 @@ class AppException(Exception):
 
 
 @dataclass
-class NotFoundError(AppException):
+class NotFoundError(AppError):
     status_code: int = status.HTTP_404_NOT_FOUND
     code: str = "NOT_FOUND"
 
 
 @dataclass
-class ConflictError(AppException):
+class ConflictError(AppError):
     status_code: int = status.HTTP_409_CONFLICT
     code: str = "CONFLICT"
 
 
 @dataclass
-class ValidationError(AppException):
+class ValidationError(AppError):
     status_code: int = status.HTTP_422_UNPROCESSABLE_ENTITY
     code: str = "VALIDATION_ERROR"
 
 
 @dataclass
-class UnauthorizedError(AppException):
+class UnauthorizedError(AppError):
     status_code: int = status.HTTP_401_UNAUTHORIZED
     code: str = "UNAUTHORIZED"
 
 
 @dataclass
-class ForbiddenError(AppException):
+class ForbiddenError(AppError):
     status_code: int = status.HTTP_403_FORBIDDEN
     code: str = "FORBIDDEN"
 
 
 @dataclass
-class ServiceUnavailableError(AppException):
+class ServiceUnavailableError(AppError):
     status_code: int = status.HTTP_503_SERVICE_UNAVAILABLE
     code: str = "SERVICE_UNAVAILABLE"
 
 
 # ──────────────────────────── Error Response Builder ──────────────────────────
 
-def _build_error_body(exc: AppException, request: Request, debug: bool) -> dict[str, Any]:
+
+def _build_error_body(exc: AppError, request: Request, debug: bool) -> dict[str, Any]:
     """Build the canonical error JSON body."""
     body: dict[str, Any] = {
         "error": {
             "code": exc.code,
             "message": exc.message,
             "path": str(request.url.path),
-            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "timestamp": datetime.now(UTC).isoformat(),
         }
     }
 
@@ -123,14 +125,15 @@ def _build_error_body(exc: AppException, request: Request, debug: bool) -> dict[
 
 # ──────────────────────────── FastAPI Handlers ────────────────────────────────
 
+
 def register_exception_handlers(app: FastAPI) -> None:
     """Register all global exception handlers on the FastAPI app.
 
     Call once during app startup (or at module level).
     """
 
-    @app.exception_handler(AppException)
-    async def app_exception_handler(request: Request, exc: AppException):
+    @app.exception_handler(AppError)
+    async def app_exception_handler(request: Request, exc: AppError):
         logger.warning(
             "[%s] %s — %s (code=%s)",
             exc.status_code,
@@ -179,7 +182,7 @@ def register_exception_handlers(app: FastAPI) -> None:
                     "code": code,
                     "message": message,
                     "path": str(request.url.path),
-                    "timestamp": datetime.now(timezone.utc).isoformat(),
+                    "timestamp": datetime.now(UTC).isoformat(),
                 }
             },
         )
@@ -201,7 +204,7 @@ def register_exception_handlers(app: FastAPI) -> None:
                     "message": "Request body contains invalid fields",
                     "detail": exc.errors(),
                     "path": str(request.url.path),
-                    "timestamp": datetime.now(timezone.utc).isoformat(),
+                    "timestamp": datetime.now(UTC).isoformat(),
                 }
             },
         )
@@ -223,7 +226,7 @@ def register_exception_handlers(app: FastAPI) -> None:
                     "message": "A resource with this identifier already exists",
                     "detail": str(exc.orig) if exc.orig else None,
                     "path": str(request.url.path),
-                    "timestamp": datetime.now(timezone.utc).isoformat(),
+                    "timestamp": datetime.now(UTC).isoformat(),
                 }
             },
         )
@@ -244,7 +247,7 @@ def register_exception_handlers(app: FastAPI) -> None:
                     "code": "SERVICE_UNAVAILABLE",
                     "message": "Database connection failed",
                     "path": str(request.url.path),
-                    "timestamp": datetime.now(timezone.utc).isoformat(),
+                    "timestamp": datetime.now(UTC).isoformat(),
                 }
             },
         )
@@ -262,7 +265,7 @@ def register_exception_handlers(app: FastAPI) -> None:
         return JSONResponse(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             content=_build_error_body(
-                AppException(
+                AppError(
                     status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                     code="INTERNAL_ERROR",
                     message=str(exc) if settings.debug else "An unexpected error occurred",

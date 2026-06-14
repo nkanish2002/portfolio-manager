@@ -12,7 +12,6 @@ from sqlalchemy.orm import selectinload
 from portfolio_manager.database import get_db
 from portfolio_manager.models.asset import Asset
 from portfolio_manager.models.portfolio import Portfolio
-from portfolio_manager.models.position import Position
 from portfolio_manager.models.transaction import Transaction, TransactionType
 
 router = APIRouter(tags=["trades"])
@@ -20,6 +19,7 @@ router = APIRouter(tags=["trades"])
 
 class TradeResponse(BaseModel):
     """A single trade record."""
+
     id: str
     portfolio_id: str
     cusip: str
@@ -38,6 +38,7 @@ class TradeResponse(BaseModel):
 
 class TradeSummary(BaseModel):
     """Aggregated trade stats."""
+
     total_trades: int
     total_buys: int
     total_sells: int
@@ -67,8 +68,11 @@ def _calc_pnl_from_history(
 
     # Collect all transactions for this symbol, sorted chronologically
     symbol_txns = [
-        t for t in all_transactions
-        if t.asset and t.asset.symbol == symbol and t.transaction_type in (TransactionType.BUY, TransactionType.SELL)
+        t
+        for t in all_transactions
+        if t.asset
+        and t.asset.symbol == symbol
+        and t.transaction_type in (TransactionType.BUY, TransactionType.SELL)
     ]
     symbol_txns.sort(key=lambda t: t.transaction_date or date.min)
 
@@ -85,10 +89,7 @@ def _calc_pnl_from_history(
 
     # Now match this sell's quantity against buy lots (FIFO), starting from
     # the point after cumulative_consumed shares have already been sold
-    buys = [
-        t for t in symbol_txns
-        if t.transaction_type == TransactionType.BUY
-    ]
+    buys = [t for t in symbol_txns if t.transaction_type == TransactionType.BUY]
 
     # Track how many buy shares have been consumed across ALL sells
     # We need to know what's already been consumed before this sell
@@ -134,7 +135,9 @@ async def list_trades(
     portfolio_id: str,
     db: Annotated[AsyncSession, Depends(get_db)],
     symbol: str | None = Query(None, description="Filter by symbol"),
-    trade_type: str | None = Query(None, description="Filter by transaction type (buy/sell/dividend)"),
+    trade_type: str | None = Query(
+        None, description="Filter by transaction type (buy/sell/dividend)"
+    ),
     start_date: date | None = Query(None, description="Start date (inclusive)"),
     end_date: date | None = Query(None, description="End date (inclusive)"),
     sort_by: str = Query("date", description="Sort by: date, symbol, type"),
@@ -142,11 +145,10 @@ async def list_trades(
 ):
     """List trades for a portfolio with optional filtering."""
     # Verify portfolio exists
-    result = await db.execute(
-        select(Portfolio).where(Portfolio.id == portfolio_id)
-    )
+    result = await db.execute(select(Portfolio).where(Portfolio.id == portfolio_id))
     if not result.scalar_one_or_none():
         from fastapi import HTTPException
+
         raise HTTPException(status_code=404, detail="Portfolio not found")
 
     # Build query with joins
@@ -214,20 +216,22 @@ async def list_trades(
         # Calculate P&L from transaction history
         p_and_l = _calc_pnl_from_history(t, all_txns, sym)
 
-        out.append(TradeResponse(
-            id=str(t.id),
-            portfolio_id=str(t.portfolio_id),
-            cusip=cusip,
-            symbol=sym,
-            name=name,
-            type=t.transaction_type.value.upper(),
-            quantity=float(t.quantity),
-            price=float(t.price),
-            fees=float(t.fees or 0),
-            p_and_l=p_and_l,
-            notes=t.notes,
-            transaction_date=t.transaction_date.isoformat() if t.transaction_date else "",
-        ))
+        out.append(
+            TradeResponse(
+                id=str(t.id),
+                portfolio_id=str(t.portfolio_id),
+                cusip=cusip,
+                symbol=sym,
+                name=name,
+                type=t.transaction_type.value.upper(),
+                quantity=float(t.quantity),
+                price=float(t.price),
+                fees=float(t.fees or 0),
+                p_and_l=p_and_l,
+                notes=t.notes,
+                transaction_date=t.transaction_date.isoformat() if t.transaction_date else "",
+            )
+        )
 
     return out
 
@@ -239,11 +243,10 @@ async def trade_summary(
 ):
     """Get aggregated trade statistics for a portfolio."""
     # Verify portfolio exists
-    result = await db.execute(
-        select(Portfolio).where(Portfolio.id == portfolio_id)
-    )
+    result = await db.execute(select(Portfolio).where(Portfolio.id == portfolio_id))
     if not result.scalar_one_or_none():
         from fastapi import HTTPException
+
         raise HTTPException(status_code=404, detail="Portfolio not found")
 
     # Fetch all transactions with assets

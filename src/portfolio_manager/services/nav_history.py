@@ -5,10 +5,7 @@ replacing the synthetic single-point NAV used in the old chart endpoints.
 """
 
 from datetime import date, datetime
-from decimal import Decimal
-from typing import Optional
 
-import numpy as np
 import pandas as pd
 
 from portfolio_manager.models.transaction import Transaction, TransactionType
@@ -36,7 +33,9 @@ def build_nav_from_transactions(transactions: list[Transaction]) -> pd.Series:
         return pd.Series(dtype=float)
 
     # Sort chronologically
-    sorted_txns = sorted(transactions, key=lambda t: (t.transaction_date, t.created_at or datetime.min))
+    sorted_txns = sorted(
+        transactions, key=lambda t: (t.transaction_date, t.created_at or datetime.min)
+    )
 
     nav_series = []
     cumulative_nav = 0.0
@@ -128,7 +127,7 @@ def build_nav_with_benchmark(
             if date_col not in benchmark_data.columns:
                 # Benchmark data missing required Date column
                 return result
-            
+
             close_col = "Close" if "Close" in benchmark_data.columns else None
             if close_col is not None and len(benchmark_data) > 0:
                 # Normalize benchmark to same starting point (100)

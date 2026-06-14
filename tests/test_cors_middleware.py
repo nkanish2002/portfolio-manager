@@ -1,16 +1,17 @@
 """Tests for CORS middleware."""
-import sys
+
 import os
+import sys
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
 import pytest
 import pytest_asyncio
-from httpx import AsyncClient, ASGITransport
-from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession
+from httpx import ASGITransport, AsyncClient
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
-from portfolio_manager.main import app
 from portfolio_manager.database import Base, get_db
+from portfolio_manager.main import app
 
 TEST_DATABASE_URL = "sqlite+aiosqlite:///:memory:"
 
@@ -32,14 +33,12 @@ async def db_session():
 @pytest_asyncio.fixture
 async def client(db_session):
     """Create an async test client with a fresh DB session."""
+
     async def override_get_db():
         yield db_session
 
     app.dependency_overrides[get_db] = override_get_db
-    async with AsyncClient(
-        transport=ASGITransport(app=app),
-        base_url="http://test"
-    ) as ac:
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
         yield ac
     app.dependency_overrides.clear()
 
@@ -61,10 +60,9 @@ class TestCORSMiddleware:
     @pytest.mark.skip(reason="GitHub issue #Z: CORS headers not present in test client responses")
     async def test_cors_headers_on_post(self, client):
         """Test that CORS headers are present on POST requests."""
-        response = await client.post("/api/v1/portfolios/", json={
-            "name": "CORS Test",
-            "currency": "USD"
-        })
+        response = await client.post(
+            "/api/v1/portfolios/", json={"name": "CORS Test", "currency": "USD"}
+        )
         assert response.status_code == 201
         assert "Access-Control-Allow-Origin" in response.headers
         assert response.headers["Access-Control-Allow-Origin"] == "*"
@@ -73,10 +71,9 @@ class TestCORSMiddleware:
     async def test_cors_headers_on_delete(self, client):
         """Test that CORS headers are present on DELETE requests."""
         # Create portfolio first
-        create_resp = await client.post("/api/v1/portfolios/", json={
-            "name": "Delete Test",
-            "currency": "USD"
-        })
+        create_resp = await client.post(
+            "/api/v1/portfolios/", json={"name": "Delete Test", "currency": "USD"}
+        )
         portfolio_id = create_resp.json()["id"]
 
         response = await client.delete(f"/api/v1/portfolios/{portfolio_id}")

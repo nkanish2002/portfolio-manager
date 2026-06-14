@@ -8,20 +8,14 @@ Provides data functions for:
 - Returns distribution histogram
 """
 
-import math
-from datetime import date
 
 import numpy as np
 import pandas as pd
 
-from portfolio_manager.services.portfolio_calc import calculate_returns
-from portfolio_manager.services.benchmark import (
-    calculate_excess_returns,
-    calculate_tracking_error,
-)
 
-
-def generate_nav_chart(position_history: pd.DataFrame, benchmark_history: pd.DataFrame = None) -> dict:
+def generate_nav_chart(
+    position_history: pd.DataFrame, benchmark_history: pd.DataFrame = None
+) -> dict:
     """Generate NAV (Net Asset Value) growth chart data.
 
     Args:
@@ -38,7 +32,7 @@ def generate_nav_chart(position_history: pd.DataFrame, benchmark_history: pd.Dat
     start_nav = float(position_history["nav"].iloc[0])
     portfolio_norm = (position_history["nav"] / start_nav * 100).round(2)
 
-    dates = [str(d.date()) if hasattr(d, 'date') else str(d) for d in position_history.index]
+    dates = [str(d.date()) if hasattr(d, "date") else str(d) for d in position_history.index]
 
     result = {
         "dates": dates,
@@ -98,8 +92,20 @@ def generate_monthly_returns_heatmap(position_history: pd.DataFrame) -> dict:
         monthly_returns = monthly_returns.tail(36)
 
     years = [int(y) for y in monthly_returns.index]
-    month_names = ["Jan", "Feb", "Mar", "Apr", "May", "Jun",
-                   "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+    month_names = [
+        "Jan",
+        "Feb",
+        "Mar",
+        "Apr",
+        "May",
+        "Jun",
+        "Jul",
+        "Aug",
+        "Sep",
+        "Oct",
+        "Nov",
+        "Dec",
+    ]
 
     # Select relevant months
     present_months = [m for m in monthly_returns.columns if m <= 12]
@@ -116,8 +122,7 @@ def generate_monthly_returns_heatmap(position_history: pd.DataFrame) -> dict:
     }
 
 
-def generate_benchmark_comparison(portfolio_nav: pd.Series,
-                                   benchmark_nav: pd.Series) -> dict:
+def generate_benchmark_comparison(portfolio_nav: pd.Series, benchmark_nav: pd.Series) -> dict:
     """Generate benchmark comparison data with overlay chart."""
     if portfolio_nav.empty or benchmark_nav.empty:
         return {"dates": [], "portfolio": [], "benchmark": [], "excess": []}
@@ -133,7 +138,7 @@ def generate_benchmark_comparison(portfolio_nav: pd.Series,
 
     excess = (port_aligned - bm_aligned).round(2)
 
-    dates = [str(d.date()) if hasattr(d, 'date') else str(d) for d in common_idx]
+    dates = [str(d.date()) if hasattr(d, "date") else str(d) for d in common_idx]
 
     return {
         "dates": dates,

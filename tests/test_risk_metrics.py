@@ -1,18 +1,18 @@
 """Tests for the risk metrics engine."""
+
 import numpy as np
 import pandas as pd
-import pytest
 
 from portfolio_manager.services.risk import (
+    calculate_alpha,
+    calculate_beta,
+    calculate_calmar,
+    calculate_max_drawdown,
     calculate_sharpe,
     calculate_sortino,
-    calculate_max_drawdown,
-    calculate_var,
-    calculate_beta,
-    calculate_alpha,
     calculate_treynor,
-    calculate_calmar,
     calculate_ulcer_index,
+    calculate_var,
     full_risk_report,
 )
 

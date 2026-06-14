@@ -3,11 +3,10 @@
 Currently backed by yfinance; swap to paid APIs (Schwab, Polygon, etc.) later.
 """
 
-from datetime import date, datetime, timedelta
+from datetime import date, timedelta
 from decimal import Decimal
 from typing import Protocol
 
-import numpy as np
 import pandas as pd
 
 # Lazy import so yfinance is optional
@@ -54,8 +53,7 @@ class YFinanceSource:
         results = yf.Tickers(query)
         tickers = results.tickers if hasattr(results, "tickers") else []
         return [
-            {"symbol": t.symbol, "name": t.info.get("shortName", t.symbol)}
-            for t in tickers[:limit]
+            {"symbol": t.symbol, "name": t.info.get("shortName", t.symbol)} for t in tickers[:limit]
         ]
 
 

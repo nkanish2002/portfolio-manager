@@ -3,12 +3,11 @@
 from decimal import Decimal
 from typing import TYPE_CHECKING
 
-from sqlalchemy import DateTime, ForeignKey, Numeric, String, Text, func
+from sqlalchemy import ForeignKey, Numeric, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from portfolio_manager.models.base import UuidMixin
 from portfolio_manager.database import Base
-
+from portfolio_manager.models.base import UuidMixin
 
 if TYPE_CHECKING:
     from portfolio_manager.models.asset import Asset  # noqa: F821
