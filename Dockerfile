@@ -35,4 +35,4 @@ RUN mkdir -p /app/data && chmod 777 /app/data
 # Expose Solara port
 EXPOSE 8000
 
-CMD ["solara-server", "run", "portfolio_manager.solara_app:solara_app"]
+CMD ["solara", "run", "portfolio_manager.solara_app"]

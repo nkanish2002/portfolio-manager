@@ -13,6 +13,7 @@ services:
         environment:
             - DATABASE_URL=sqlite+aiosqlite:///data/portfolio.db
             - DEBUG=false
+        command: ["solara", "run", "portfolio_manager.solara_app", "--host", "0.0.0.0", "--port", "8000"]
         restart: unless-stopped
 
 volumes:
