@@ -4,8 +4,8 @@
 
 This is the **unified master plan** that combines:
 
-1. **Original PLAN.md** — FastAPI backend + phases 1-10
-2. **docs/solara/PLAN.md** — Solara frontend migration plan
+2. **Original PLAN.md** — FastAPI backend + phases 1-10
+3. **docs/solara/DESIGN.md** — Solara frontend design docs (architecture, components, API)
 
 This unified plan ensures we build the **correct thing** and avoids building the wrong thing.
 
@@ -171,7 +171,7 @@ These bugs will surface immediately once the Solara UI is built. Fix them before
 
 | Task | Description |
 |------|-------------|
-| 10.5.4.5 | Lower minimums: `monthly-returns` → 2 data points, `risk-report` → 30 points, `benchmark-comparison` → 30 points |
+| 10.5.4.5 | Lower minimums: `monthly-returns` → 5 data points (2 weeks of daily), `risk-report` → 30 points, `benchmark-comparison` → 30 points. 2 data points is too low to produce meaningful statistics. |
 | 10.5.4.6 | Return explicit `"insufficient_data": true` flag alongside partial results so the UI can show a contextual message instead of a blank page |
 
 ### 10.5.5: Fix DESIGN.md Technical Errors
@@ -204,6 +204,27 @@ portfolios = solara.reactive([])                     # reactive variable
 | 10.5.5.1 | Replace all `asyncio.run(_load())` patterns in DESIGN.md with the correct `solara.lab.use_task` pattern |
 | 10.5.5.2 | Replace all `use_state(Type, default)` signatures with `solara.use_state(default)` or `solara.reactive(default)` |
 | 10.5.5.3 | Add a canonical "Solara async data-fetch pattern" section to DESIGN.md for reference during Phase 11 |
+
+### 10.5.6: Remove React SPA Fallback Routes
+
+`main.py` has a catch-all `GET /{full_path:path}` route (line 69-72) that was added for the React SPA fallback. It intercepts all non-API paths and returns a 404. This route should be removed since the React frontend is deleted and Solara will provide its own routing.
+
+| Task | Description |
+|------|-------------|
+| 10.5.6.1 | Remove the `@app.get("/{full_path:path}")` catch-all route from `main.py` |
+| 10.5.6.2 | Confirm the app returns a proper JSON 404 on `/` (FastAPI default, not custom handler) |
+
+### 10.5.7: Update Docker/Solara Deployment Config
+
+The current `Dockerfile` has a multi-stage build that references `frontend/` (lines 3-8, 33) — this directory has been deleted, so `docker build` will fail. Solara has its own deployment model (`solara-server run`) which doesn't require a React build step.
+
+| Task | Description |
+|------|-------------|
+| 10.5.7.1 | Remove React frontend build stages (lines 3-8) from `Dockerfile` |
+| 10.5.7.2 | Remove `COPY --from=frontend-builder /app/dist /app/frontend/dist` (line 33) |
+| 10.5.7.3 | Update `CMD` to use `solara-server` instead of `uvicorn` |
+| 10.5.7.4 | Verify `docker compose up` builds and starts the app without errors |
+| 10.5.7.5 | If the `docker-compose.yaml` needs updating (new port for Solara), update it too |
 
 ---
 
@@ -312,7 +333,7 @@ portfolios = solara.reactive([])                     # reactive variable
 
 React frontend (`frontend/`) has already been deleted from the repo. There is no rollback to React — Solara is the only path forward.
 
-The remaining cleanup is Phase 10.5 (dead Jinja2 templates, API spec fixes, dependencies).
+The remaining cleanup is Phase 10.5 (dead Jinja2 templates, React SPA routes, API spec fixes, dependencies, backend bugs, DESIGN.md errors, Docker config).
 
 ### Rollback Plan
 
@@ -353,9 +374,9 @@ The remaining cleanup is Phase 10.5 (dead Jinja2 templates, API spec fixes, depe
 
 1. ✅ **Compile both PLAN.md files** — This document
 2. ✅ **Audit codebase against plan** — Found 3 structural blockers + 3 backend bugs + 2 DESIGN.md errors
-3. ✅ **Update plan** — Added Phase 10.5 with 5 sub-phases covering all known issues
+3. ✅ **Update plan** — Added Phase 10.5 with 7 sub-phases covering all known issues
 4. 🔄 **Open PR** — `feature/compile-plan-merge`
-5. 🚀 **Start Phase 10.5** — Dead templates → API spec → deps → backend bugs → DESIGN.md fixes
+5. 🚀 **Start Phase 10.5** — Dead templates → API spec → deps → backend bugs → DESIGN.md fixes → React routes → Docker config
 6. 📝 **Start Phase 11.1** — Setup Solara project structure
 
 ---
@@ -367,7 +388,6 @@ The remaining cleanup is Phase 10.5 (dead Jinja2 templates, API spec fixes, depe
 | `src/portfolio_manager/main.py` | FastAPI backend (UNCHANGED) |
 | `src/portfolio_manager/routes/` | API endpoints (UNCHANGED) |
 | `docs/solara/DESIGN.md` | Solara frontend design docs |
-| `docs/solara/PLAN.md` | Solara migration plan |
 | `docs/MASTER_PLAN.md` | This unified master plan |
 
 ---
