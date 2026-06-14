@@ -12,6 +12,9 @@ import solara
 from portfolio_manager.services.portfolios import PortfolioService
 from portfolio_manager.services.charts import ChartService
 from portfolio_manager.services.trades import TradeService
+from portfolio_manager.ui.dashboard import Dashboard
+from portfolio_manager.ui.charts import ChartsView
+from portfolio_manager.ui.trades import TradesView
 
 
 def get_services():
@@ -20,6 +23,15 @@ def get_services():
         "portfolio": PortfolioService(),
         "chart": ChartService(),
         "trade": TradeService(),
+    }
+
+
+def get_ui_components():
+    """Return UI component instances for Solara rendering."""
+    return {
+        "dashboard": Dashboard(),
+        "charts": ChartsView(),
+        "trades": TradesView(),
     }
 
 
@@ -36,6 +48,6 @@ def solara_app():
     """Return the Solara app for uvicorn serving."""
     return solara.Server(
         solara_app=PortfolioManagerApp,
-        title=settings.app_name,
+        title="Portfolio Manager",
         version="0.1.0",
     )
