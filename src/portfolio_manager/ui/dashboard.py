@@ -1,131 +1,104 @@
 """Dashboard component — main Portfolio Manager UI.
 
-This component orchestrates the Solara services layer and renders
-the main dashboard layout. It calls services directly — no FastAPI routes.
+Proper Solara function-based component with reactive state and async data loading
+via solara.lab.use_task (never asyncio.run — Solara runs inside Tornado's event loop).
 """
 
-import asyncio
-from typing import Optional
-
 import solara
-from solara import component, html
+from solara.lab import use_task
 
 from portfolio_manager.services.portfolios import PortfolioService
-from portfolio_manager.services.charts import ChartService
-from portfolio_manager.services.trades import TradeService
 
 
-class Dashboard:
-    """Main dashboard component."""
+portfolio_service = PortfolioService()
 
-    def __init__(self):
-        self.portfolio_service = PortfolioService()
-        self.chart_service = ChartService()
-        self.trade_service = TradeService()
-        self.selected_portfolio: Optional[str] = None
 
-    @component
-    def render(self):
-        """Render the dashboard layout."""
-        return html.div(
-            {"class": "dashboard"},
-            [
-                self._render_header(),
-                self._render_portfolio_selector(),
-                self._render_main_content(),
-            ],
-        )
+@solara.component
+def Dashboard():
+    """Main dashboard component with portfolio selector and summary."""
+    router = solara.use_router()
+    portfolios, set_portfolios = solara.use_state([])
+    selected_id = solara.reactive(None)
+    loading = solara.reactive(True)
+    error = solara.reactive(None)
 
-    def _render_header(self):
-        """Render the header section."""
-        return html.header(
-            {"class": "dashboard-header"},
-            [
-                html.h1({"class": "title"}, ["Portfolio Manager"]),
-                html.p({"class": "subtitle"}, ["Manage portfolios, track charts, and view trades"]),
-            ],
-        )
+    async def _fetch():
+        try:
+            data = await portfolio_service.list_portfolios()
+            set_portfolios(data)
+            error.value = None
+        except Exception as e:
+            error.value = str(e)
+        finally:
+            loading.value = False
 
-    def _render_portfolio_selector(self):
-        """Render the portfolio selector dropdown."""
-        portfolios = asyncio.run(self.portfolio_service.list_portfolios())
+    use_task(_fetch, dependencies=[])  # noqa: SH104 — pass function, not coroutine
 
-        options = [
-            html.option({"value": "", "disabled": True, "selected": True}, ["Select a portfolio"])
-        ]
-        for p in portfolios:
-            options.append(html.option({"value": p["id"]}, [p["name"]]))
+    def on_select(value):
+        selected_id.value = value
 
-        return html.div(
-            {"class": "portfolio-selector"},
-            [
-                html.label({"for": "portfolio-select"}, ["Select Portfolio:"]),
-                html.select(
-                    {
-                        "id": "portfolio-select",
-                        "on_change": self._on_portfolio_change,
-                    },
-                    options,
-                ),
-            ],
-        )
+    if loading.value:
+        return solara.SpinnerSolara()
+    if error.value:
+        return solara.alert(f"Error loading portfolios: {error.value}", type="error")
 
-    def _on_portfolio_change(self, event):
-        """Handle portfolio selection change."""
-        self.selected_portfolio = event.target.value
-        # Trigger re-render of main content
-        return True
+    options = [{"label": p["name"], "value": p["id"]} for p in portfolios]
 
-    def _render_main_content(self):
-        """Render the main content area."""
-        if not self.selected_portfolio:
-            return html.div(
-                {"class": "placeholder-content"},
-                [
-                    html.p(
-                        {"class": "placeholder-text"},
-                        ["Select a portfolio to view charts and trades"],
-                    )
-                ],
+    with solara.Column():
+        solara.Title("Portfolio Manager", subtitle="Manage portfolios, track charts, and view trades")
+
+        if portfolios:
+            solara.Select(
+                label="Select Portfolio",
+                value=selected_id.value,
+                on_value=on_select,
+                values=options,
             )
+        else:
+            solara.alert("No portfolios found. Create one to get started.", type="info")
 
-        # Render portfolio summary cards
-        return html.div(
-            {"class": "main-content"},
-            [
-                html.div(
-                    {"class": "summary-cards"},
-                    [
-                        self._render_summary_card("Total Assets", "$0.00"),
-                        self._render_summary_card("Active Trades", "0"),
-                        self._render_summary_card("Risk Score", "Low"),
-                    ],
-                ),
-                html.div(
-                    {"class": "charts-container"},
-                    [
-                        html.h2(["Portfolio Charts"]),
-                        html.div({"class": "chart-placeholder"}, ["Charts will load here"]),
-                    ],
-                ),
-                html.div(
-                    {"class": "trades-container"},
-                    [
-                        html.h2(["Recent Trades"]),
-                        html.div({"class": "trades-placeholder"}, ["Trades table will load here"]),
-                    ],
-                ),
-            ],
-        )
+        if selected_id.value:
+            selected = next((p for p in portfolios if p["id"] == selected_id.value), None)
+            if selected:
+                DashboardSummary(portfolio=selected)
 
-    def _render_summary_card(self, title, value):
-        """Render a summary card component."""
-        return html.div(
-            {"class": "summary-card"},
-            [html.h3({"class": "card-title"}, [title]), html.p({"class": "card-value"}, [value])],
-        )
+                with solara.Row(justify="center", style={"margin-top": "2rem"}):
+                    solara.Button(
+                        "View Charts",
+                        color="primary",
+                        outlined=True,
+                        on_click=lambda: router.push(f"/charts/{selected_id.value}"),
+                    )
+                    solara.Button(
+                        "View Trades",
+                        color="primary",
+                        outlined=True,
+                        on_click=lambda: router.push(f"/trades/{selected_id.value}"),
+                    )
 
 
-def get_dashboard():
-    """Return a dashboard instance for Solara components."""
-    return Dashboard()
+@solara.component
+def DashboardSummary(portfolio: dict):
+    """Summary cards for the selected portfolio."""
+    total_value = portfolio.get("total_value", 0.0)
+    position_count = portfolio.get("position_count", 0)
+
+    with solara.Row(wrap=True, style={"margin-top": "1.5rem"}):
+        SummaryCard(title="Portfolio", value=portfolio["name"])
+        SummaryCard(title="Total Value", value=f"${total_value:,.2f}")
+        SummaryCard(title="Positions", value=str(position_count))
+
+
+@solara.component
+def SummaryCard(title: str, value: str):
+    """A single summary card."""
+    with solara.Card(
+        style={
+            "flex": "1",
+            "min-width": "200px",
+            "margin": "0.5rem",
+            "text-align": "center",
+        }
+    ):
+        solara.HTML("h3", {"style": {"margin-bottom": "0.5rem", "color": "#666"}}, [title])
+        solara.HTML("h2", {"style": {"margin": 0}}, [value])

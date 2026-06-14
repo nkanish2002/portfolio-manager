@@ -1,157 +1,107 @@
 """Trades component — Portfolio Manager trades table.
 
-This component displays trades in a sortable, filterable table.
-It calls TradeService directly — no FastAPI routes.
+Proper Solara function-based component with async data loading
+via solara.lab.use_task and Solara DataTable for the trades table.
 """
 
-import asyncio
-from typing import Optional, List
-
 import solara
-from solara import component, html
+from solara.lab import use_task
 
 from portfolio_manager.services.trades import TradeService
 
 
-class TradesView:
-    """Trades table component for portfolios."""
+trade_service = TradeService()
 
-    def __init__(self):
-        self.trade_service = TradeService()
-        self.selected_portfolio: Optional[str] = None
-        self.trades_data: List[dict] = []
-        self.filter_status: Optional[str] = None
 
-    @component
-    def render(self, portfolio_id: Optional[str] = None):
-        """Render trades table for selected portfolio."""
-        self.selected_portfolio = portfolio_id
+@solara.component
+def TradesView(portfolio_id: str):
+    """Trades table component for a specific portfolio."""
+    trades = solara.reactive([])
+    summary = solara.reactive({})
+    loading = solara.reactive(True)
+    error = solara.reactive(None)
 
-        if not self.selected_portfolio:
-            return html.div(
-                {"class": "trades-placeholder"},
-                [
-                    html.p(
-                        {"class": "placeholder-text"},
-                        ["Select a portfolio to view trades"],
-                    )
-                ],
-            )
-
-        # Load trades data
-        asyncio.run(self._load_trades())
-
-        return html.div(
-            {"class": "trades-container"},
-            [
-                self._render_toolbar(),
-                self._render_trades_table(),
-            ],
-        )
-
-    async def _load_trades(self):
-        """Load trades data from service."""
+    async def _fetch():
+        if not portfolio_id:
+            loading.value = False
+            return
         try:
-            self.trades_data = await self.trade_service.list_trades(self.selected_portfolio)
+            trades_data, summary_data = await solara.thread.run(
+                _load_trades_and_summary,
+                portfolio_id,
+            )
+            trades.value = trades_data
+            summary.value = summary_data
+            error.value = None
         except Exception as e:
-            self.trades_data = [{"error": str(e)}]
+            error.value = str(e)
+        finally:
+            loading.value = False
 
-    def _render_toolbar(self):
-        """Render the trades toolbar with filters."""
-        return html.div(
-            {"class": "trades-toolbar"},
-            [
-                html.div(
-                    {"class": "filter-group"},
-                    [
-                        html.label({"for": "status-filter"}, ["Status:"]),
-                        html.select(
-                            {
-                                "id": "status-filter",
-                                "on_change": self._on_status_change,
-                            },
-                            [
-                                html.option({"value": "", "selected": True}, ["All"]),
-                                html.option({"value": "active"}, ["Active"]),
-                                html.option({"value": "completed"}, ["Completed"]),
-                                html.option({"value": "pending"}, ["Pending"]),
-                            ],
-                        ),
-                    ],
-                ),
-                html.div({"class": "search-group"}, [html.input({"type": "text", "placeholder": "Search trades..."})]),
-            ],
-        )
+    use_task(_fetch, dependencies=[portfolio_id])  # noqa: SH104
 
-    def _on_status_change(self, event):
-        """Handle status filter change."""
-        self.filter_status = event.target.value
-        # Reload trades with filter
-        pass
+    async def _load_trades_and_summary(pid):
+        t = await trade_service.list_trades(pid)
+        s = await trade_service.get_trades_summary(pid)
+        return t, s
 
-    def _render_trades_table(self):
-        """Render the trades table."""
-        if not self.trades_data:
-            return html.div(
-                {"class": "empty-state"},
-                [html.p({"class": "empty-text"}, ["No trades found"])],
+    if not portfolio_id:
+        return solara.alert("Select a portfolio to view trades", type="info")
+
+    with solara.Column():
+        solara.Title("Trades", subtitle=f"Transaction history for {portfolio_id}")
+
+        if loading.value:
+            return solara.SpinnerSolara(label="Loading trades...")
+        if error.value:
+            return solara.alert(f"Error: {error.value}", type="error")
+
+        # Summary cards
+        with solara.Row(wrap=True, style={"margin-bottom": "1.5rem"}):
+            SummaryCard(title="Total Trades", value=str(summary.value.get("total_trades", 0)))
+            SummaryCard(title="Buys", value=str(summary.value.get("total_buys", 0)))
+            SummaryCard(title="Sells", value=str(summary.value.get("total_sells", 0)))
+            SummaryCard(
+                title="Net Realized P&L",
+                value=f"${summary.value.get('net_realized_p_and_l', 0):,.2f}",
+            )
+            SummaryCard(
+                title="Realized Gains",
+                value=f"${summary.value.get('realized_gain', 0):,.2f}",
+            )
+            SummaryCard(
+                title="Realized Losses",
+                value=f"${summary.value.get('realized_loss', 0):,.2f}",
             )
 
-        if "error" in self.trades_data[0]:
-            return html.div(
-                {"class": "trades-error"},
-                [html.p({"class": "error-text"}, [f"Error loading trades: {self.trades_data[0]['error']}"])],
-            )
-
-        return html.div(
-            {"class": "trades-table-wrapper"},
-            [
-                html.table(
-                    {"class": "trades-table"},
-                    [
-                        self._render_table_header(),
-                        self._render_table_body(),
-                    ],
-                ),
-            ],
-        )
-
-    def _render_table_header(self):
-        """Render the table header row."""
-        headers = ["Date", "Type", "Portfolio", "Asset", "Quantity", "Price", "Status"]
-        return html.thead(
-            [html.tr([html.th({"class": "header-cell"}, [h]) for h in headers])],
-        )
-
-    def _render_table_body(self):
-        """Render the table body rows."""
-        rows = []
-        for trade in self.trades_data:
-            rows.append(
-                html.tr(
-                    {
-                        "class": "trade-row",
-                        "onclick": lambda t=trade: self._on_trade_click(t),
-                    },
-                    [
-                        html.td({"class": "date-cell"}, [trade.get("date", "")]),
-                        html.td({"class": "type-cell"}, [trade.get("type", "")]),
-                        html.td({"class": "portfolio-cell"}, [trade.get("portfolio", "")]),
-                        html.td({"class": "asset-cell"}, [trade.get("asset", "")]),
-                        html.td({"class": "quantity-cell"}, [trade.get("quantity", "")]),
-                        html.td({"class": "price-cell"}, [trade.get("price", "")]),
-                        html.td({"class": "status-cell"}, [trade.get("status", "")]),
-                    ],
+        # Trades table
+        if not trades.value:
+            solara.alert("No trades found", type="info")
+        else:
+            with solara.Card():
+                solara.HTML("h3", {"style": {"margin-bottom": "1rem"}}, ["Transaction History"])
+                columns = [
+                    {"name": "date", "label": "Date", "align": "left"},
+                    {"name": "type", "label": "Type", "align": "left"},
+                    {"name": "asset_id", "label": "Asset", "align": "left"},
+                    {"name": "quantity", "label": "Qty", "align": "right"},
+                    {"name": "price", "label": "Price", "align": "right"},
+                    {"name": "fees", "label": "Fees", "align": "right"},
+                    {"name": "p_and_l", "label": "P&L", "align": "right"},
+                ]
+                solara.DataTable(
+                    columns=columns,
+                    items=trades.value,
+                    density="comfortable",
+                    hover=True,
                 )
-            )
-        return html.tbody(rows)
-
-    def _on_trade_click(self, trade):
-        """Handle trade row click."""
-        # Open trade details modal
-        pass
 
 
-def get_trades_view():
-    """Return a trades view instance for Solara components."""
-    return TradesView()
+@solara.component
+def SummaryCard(title: str, value: str):
+    """A single summary card."""
+    with solara.Card(
+        style={"flex": "1", "min-width": "150px", "margin": "0.3rem", "text-align": "center"}
+    ):
+        solara.HTML("h4", {"style": {"margin-bottom": "0.3rem", "color": "#666", "font-size": "0.85rem"}}, [title])
+        solara.HTML("h3", {"style": {"margin": 0, "font-size": "1.1rem"}}, [value])
