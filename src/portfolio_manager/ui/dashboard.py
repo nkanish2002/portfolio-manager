@@ -1,7 +1,7 @@
 """Dashboard component — main Portfolio Manager UI.
 
 Proper Solara function-based component with reactive state and async data loading
-via solara.lab.use_task (never asyncio.run — Solara runs inside Tornado's event loop).
+via solara.lab.use_task.
 """
 
 import solara
@@ -19,7 +19,6 @@ def Dashboard():
     router = solara.use_router()
     portfolios, set_portfolios = solara.use_state([])
     selected_id = solara.reactive(None)
-    loading = solara.reactive(True)
     error = solara.reactive(None)
 
     async def _fetch():
@@ -29,23 +28,22 @@ def Dashboard():
             error.value = None
         except Exception as e:
             error.value = str(e)
-        finally:
-            loading.value = False
 
-    use_task(_fetch, dependencies=[])  # noqa: SH104 — pass function, not coroutine
+    task = use_task(_fetch, dependencies=[])  # noqa: SH104 — pass function, not coroutine
 
     def on_select(value):
         selected_id.value = value
 
-    if loading.value:
+    if task.pending:
         return solara.SpinnerSolara()
+
     if error.value:
         return solara.alert(f"Error loading portfolios: {error.value}", type="error")
 
     options = [{"label": p["name"], "value": p["id"]} for p in portfolios]
 
     with solara.Column():
-        solara.Title("Portfolio Manager", subtitle="Manage portfolios, track charts, and view trades")
+        solara.Title("Portfolio Manager")
 
         if portfolios:
             solara.Select(

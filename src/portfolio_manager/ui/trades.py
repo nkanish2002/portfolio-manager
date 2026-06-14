@@ -49,7 +49,7 @@ def TradesView(portfolio_id: str):
         return solara.alert("Select a portfolio to view trades", type="info")
 
     with solara.Column():
-        solara.Title("Trades", subtitle=f"Transaction history for {portfolio_id}")
+        solara.Title("Trades")
 
         if loading.value:
             return solara.SpinnerSolara(label="Loading trades...")

@@ -25,7 +25,7 @@ def ChartsView(portfolio_id: str):
         active_tab.value = tab
 
     with solara.Column():
-        solara.Title("Charts", subtitle=f"Portfolio analysis for {portfolio_id}")
+        solara.Title("Charts")
 
         with solara.Row(justify="center", style={"margin-bottom": "1rem"}):
             solara.Button(
