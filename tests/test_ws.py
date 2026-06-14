@@ -1,16 +1,14 @@
 """WebSocket endpoint integration tests."""
 
-import asyncio
 import pytest
-from httpx import ASGITransport, AsyncClient
 from starlette.testclient import TestClient
+
 from portfolio_manager.main import app
 
 
 @pytest.mark.asyncio
 async def test_ws_connects():
     """Test that the WebSocket endpoint accepts connections."""
-    from starlette.testclient import WebSocketTestSession
 
     with TestClient(app) as client:
         with client.websocket_connect("/ws/quotes") as ws:

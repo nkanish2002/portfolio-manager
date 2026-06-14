@@ -40,10 +40,13 @@ class TestSellEndpoint:
     async def test_full_sell(self, client: AsyncClient) -> None:
         """Sell entire position — position should be removed."""
         # Create portfolio
-        portfolio = await client.post("/api/v1/portfolios/", json={
-            "name": "Test Portfolio",
-            "currency": "USD",
-        })
+        portfolio = await client.post(
+            "/api/v1/portfolios/",
+            json={
+                "name": "Test Portfolio",
+                "currency": "USD",
+            },
+        )
         assert portfolio.status_code == 201
         portfolio_id = portfolio.json()["id"]
 
@@ -57,7 +60,13 @@ class TestSellEndpoint:
         # Sell all 100 shares at $160
         sell = await client.post(
             f"/api/v1/portfolios/{portfolio_id}/positions/sell",
-            json={"symbol": "AAPL", "quantity": 100, "price": 160.0, "fees": 5, "notes": "Full exit"},
+            json={
+                "symbol": "AAPL",
+                "quantity": 100,
+                "price": 160.0,
+                "fees": 5,
+                "notes": "Full exit",
+            },
         )
         assert sell.status_code == 201, f"Sell failed: {sell.text}"
         data = sell.json()
@@ -83,7 +92,9 @@ class TestSellEndpoint:
 
     async def test_partial_sell(self, client: AsyncClient) -> None:
         """Sell half of a position — position should remain with reduced qty."""
-        portfolio = await client.post("/api/v1/portfolios/", json={"name": "Test", "currency": "USD"})
+        portfolio = await client.post(
+            "/api/v1/portfolios/", json={"name": "Test", "currency": "USD"}
+        )
         portfolio_id = portfolio.json()["id"]
 
         # Create position
@@ -112,7 +123,9 @@ class TestSellEndpoint:
 
     async def test_sell_more_than_position(self, client: AsyncClient) -> None:
         """Trying to sell more than we own should return 400."""
-        portfolio = await client.post("/api/v1/portfolios/", json={"name": "Test", "currency": "USD"})
+        portfolio = await client.post(
+            "/api/v1/portfolios/", json={"name": "Test", "currency": "USD"}
+        )
         portfolio_id = portfolio.json()["id"]
 
         await client.post(
@@ -130,7 +143,9 @@ class TestSellEndpoint:
 
     async def test_sell_nonexistent_position(self, client: AsyncClient) -> None:
         """Selling a symbol that isn't in the portfolio returns 404."""
-        portfolio = await client.post("/api/v1/portfolios/", json={"name": "Test", "currency": "USD"})
+        portfolio = await client.post(
+            "/api/v1/portfolios/", json={"name": "Test", "currency": "USD"}
+        )
         portfolio_id = portfolio.json()["id"]
 
         sell = await client.post(
@@ -145,7 +160,9 @@ class TestTradeAuditTrail:
 
     async def test_trades_list(self, client: AsyncClient) -> None:
         """Get all trades for a portfolio."""
-        portfolio = await client.post("/api/v1/portfolios/", json={"name": "Test", "currency": "USD"})
+        portfolio = await client.post(
+            "/api/v1/portfolios/", json={"name": "Test", "currency": "USD"}
+        )
         portfolio_id = portfolio.json()["id"]
 
         # Create positions (creates BUY transactions)
@@ -171,7 +188,9 @@ class TestTradeAuditTrail:
 
     async def test_trades_filter_by_type(self, client: AsyncClient) -> None:
         """Filter trades by type (BUY/SELL)."""
-        portfolio = await client.post("/api/v1/portfolios/", json={"name": "Test", "currency": "USD"})
+        portfolio = await client.post(
+            "/api/v1/portfolios/", json={"name": "Test", "currency": "USD"}
+        )
         portfolio_id = portfolio.json()["id"]
 
         await client.post(
@@ -183,17 +202,23 @@ class TestTradeAuditTrail:
             json={"symbol": "AAPL", "quantity": 10, "price": 110.0},
         )
 
-        buys = await client.get(f"/api/v1/portfolios/{portfolio_id}/trades", params={"trade_type": "BUY"})
+        buys = await client.get(
+            f"/api/v1/portfolios/{portfolio_id}/trades", params={"trade_type": "BUY"}
+        )
         assert buys.status_code == 200, f"Buys query failed: {buys.text}"
         assert all(t["type"] == "BUY" for t in buys.json())
 
-        sells = await client.get(f"/api/v1/portfolios/{portfolio_id}/trades", params={"trade_type": "SELL"})
+        sells = await client.get(
+            f"/api/v1/portfolios/{portfolio_id}/trades", params={"trade_type": "SELL"}
+        )
         assert sells.status_code == 200, f"Sells query failed: {sells.text}"
         assert all(t["type"] == "SELL" for t in sells.json())
 
     async def test_trades_filter_by_symbol(self, client: AsyncClient) -> None:
         """Filter trades by symbol."""
-        portfolio = await client.post("/api/v1/portfolios/", json={"name": "Test", "currency": "USD"})
+        portfolio = await client.post(
+            "/api/v1/portfolios/", json={"name": "Test", "currency": "USD"}
+        )
         portfolio_id = portfolio.json()["id"]
 
         await client.post(
@@ -205,17 +230,23 @@ class TestTradeAuditTrail:
             json={"symbol": "MSFT", "quantity": 20, "price": 300.0},
         )
 
-        aapl_trades = await client.get(f"/api/v1/portfolios/{portfolio_id}/trades", params={"symbol": "AAPL"})
+        aapl_trades = await client.get(
+            f"/api/v1/portfolios/{portfolio_id}/trades", params={"symbol": "AAPL"}
+        )
         assert aapl_trades.status_code == 200, f"AAPL query failed: {aapl_trades.text}"
         assert all(t["symbol"] == "AAPL" for t in aapl_trades.json())
 
-        msft_trades = await client.get(f"/api/v1/portfolios/{portfolio_id}/trades", params={"symbol": "MSFT"})
+        msft_trades = await client.get(
+            f"/api/v1/portfolios/{portfolio_id}/trades", params={"symbol": "MSFT"}
+        )
         assert msft_trades.status_code == 200, f"MSFT query failed: {msft_trades.text}"
         assert all(t["symbol"] == "MSFT" for t in msft_trades.json())
 
     async def test_trade_summary(self, client: AsyncClient) -> None:
         """Get trade summary with realized P&L."""
-        portfolio = await client.post("/api/v1/portfolios/", json={"name": "Test", "currency": "USD"})
+        portfolio = await client.post(
+            "/api/v1/portfolios/", json={"name": "Test", "currency": "USD"}
+        )
         portfolio_id = portfolio.json()["id"]
 
         await client.post(
@@ -238,7 +269,9 @@ class TestTradeAuditTrail:
 
     async def test_trades_sort_by_date_desc(self, client: AsyncClient) -> None:
         """Trades should be sorted by date descending by default."""
-        portfolio = await client.post("/api/v1/portfolios/", json={"name": "Test", "currency": "USD"})
+        portfolio = await client.post(
+            "/api/v1/portfolios/", json={"name": "Test", "currency": "USD"}
+        )
         portfolio_id = portfolio.json()["id"]
 
         await client.post(
@@ -250,7 +283,10 @@ class TestTradeAuditTrail:
             json={"symbol": "AAPL", "quantity": 20, "price": 110.0},
         )
 
-        trades = await client.get(f"/api/v1/portfolios/{portfolio_id}/trades", params={"sort_by": "date", "sort_order": "desc"})
+        trades = await client.get(
+            f"/api/v1/portfolios/{portfolio_id}/trades",
+            params={"sort_by": "date", "sort_order": "desc"},
+        )
         assert trades.status_code == 200, f"Sort query failed: {trades.text}"
         trade_list = trades.json()
         assert len(trade_list) == 2

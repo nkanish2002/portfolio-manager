@@ -7,8 +7,6 @@ Categorizes assets by:
 - Market Cap (Large, Mid, Small, Micro)
 """
 
-from typing import Optional
-
 
 # Simplified sector mapping (in production, use a paid API like Alpha Vantage or IEX)
 SECTOR_MAP = {
@@ -129,9 +127,9 @@ CRYPTO_MAP = {
 }
 
 
-def classify_asset(symbol: str,
-                    asset_class: str = "equity",
-                    exchange: Optional[str] = None) -> dict:
+def classify_asset(
+    symbol: str, asset_class: str = "equity", exchange: str | None = None
+) -> dict:
     """Classify an asset into sector, industry, region, and market cap categories.
 
     Args:
@@ -155,22 +153,26 @@ def classify_asset(symbol: str,
 
     # Handle crypto first
     if asset_class in ("crypto", "cryptocurrency"):
-        result.update({
-            "sector": "Digital Assets",
-            "industry": "Cryptocurrency",
-            "market_category": "crypto",
-        })
+        result.update(
+            {
+                "sector": "Digital Assets",
+                "industry": "Cryptocurrency",
+                "market_category": "crypto",
+            }
+        )
         if symbol_upper in CRYPTO_MAP:
             result["sector"], result["industry"] = CRYPTO_MAP[symbol_upper]
         return result
 
     # Handle ETFs
     if asset_class == "etf" and symbol_upper in ETF_SECTOR_MAP:
-        result.update({
-            "sector": ETF_SECTOR_MAP[symbol_upper][0],
-            "industry": ETF_SECTOR_MAP[symbol_upper][1],
-            "market_category": "etf",
-        })
+        result.update(
+            {
+                "sector": ETF_SECTOR_MAP[symbol_upper][0],
+                "industry": ETF_SECTOR_MAP[symbol_upper][1],
+                "market_category": "etf",
+            }
+        )
         return result
 
     # Handle equities

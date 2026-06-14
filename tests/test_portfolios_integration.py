@@ -3,22 +3,22 @@
 Tests the full request/response cycle for all portfolio endpoints using
 httpx.AsyncClient against an in-memory SQLite database.
 """
-import sys
+
 import os
+import sys
 
 # Ensure the src directory is in the path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
 import uuid
-from typing import AsyncGenerator
+from collections.abc import AsyncGenerator
 
-import pytest
 import pytest_asyncio
-from httpx import AsyncClient, ASGITransport
-from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession
+from httpx import ASGITransport, AsyncClient
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
-from portfolio_manager.main import app
 from portfolio_manager.database import Base, get_db
+from portfolio_manager.main import app
 
 # Use an in-memory SQLite database for testing
 TEST_DATABASE_URL = "sqlite+aiosqlite:///:memory:"
@@ -41,14 +41,12 @@ async def db_session() -> AsyncGenerator[AsyncSession, None]:
 @pytest_asyncio.fixture
 async def client(db_session: AsyncSession) -> AsyncGenerator[AsyncClient, None]:
     """Create an async test client with a fresh DB session."""
+
     async def override_get_db() -> AsyncGenerator[AsyncSession, None]:
         yield db_session
 
     app.dependency_overrides[get_db] = override_get_db
-    async with AsyncClient(
-        transport=ASGITransport(app=app),
-        base_url="http://test"
-    ) as ac:
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
         yield ac
     app.dependency_overrides.clear()
 
@@ -58,9 +56,7 @@ class TestPortfoliosIntegration:
 
     async def test_create_portfolio_minimal(self, client: AsyncClient) -> None:
         """Test creating a portfolio with minimal fields."""
-        response = await client.post("/api/v1/portfolios/", json={
-            "name": "My Portfolio"
-        })
+        response = await client.post("/api/v1/portfolios/", json={"name": "My Portfolio"})
         assert response.status_code == 201
         data = response.json()
         assert data["name"] == "My Portfolio"
@@ -72,11 +68,14 @@ class TestPortfoliosIntegration:
 
     async def test_create_portfolio_full(self, client: AsyncClient) -> None:
         """Test creating a portfolio with all fields."""
-        response = await client.post("/api/v1/portfolios/", json={
-            "name": "Full Portfolio",
-            "description": "A comprehensive test portfolio",
-            "currency": "EUR"
-        })
+        response = await client.post(
+            "/api/v1/portfolios/",
+            json={
+                "name": "Full Portfolio",
+                "description": "A comprehensive test portfolio",
+                "currency": "EUR",
+            },
+        )
         assert response.status_code == 201
         data = response.json()
         assert data["name"] == "Full Portfolio"
@@ -87,13 +86,9 @@ class TestPortfoliosIntegration:
     async def test_create_portfolio_duplicate_name(self, client: AsyncClient) -> None:
         """Test that duplicate portfolio names return 409 Conflict."""
         # Create first portfolio
-        await client.post("/api/v1/portfolios/", json={
-            "name": "Duplicate Test"
-        })
+        await client.post("/api/v1/portfolios/", json={"name": "Duplicate Test"})
         # Try to create another with same name
-        response = await client.post("/api/v1/portfolios/", json={
-            "name": "Duplicate Test"
-        })
+        response = await client.post("/api/v1/portfolios/", json={"name": "Duplicate Test"})
         assert response.status_code == 409
         data = response.json()
         err = data.get("error", {})
@@ -111,10 +106,10 @@ class TestPortfoliosIntegration:
         """Test listing multiple portfolios."""
         # Create several portfolios
         for i in range(3):
-            await client.post("/api/v1/portfolios/", json={
-                "name": f"Portfolio {i}",
-                "currency": ["USD", "EUR", "GBP"][i]
-            })
+            await client.post(
+                "/api/v1/portfolios/",
+                json={"name": f"Portfolio {i}", "currency": ["USD", "EUR", "GBP"][i]},
+            )
 
         response = await client.get("/api/v1/portfolios/")
         assert response.status_code == 200
@@ -125,10 +120,9 @@ class TestPortfoliosIntegration:
 
     async def test_get_portfolio(self, client: AsyncClient) -> None:
         """Test retrieving a specific portfolio."""
-        create_resp = await client.post("/api/v1/portfolios/", json={
-            "name": "Get Portfolio",
-            "currency": "JPY"
-        })
+        create_resp = await client.post(
+            "/api/v1/portfolios/", json={"name": "Get Portfolio", "currency": "JPY"}
+        )
         portfolio_id = create_resp.json()["id"]
 
         response = await client.get(f"/api/v1/portfolios/{portfolio_id}")
@@ -149,9 +143,7 @@ class TestPortfoliosIntegration:
 
     async def test_delete_portfolio(self, client: AsyncClient) -> None:
         """Test deleting a portfolio."""
-        create_resp = await client.post("/api/v1/portfolios/", json={
-            "name": "Delete Me"
-        })
+        create_resp = await client.post("/api/v1/portfolios/", json={"name": "Delete Me"})
         portfolio_id = create_resp.json()["id"]
 
         # Delete
@@ -177,16 +169,13 @@ class TestPositionsIntegration:
 
     async def test_add_position_new(self, client: AsyncClient) -> None:
         """Test adding a new position to a portfolio."""
-        create_resp = await client.post("/api/v1/portfolios/", json={
-            "name": "Position Portfolio"
-        })
+        create_resp = await client.post("/api/v1/portfolios/", json={"name": "Position Portfolio"})
         portfolio_id = create_resp.json()["id"]
 
-        response = await client.post(f"/api/v1/portfolios/{portfolio_id}/positions", json={
-            "symbol": "AAPL",
-            "quantity": 100,
-            "price": 150.0
-        })
+        response = await client.post(
+            f"/api/v1/portfolios/{portfolio_id}/positions",
+            json={"symbol": "AAPL", "quantity": 100, "price": 150.0},
+        )
         assert response.status_code == 201
         data = response.json()
         assert data["symbol"] == "AAPL"
@@ -200,27 +189,25 @@ class TestPositionsIntegration:
 
     async def test_add_position_update_existing(self, client: AsyncClient) -> None:
         """Test that adding a position with same symbol updates quantity."""
-        create_resp = await client.post("/api/v1/portfolios/", json={
-            "name": "Update Position Portfolio"
-        })
+        create_resp = await client.post(
+            "/api/v1/portfolios/", json={"name": "Update Position Portfolio"}
+        )
         portfolio_id = create_resp.json()["id"]
 
         # First purchase
-        resp1 = await client.post(f"/api/v1/portfolios/{portfolio_id}/positions", json={
-            "symbol": "MSFT",
-            "quantity": 50,
-            "price": 300.0
-        })
+        resp1 = await client.post(
+            f"/api/v1/portfolios/{portfolio_id}/positions",
+            json={"symbol": "MSFT", "quantity": 50, "price": 300.0},
+        )
         assert resp1.status_code == 201
-        qty1 = resp1.json()["quantity"]
-        cost1 = resp1.json()["cost_basis"]
+        resp1.json()["quantity"]
+        resp1.json()["cost_basis"]
 
         # Second purchase (same symbol)
-        resp2 = await client.post(f"/api/v1/portfolios/{portfolio_id}/positions", json={
-            "symbol": "MSFT",
-            "quantity": 50,
-            "price": 320.0
-        })
+        resp2 = await client.post(
+            f"/api/v1/portfolios/{portfolio_id}/positions",
+            json={"symbol": "MSFT", "quantity": 50, "price": 320.0},
+        )
         assert resp2.status_code == 201
         data = resp2.json()
         assert data["quantity"] == 100.0  # 50 + 50
@@ -229,11 +216,10 @@ class TestPositionsIntegration:
     async def test_add_position_invalid_portfolio(self, client: AsyncClient) -> None:
         """Test adding a position to a non-existent portfolio."""
         fake_id = str(uuid.uuid4())
-        response = await client.post(f"/api/v1/portfolios/{fake_id}/positions", json={
-            "symbol": "GOOGL",
-            "quantity": 10,
-            "price": 2800.0
-        })
+        response = await client.post(
+            f"/api/v1/portfolios/{fake_id}/positions",
+            json={"symbol": "GOOGL", "quantity": 10, "price": 2800.0},
+        )
         assert response.status_code == 404
         data = response.json()
         err = data.get("error", {})
@@ -241,30 +227,28 @@ class TestPositionsIntegration:
 
     async def test_add_position_zero_quantity(self, client: AsyncClient) -> None:
         """Test that zero/negative quantity is rejected."""
-        create_resp = await client.post("/api/v1/portfolios/", json={
-            "name": "Invalid Position Portfolio"
-        })
+        create_resp = await client.post(
+            "/api/v1/portfolios/", json={"name": "Invalid Position Portfolio"}
+        )
         portfolio_id = create_resp.json()["id"]
 
-        response = await client.post(f"/api/v1/portfolios/{portfolio_id}/positions", json={
-            "symbol": "TSLA",
-            "quantity": 0,
-            "price": 200.0
-        })
+        response = await client.post(
+            f"/api/v1/portfolios/{portfolio_id}/positions",
+            json={"symbol": "TSLA", "quantity": 0, "price": 200.0},
+        )
         assert response.status_code == 422  # Validation error
 
     async def test_add_position_negative_price(self, client: AsyncClient) -> None:
         """Test that negative price is rejected."""
-        create_resp = await client.post("/api/v1/portfolios/", json={
-            "name": "Invalid Price Portfolio"
-        })
+        create_resp = await client.post(
+            "/api/v1/portfolios/", json={"name": "Invalid Price Portfolio"}
+        )
         portfolio_id = create_resp.json()["id"]
 
-        response = await client.post(f"/api/v1/portfolios/{portfolio_id}/positions", json={
-            "symbol": "AMZN",
-            "quantity": 10,
-            "price": -50.0
-        })
+        response = await client.post(
+            f"/api/v1/portfolios/{portfolio_id}/positions",
+            json={"symbol": "AMZN", "quantity": 10, "price": -50.0},
+        )
         assert response.status_code == 422
 
 
@@ -273,18 +257,21 @@ class TestTransactionsIntegration:
 
     async def test_add_buy_transaction(self, client: AsyncClient) -> None:
         """Test adding a buy transaction."""
-        create_resp = await client.post("/api/v1/portfolios/", json={
-            "name": "Transaction Portfolio"
-        })
+        create_resp = await client.post(
+            "/api/v1/portfolios/", json={"name": "Transaction Portfolio"}
+        )
         portfolio_id = create_resp.json()["id"]
 
-        response = await client.post(f"/api/v1/portfolios/{portfolio_id}/transactions", json={
-            "symbol": "NVDA",
-            "transaction_type": "buy",
-            "quantity": 25,
-            "price": 800.0,
-            "fees": 10.0
-        })
+        response = await client.post(
+            f"/api/v1/portfolios/{portfolio_id}/transactions",
+            json={
+                "symbol": "NVDA",
+                "transaction_type": "buy",
+                "quantity": 25,
+                "price": 800.0,
+                "fees": 10.0,
+            },
+        )
         assert response.status_code == 201
         data = response.json()
         assert data["status"] == "recorded"
@@ -292,48 +279,45 @@ class TestTransactionsIntegration:
 
     async def test_add_sell_transaction(self, client: AsyncClient) -> None:
         """Test adding a sell transaction."""
-        create_resp = await client.post("/api/v1/portfolios/", json={
-            "name": "Sell Transaction Portfolio"
-        })
+        create_resp = await client.post(
+            "/api/v1/portfolios/", json={"name": "Sell Transaction Portfolio"}
+        )
         portfolio_id = create_resp.json()["id"]
 
-        response = await client.post(f"/api/v1/portfolios/{portfolio_id}/transactions", json={
-            "symbol": "META",
-            "transaction_type": "sell",
-            "quantity": 5,
-            "price": 500.0
-        })
+        response = await client.post(
+            f"/api/v1/portfolios/{portfolio_id}/transactions",
+            json={"symbol": "META", "transaction_type": "sell", "quantity": 5, "price": 500.0},
+        )
         assert response.status_code == 201
         data = response.json()
         assert data["status"] == "recorded"
 
     async def test_add_transaction_with_notes(self, client: AsyncClient) -> None:
         """Test adding a transaction with optional notes."""
-        create_resp = await client.post("/api/v1/portfolios/", json={
-            "name": "Notes Portfolio"
-        })
+        create_resp = await client.post("/api/v1/portfolios/", json={"name": "Notes Portfolio"})
         portfolio_id = create_resp.json()["id"]
 
-        response = await client.post(f"/api/v1/portfolios/{portfolio_id}/transactions", json={
-            "symbol": "BRK.B",
-            "transaction_type": "buy",
-            "quantity": 2,
-            "price": 400.0,
-            "fees": 5.0,
-            "notes": "Warren Buffett pick"
-        })
+        response = await client.post(
+            f"/api/v1/portfolios/{portfolio_id}/transactions",
+            json={
+                "symbol": "BRK.B",
+                "transaction_type": "buy",
+                "quantity": 2,
+                "price": 400.0,
+                "fees": 5.0,
+                "notes": "Warren Buffett pick",
+            },
+        )
         assert response.status_code == 201
         assert response.json()["status"] == "recorded"
 
     async def test_add_transaction_invalid_portfolio(self, client: AsyncClient) -> None:
         """Test adding a transaction to a non-existent portfolio."""
         fake_id = str(uuid.uuid4())
-        response = await client.post(f"/api/v1/portfolios/{fake_id}/transactions", json={
-            "symbol": "SPY",
-            "transaction_type": "buy",
-            "quantity": 10,
-            "price": 450.0
-        })
+        response = await client.post(
+            f"/api/v1/portfolios/{fake_id}/transactions",
+            json={"symbol": "SPY", "transaction_type": "buy", "quantity": 10, "price": 450.0},
+        )
         # This may fail with 404 or create asset anyway depending on implementation
         # At minimum it should not crash
         assert response.status_code in [201, 404]
@@ -344,22 +328,18 @@ class TestPricesIntegration:
 
     async def test_refresh_prices(self, client: AsyncClient) -> None:
         """Test refreshing prices for all positions."""
-        create_resp = await client.post("/api/v1/portfolios/", json={
-            "name": "Refresh Portfolio"
-        })
+        create_resp = await client.post("/api/v1/portfolios/", json={"name": "Refresh Portfolio"})
         portfolio_id = create_resp.json()["id"]
 
         # Add positions
-        await client.post(f"/api/v1/portfolios/{portfolio_id}/positions", json={
-            "symbol": "AAPL",
-            "quantity": 10,
-            "price": 150.0
-        })
-        await client.post(f"/api/v1/portfolios/{portfolio_id}/positions", json={
-            "symbol": "MSFT",
-            "quantity": 5,
-            "price": 300.0
-        })
+        await client.post(
+            f"/api/v1/portfolios/{portfolio_id}/positions",
+            json={"symbol": "AAPL", "quantity": 10, "price": 150.0},
+        )
+        await client.post(
+            f"/api/v1/portfolios/{portfolio_id}/positions",
+            json={"symbol": "MSFT", "quantity": 5, "price": 300.0},
+        )
 
         # Refresh (may fail to fetch from yfinance, but should not crash)
         response = await client.post(f"/api/v1/portfolios/{portfolio_id}/positions/refresh")

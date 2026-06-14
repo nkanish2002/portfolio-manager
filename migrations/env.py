@@ -3,7 +3,7 @@ import sys
 from logging.config import fileConfig
 
 from alembic import context
-from sqlalchemy import engine_from_config, pool, event
+from sqlalchemy import pool
 from sqlalchemy.ext.asyncio import async_engine_from_config
 
 # Add the src directory to the Python path so we can import project modules

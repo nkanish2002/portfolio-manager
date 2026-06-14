@@ -1,7 +1,6 @@
 """Portfolio calculations — NAV, returns, P&L, allocation."""
 
 from datetime import date
-from decimal import Decimal
 
 import numpy as np
 import pandas as pd
@@ -36,14 +35,20 @@ def calculate_portfolio_value(positions: pd.DataFrame) -> dict:
     total_value = positions["market_value"].sum()
     total_cost = positions["cost_basis_total"].sum()
 
-    by_class = positions.groupby("asset_class").agg(
-        market_value=("market_value", "sum"),
-        cost_basis=("cost_basis_total", "sum"),
-        count=("symbol", "count"),
-    ).to_dict("index")
+    by_class = (
+        positions.groupby("asset_class")
+        .agg(
+            market_value=("market_value", "sum"),
+            cost_basis=("cost_basis_total", "sum"),
+            count=("symbol", "count"),
+        )
+        .to_dict("index")
+    )
 
     allocation = positions.copy()
-    allocation["allocation_pct"] = (allocation["market_value"] / total_value * 100).round(2) if total_value > 0 else 0
+    allocation["allocation_pct"] = (
+        (allocation["market_value"] / total_value * 100).round(2) if total_value > 0 else 0
+    )
     top_holdings = (
         allocation.nlargest(10, "market_value")[["symbol", "market_value", "allocation_pct"]]
         .round(2)
@@ -54,10 +59,16 @@ def calculate_portfolio_value(positions: pd.DataFrame) -> dict:
         "total_value": round(float(total_value), 2),
         "total_cost_basis": round(float(total_cost), 2),
         "total_gain": round(float(total_value - total_cost), 2),
-        "total_gain_pct": round(float((total_value - total_cost) / total_cost * 100), 2) if total_cost > 0 else 0,
+        "total_gain_pct": round(float((total_value - total_cost) / total_cost * 100), 2)
+        if total_cost > 0
+        else 0,
         "position_count": len(positions),
-        "by_class": {k: {kk: round(float(vv), 2) for kk, vv in v.items()} for k, v in by_class.items()},
-        "allocation_pct": allocation[["symbol", "asset_class", "allocation_pct"]].to_dict("records"),
+        "by_class": {
+            k: {kk: round(float(vv), 2) for kk, vv in v.items()} for k, v in by_class.items()
+        },
+        "allocation_pct": allocation[["symbol", "asset_class", "allocation_pct"]].to_dict(
+            "records"
+        ),
         "top_holdings": top_holdings,
     }
 

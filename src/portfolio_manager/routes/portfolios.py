@@ -2,16 +2,13 @@
 
 from typing import Annotated
 
-from uuid import UUID
-
+import structlog
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel, Field, model_validator
-from sqlalchemy import func, select, update
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-import structlog
-
-from portfolio_manager.database import async_session, get_db
+from portfolio_manager.database import get_db
 from portfolio_manager.models.asset import Asset, AssetClass
 from portfolio_manager.models.portfolio import Portfolio
 from portfolio_manager.models.position import Position
@@ -19,11 +16,31 @@ from portfolio_manager.models.transaction import Transaction, TransactionType
 from portfolio_manager.services.data_feed import get_price
 
 logger = structlog.getLogger(__name__)
-
 router = APIRouter(prefix="/portfolios", tags=["portfolios"])
 
 
+async def _portfolio_stats(db: AsyncSession, portfolio_id: str) -> dict:
+    """Compute position_count and total_value for a portfolio."""
+    from sqlalchemy import func as sql_func
+
+    pos_count_result = await db.execute(
+        select(sql_func.count(Position.id)).where(Position.portfolio_id == portfolio_id)
+    )
+    pos_count = pos_count_result.scalar_one() or 0
+
+    # total_value = sum(quantity * current_price) for all positions
+    pos_val_result = await db.execute(
+        select(
+            sql_func.sum(Position.quantity * sql_func.coalesce(Position.current_price, 0))
+        ).where(Position.portfolio_id == portfolio_id)
+    )
+    total_value = round(float(pos_val_result.scalar_one() or 0), 2)
+
+    return {"position_count": pos_count, "total_value": total_value}
+
+
 # --- Pydantic schemas ---
+
 
 class PortfolioCreate(BaseModel):
     name: str = Field(..., min_length=1, max_length=100)
@@ -43,7 +60,9 @@ class PortfolioResponse(BaseModel):
 
 
 class PositionCreate(BaseModel):
-    cusip: str | None = Field(None, description="CUSIP identifier (optional, will be fetched from symbol if missing)")
+    cusip: str | None = Field(
+        None, description="CUSIP identifier (optional, will be fetched from symbol if missing)"
+    )
     symbol: str | None = None
     quantity: float = Field(..., gt=0)
     price: float = Field(..., gt=0)
@@ -51,7 +70,7 @@ class PositionCreate(BaseModel):
     notes: str | None = None
     asset_class: str = "equity"
 
-    @model_validator(mode='after')
+    @model_validator(mode="after")
     def normalize(self):
         if self.symbol:
             self.symbol = self.symbol.upper()
@@ -76,7 +95,9 @@ class PositionResponse(BaseModel):
 
 
 class TransactionCreate(BaseModel):
-    cusip: str | None = Field(None, description="CUSIP identifier (optional, will be fetched from symbol if missing)")
+    cusip: str | None = Field(
+        None, description="CUSIP identifier (optional, will be fetched from symbol if missing)"
+    )
     symbol: str | None = None
     transaction_type: TransactionType
     quantity: float = Field(..., gt=0)
@@ -87,7 +108,11 @@ class TransactionCreate(BaseModel):
 
 class SellRequest(BaseModel):
     """Sell position request."""
-    cusip: str | None = Field(None, description="CUSIP of security to sell (optional, will be fetched from symbol if missing)")
+
+    cusip: str | None = Field(
+        None,
+        description="CUSIP of security to sell (optional, will be fetched from symbol if missing)",
+    )
     symbol: str | None = None
     quantity: float = Field(..., gt=0, description="Quantity to sell")
     price: float = Field(..., gt=0, description="Sell price per share")
@@ -95,19 +120,24 @@ class SellRequest(BaseModel):
     notes: str | None = None
 
 
-async def _find_or_create_asset(db: AsyncSession, cusip: str | None, symbol: str | None = None,
-                                 name: str | None = None, asset_class: str = "equity") -> Asset:
+async def _find_or_create_asset(
+    db: AsyncSession,
+    cusip: str | None,
+    symbol: str | None = None,
+    name: str | None = None,
+    asset_class: str = "equity",
+) -> Asset:
     """Look up asset by CUSIP first, then symbol. Create if not found."""
     if cusip:
         cusip_clean = cusip.upper().replace("-", "")
     else:
         cusip_clean = None
-    
+
     # Try CUSIP first
     if cusip_clean:
         asset_result = await db.execute(select(Asset).where(Asset.cusip == cusip_clean))
         asset = asset_result.scalars().first()
-        
+
         if not asset and symbol:
             # Try symbol
             symbol_upper = symbol.upper()
@@ -121,7 +151,7 @@ async def _find_or_create_asset(db: AsyncSession, cusip: str | None, symbol: str
     else:
         # Neither CUSIP nor symbol provided
         raise ValueError("Either 'cusip' or 'symbol' must be provided")
-    
+
     if not asset:
         # Create new asset
         asset = Asset(
@@ -132,52 +162,55 @@ async def _find_or_create_asset(db: AsyncSession, cusip: str | None, symbol: str
         )
         db.add(asset)
         await db.flush()
-    
+
     return asset
 
 
 # --- Endpoints ---
 
+
 @router.get("/", response_model=list[PortfolioResponse])
 async def list_portfolios(db: Annotated[AsyncSession, Depends(get_db)]):
     result = await db.execute(select(Portfolio).order_by(Portfolio.created_at.desc()))
     portfolios = result.scalars().all()
-    
-    # Build position counts with a single query per portfolio
+
     portfolio_responses = []
     for p in portfolios:
-        pos_count_result = await db.execute(
-            select(func.count(Position.id)).where(Position.portfolio_id == p.id)
+        stats = await _portfolio_stats(db, str(p.id))
+        portfolio_responses.append(
+            {
+                "id": str(p.id),
+                "name": p.name,
+                "description": p.description,
+                "currency": p.currency,
+                "position_count": stats["position_count"],
+                "total_value": stats["total_value"],
+            }
         )
-        pos_count = pos_count_result.scalar_one()
-        portfolio_responses.append({
-            "id": str(p.id), 
-            "name": p.name, 
-            "description": p.description,
-            "currency": p.currency, 
-            "position_count": pos_count or 0,
-            "total_value": 0.0
-        })
     return portfolio_responses
 
 
 @router.post("/", response_model=PortfolioResponse, status_code=201)
 async def create_portfolio(data: PortfolioCreate, db: Annotated[AsyncSession, Depends(get_db)]):
     # Check for duplicate name
-    existing = await db.execute(
-        select(Portfolio).where(Portfolio.name == data.name)
-    )
+    existing = await db.execute(select(Portfolio).where(Portfolio.name == data.name))
     if existing.scalar_one_or_none():
         from fastapi import HTTPException
+
         raise HTTPException(status_code=409, detail=f"Portfolio '{data.name}' already exists")
 
     portfolio = Portfolio(name=data.name, description=data.description, currency=data.currency)
     db.add(portfolio)
     await db.commit()
     await db.refresh(portfolio)
-    return {"id": str(portfolio.id), "name": portfolio.name,
-            "description": portfolio.description, "currency": portfolio.currency,
-            "position_count": 0, "total_value": 0.0}
+    return {
+        "id": str(portfolio.id),
+        "name": portfolio.name,
+        "description": portfolio.description,
+        "currency": portfolio.currency,
+        "position_count": 0,
+        "total_value": 0.0,
+    }
 
 
 @router.get("/{portfolio_id}", response_model=PortfolioResponse)
@@ -186,10 +219,17 @@ async def get_portfolio(portfolio_id: str, db: Annotated[AsyncSession, Depends(g
     portfolio = result.scalar_one_or_none()
     if not portfolio:
         from fastapi import HTTPException
+
         raise HTTPException(status_code=404, detail="Portfolio not found")
-    return {"id": str(portfolio.id), "name": portfolio.name,
-            "description": portfolio.description, "currency": portfolio.currency,
-            "position_count": 0, "total_value": 0.0}
+    stats = await _portfolio_stats(db, portfolio_id)
+    return {
+        "id": str(portfolio.id),
+        "name": portfolio.name,
+        "description": portfolio.description,
+        "currency": portfolio.currency,
+        "position_count": stats["position_count"],
+        "total_value": stats["total_value"],
+    }
 
 
 @router.delete("/{portfolio_id}", status_code=204)
@@ -198,15 +238,19 @@ async def delete_portfolio(portfolio_id: str, db: Annotated[AsyncSession, Depend
     portfolio = result.scalar_one_or_none()
     if not portfolio:
         from fastapi import HTTPException
+
         raise HTTPException(status_code=404, detail="Portfolio not found")
     await db.delete(portfolio)
     await db.commit()
 
 
 @router.post("/{portfolio_id}/positions", response_model=PositionResponse, status_code=201)
-async def add_position(portfolio_id: str, data: PositionCreate, db: Annotated[AsyncSession, Depends(get_db)]):
+async def add_position(
+    portfolio_id: str, data: PositionCreate, db: Annotated[AsyncSession, Depends(get_db)]
+):
     """Add or update a position in a portfolio."""
     from datetime import date
+
     from sqlalchemy.orm import selectinload
 
     # Ensure portfolio exists
@@ -214,6 +258,7 @@ async def add_position(portfolio_id: str, data: PositionCreate, db: Annotated[As
     portfolio = result.scalar_one_or_none()
     if not portfolio:
         from fastapi import HTTPException
+
         raise HTTPException(status_code=404, detail="Portfolio not found")
 
     # Find or create asset
@@ -235,10 +280,12 @@ async def add_position(portfolio_id: str, data: PositionCreate, db: Annotated[As
         old_qty = float(position.quantity)
         old_cost = float(position.avg_cost_basis) * old_qty
         new_qty = old_qty + float(data.quantity)
-        position.avg_cost_basis = (old_cost + float(data.quantity) * float(data.price)) / new_qty if new_qty > 0 else 0
+        position.avg_cost_basis = (
+            (old_cost + float(data.quantity) * float(data.price)) / new_qty if new_qty > 0 else 0
+        )
         position.quantity = new_qty
         position.current_price = float(data.price)
-        
+
         # Record buy transaction
         buy_transaction = Transaction(
             portfolio_id=portfolio_id,
@@ -260,7 +307,7 @@ async def add_position(portfolio_id: str, data: PositionCreate, db: Annotated[As
             current_price=data.price,
         )
         db.add(position)
-        
+
         buy_transaction = Transaction(
             portfolio_id=portfolio_id,
             asset_id=asset.id,
@@ -278,7 +325,7 @@ async def add_position(portfolio_id: str, data: PositionCreate, db: Annotated[As
     cost = float(position.quantity) * float(position.avg_cost_basis)
     gain = market_val - cost
     gain_pct = (gain / cost * 100) if cost > 0 else 0
-    
+
     return {
         "id": str(position.id),
         "cusip": asset.cusip or "",
@@ -289,7 +336,7 @@ async def add_position(portfolio_id: str, data: PositionCreate, db: Annotated[As
         "cost_basis": float(position.avg_cost_basis),
         "market_value": round(market_val, 2),
         "gain": round(gain, 2),
-        "gain_pct": round(gain_pct, 2)
+        "gain_pct": round(gain_pct, 2),
     }
 
 
@@ -304,35 +351,40 @@ async def list_positions(portfolio_id: str, db: Annotated[AsyncSession, Depends(
         .where(Position.portfolio_id == portfolio_id)
     )
     positions = result.scalars().all()
-    
+
     out = []
     for pos in positions:
         market_val = float(pos.quantity) * float(pos.current_price or 0)
         cost = float(pos.quantity) * float(pos.avg_cost_basis)
         gain = market_val - cost
         gain_pct = (gain / cost * 100) if cost > 0 else 0
-        out.append({
-            "id": str(pos.id),
-            "cusip": pos.asset.cusip or "",
-            "symbol": pos.asset.symbol or "",
-            "name": pos.asset.name or "",
-            "quantity": float(pos.quantity),
-            "price": float(pos.current_price or 0),
-            "cost_basis": float(pos.avg_cost_basis),
-            "market_value": round(market_val, 2),
-            "gain": round(gain, 2),
-            "gain_pct": round(gain_pct, 2),
-        })
+        out.append(
+            {
+                "id": str(pos.id),
+                "cusip": pos.asset.cusip or "",
+                "symbol": pos.asset.symbol or "",
+                "name": pos.asset.name or "",
+                "quantity": float(pos.quantity),
+                "price": float(pos.current_price or 0),
+                "cost_basis": float(pos.avg_cost_basis),
+                "market_value": round(market_val, 2),
+                "gain": round(gain, 2),
+                "gain_pct": round(gain_pct, 2),
+            }
+        )
     return out
 
 
 @router.post("/{portfolio_id}/transactions", response_model=dict, status_code=201)
-async def add_transaction(portfolio_id: str, data: TransactionCreate, db: Annotated[AsyncSession, Depends(get_db)]):
+async def add_transaction(
+    portfolio_id: str, data: TransactionCreate, db: Annotated[AsyncSession, Depends(get_db)]
+):
     """Record a trade transaction."""
     # Find or create asset (use default asset_class 'equity', not transaction_type)
     asset = await _find_or_create_asset(db, data.cusip, data.symbol)
 
     from datetime import date
+
     transaction = Transaction(
         portfolio_id=portfolio_id,
         asset_id=asset.id,
@@ -360,15 +412,16 @@ async def sell_position(
     Uses weighted average cost basis for P&L calculation.
     """
     from datetime import date
-    from sqlalchemy.orm import selectinload
+
     from fastapi import HTTPException
+    from sqlalchemy.orm import selectinload
 
     # Handle both CUSIP and symbol
     if data.cusip:
         cusip_clean = data.cusip.upper().replace("-", "")
     else:
         cusip_clean = None
-    
+
     # Ensure portfolio exists
     result = await db.execute(select(Portfolio).where(Portfolio.id == portfolio_id))
     portfolio = result.scalar_one_or_none()
@@ -378,19 +431,18 @@ async def sell_position(
     # Find asset by CUSIP or symbol
     asset = None
     if cusip_clean:
-        asset_result = await db.execute(
-            select(Asset).where(Asset.cusip == cusip_clean)
-        )
+        asset_result = await db.execute(select(Asset).where(Asset.cusip == cusip_clean))
         asset = asset_result.scalar_one_or_none()
-    
+
     if not asset and data.symbol:
-        asset_result = await db.execute(
-            select(Asset).where(Asset.symbol == data.symbol.upper())
-        )
+        asset_result = await db.execute(select(Asset).where(Asset.symbol == data.symbol.upper()))
         asset = asset_result.scalar_one_or_none()
-    
+
     if not asset:
-        raise HTTPException(status_code=404, detail=f"Asset not found for CUSIP: {data.cusip or 'N/A'}, symbol: {data.symbol or 'N/A'}")
+        cusip_str = data.cusip or "N/A"
+        symbol_str = data.symbol or "N/A"
+        detail = f"Asset not found for CUSIP: {cusip_str}, symbol: {symbol_str}"
+        raise HTTPException(status_code=404, detail=detail)
 
     # Find the position to sell
     pos_result = await db.execute(
@@ -503,16 +555,18 @@ async def refresh_prices(portfolio_id: str, db: Annotated[AsyncSession, Depends(
         cost = float(pos.quantity) * float(pos.avg_cost_basis)
         gain = market_val - cost
         gain_pct = (gain / cost * 100) if cost > 0 else 0
-        out.append({
-            "id": str(pos.id),
-            "cusip": pos.asset.cusip or "",
-            "symbol": pos.asset.symbol or "",
-            "name": pos.asset.name or "",
-            "quantity": float(pos.quantity),
-            "price": float(pos.current_price or 0),
-            "cost_basis": float(pos.avg_cost_basis),
-            "market_value": round(market_val, 2),
-            "gain": round(gain, 2),
-            "gain_pct": round(gain_pct, 2),
-        })
+        out.append(
+            {
+                "id": str(pos.id),
+                "cusip": pos.asset.cusip or "",
+                "symbol": pos.asset.symbol or "",
+                "name": pos.asset.name or "",
+                "quantity": float(pos.quantity),
+                "price": float(pos.current_price or 0),
+                "cost_basis": float(pos.avg_cost_basis),
+                "market_value": round(market_val, 2),
+                "gain": round(gain, 2),
+                "gain_pct": round(gain_pct, 2),
+            }
+        )
     return out

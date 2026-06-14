@@ -29,47 +29,94 @@ solara-ui/
 
 ### Widget Components (ipyvuetify-based)
 
-Widget components are pre-built UI elements from ipyvuetify:
+Widget components are pre-built UI elements from ipyvuetify.
 
-#### PortfolioSelector Widget
+### ⚠️ IMPORTANT: Solara API Conventions
+
+All code examples in this document follow the **correct** Solara patterns:
+
+- **State**: `portfolios, set_portfolios = solara.use_state([])` or `portfolios = solara.reactive([])`
+- **Async data fetching**: Use `solara.lab.use_task()` — **never** `asyncio.run()` (Solara runs inside Tornado's event loop)
+- **Effects**: Use `solara.Effect` decorator with dependency lists
+
+#### Correct Async Data-Fetch Pattern (canonical reference)
+
 ```python
-@component
-def PortfolioSelector():
-    """Portfolio dropdown widget using ipyvuetify.Select"""
-    portfolios = use_state(list[Portfolio], [])
-    current_portfolio = use_state(Portfolio | None, None)
-    
-    # Load portfolios on mount
-    @effect
-    def load_portfolios():
-        async def _load():
-            portfolios.value = await PortfolioAPI().list_portfolios()
-        asyncio.run(_load())
-    
-    # Handle selection change
-    def on_select(portfolio_id):
-        current_portfolio.value = next(
-            p for p in portfolios.value if p.id == portfolio_id
-        )
-    
-    # Build options
-    options = [{"text": p.name, "value": p.id} for p in portfolios.value]
-    
-    return VSelect(
-        v_model=current_portfolio.value.id if current_portfolio.value else None,
-        items=options,
-        label="Select Portfolio",
-        on_change=on_select
-    )
+import solara
+from solara.lab import use_task
+from solara_ui.services.api import PortfolioAPI
+
+@solara.component
+def PortfolioList():
+    portfolios, set_portfolios = solara.use_state([])
+    error = solara.reactive(None)
+
+    @solara.effect
+    def load():
+        async def _fetch():
+            try:
+                data = await PortfolioAPI().list_portfolios()
+                set_portfolios(data)
+                error.value = None
+            except Exception as e:
+                error.value = str(e)
+        solara.lab.use_task(_fetch(), dependencies=[])
+
+    return solara.Html("div", children=[
+        solara.Alert(f"Error: {error.value}", type="error") if error.value else None,
+        *[solara.Html("div", children=[p.name]) for p in portfolios]
+    ])
 ```
 
-#### NavHeader Widget
+### PortfolioSelector Widget
+
 ```python
-@component
-def NavHeader():
+import solara
+from solara_ui.services.api import PortfolioAPI
+
+@solara.component
+def PortfolioSelector():
+    """Portfolio dropdown widget using ipyvuetify.Select"""
+    portfolios, set_portfolios = solara.use_state([])
+    current_portfolio = solara.reactive(None)
+    loading = solara.reactive(True)
+
+    @solara.effect
+    def load():
+        async def _fetch():
+            data = await PortfolioAPI().list_portfolios()
+            set_portfolios(data)
+            loading.value = False
+        solara.lab.use_task(_fetch(), dependencies=[])
+
+    def on_select(value):
+        portfolio = next((p for p in portfolios if p.id == value), None)
+        current_portfolio.value = portfolio
+
+    options = [{"text": p.name, "value": p.id} for p in portfolios]
+
+    return solara.Html("div", children=[
+        solara.Select(
+            label="Select Portfolio",
+            v_model=current_portfolio.value.id if current_portfolio.value else None,
+            items=options,
+            on_v_model=on_select,
+        ),
+        solara.ProgressCircular(indeterminate=True) if loading.value else None
+    ])
+```
+
+### NavHeader Widget
+
+```python
+import solara
+from ipyvuetify import VAppBar, VToolbarTitle, VBtn
+
+@solara.component
+def NavHeader(current_portfolio):
     """Navigation header with logo and portfolio context"""
-    current_portfolio = use_state(Portfolio | None, None)
-    
+    name = current_portfolio.value.name if current_portfolio.value else "No Portfolio"
+
     return VAppBar(
         app=True,
         clipped_left=True,
@@ -77,9 +124,7 @@ def NavHeader():
         children=[
             VToolbarTitle(children=["Portfolio Manager"]),
             VBtn(
-                icon="mdi-account-circle",
-                text=True,
-                children=[current_portfolio.value.name if current_portfolio.value else "No Portfolio"],
+                children=[f"📁 {name}"],
                 on_click=lambda: print("Portfolio info")  # TODO: Add modal
             )
         ]
@@ -88,149 +133,159 @@ def NavHeader():
 
 ### Function Components (Custom Logic)
 
-Function components combine state, widgets, and business logic:
-
 #### Dashboard Component
+
 ```python
-@component
-def Dashboard():
+import solara
+from solara_ui.services.api import PortfolioAPI
+
+@solara.component
+def Dashboard(portfolio_id):
     """Portfolio overview dashboard"""
-    portfolio = use_state(Portfolio | None, None)
-    positions = use_state(list[Position], [])
-    metrics = use_state(dict, {})
-    
-    @effect([portfolio])
-    def load_dashboard():
-        async def _load():
-            if portfolio.value:
-                positions.value = await PortfolioAPI().get_positions(portfolio.value.id)
-                metrics.value = await PortfolioAPI().get_metrics(portfolio.value.id)
-        asyncio.run(_load())
-    
-    return VContainer(
-        fluid=True,
-        children=[
-            VRow([
-                VCol(cols=4, children=[
-                    MetricCard(title="Portfolio Value", value=metrics.get("total_value", "$0"))
-                ]),
-                VCol(cols=4, children=[
-                    MetricCard(title="P&L", value=metrics.get("pnl", "$0"))
-                ]),
-                VCol(cols=4, children=[
-                    MetricCard(title="Position Count", value=str(len(positions.value)))
-                ])
-            ]),
-            VRow(children=[
-                VCol(cols=12, children=[
-                    PositionsTable(positions=positions.value)
-                ])
-            ])
-        ]
-    )
+    portfolio = solara.reactive(None)
+    positions = solara.reactive([])
+    metrics = solara.reactive({})
+
+    @solara.effect
+    def load():
+        async def _fetch():
+            if portfolio_id:
+                result = await PortfolioAPI().get_portfolio(portfolio_id)
+                portfolio.value = result.get("portfolio")
+                metrics.value = result
+        solara.lab.use_task(_fetch(), dependencies=[portfolio_id])
+
+    total_value = metrics.value.get("total_value", 0.0)
+    pnl = metrics.value.get("unrealized_pnl", 0.0)
+    count = len(positions.value)
+
+    return solara.Html("div", children=[
+        solara.Html("h3", children=["Dashboard"]),
+        solara.Html("div", children=[f"Total Value: ${total_value:,.2f}"]),
+        solara.Html("div", children=[f"P&L: ${pnl:,.2f}"]),
+        solara.Html("div", children=[f"Positions: {count}"])
+    ])
 ```
 
 #### Positions Component
+
 ```python
-@component
-def Positions():
+import solara
+from solara_ui.services.api import PortfolioAPI
+
+@solara.component
+def Positions(portfolio_id):
     """Position management component"""
-    positions = use_state(list[Position], [])
-    
-    @effect
-    def load_positions():
-        async def _load():
-            positions.value = await PortfolioAPI().get_positions()
-        asyncio.run(_load())
-    
+    positions = solara.reactive([])
+    loading = solara.reactive(True)
+
+    @solara.effect
+    def load():
+        async def _fetch():
+            data = await PortfolioAPI().get_positions(portfolio_id)
+            positions.value = data
+            loading.value = False
+        solara.lab.use_task(_fetch(), dependencies=[portfolio_id])
+
     def on_sell(position_id):
-        # TODO: Add confirmation dialog and API call
-        print(f"Selling position {position_id}")
-    
-    def on_edit(position_id):
-        # TODO: Add edit modal
-        print(f"Editing position {position_id}")
-    
-    return VTable(
-        headers=[
-            {"text": "Symbol", "value": "symbol"},
-            {"text": "Quantity", "value": "quantity"},
-            {"text": "Avg Price", "value": "avg_price"},
-            {"text": "Current Value", "value": "current_value"},
-            {"text": "P&L", "value": "pnl"},
-            {"text": "Actions", "value": "actions"}
-        ],
-        items=positions.value,
-        children=[
-            lambda item: VBtn(icon="mdi-pencil", small=True, on_click=lambda: on_edit(item.id)),
-            lambda item: VBtn(icon="mdi-close", small=True, color="error", on_click=lambda: on_sell(item.id))
-        ]
-    )
+        async def _sell():
+            await PortfolioAPI().sell_position(portfolio_id, position_id)
+            positions.value = await PortfolioAPI().get_positions(portfolio_id)
+        solara.lab.use_task(_sell(), dependencies=[])
+
+    # Build table from positions data
+    headers = [
+        {"text": "Symbol", "value": "symbol"},
+        {"text": "Quantity", "value": "quantity"},
+        {"text": "Avg Price", "value": "buy_price"},
+        {"text": "Current", "value": "current_price"},
+        {"text": "P&L", "value": "unrealized_pnl"},
+        {"text": "Actions", "value": "actions"}
+    ]
+
+    rows = positions.value or []
+    table_children = []
+    for item in rows:
+        table_children.extend([
+            solara.Html("div", children=[item.get("symbol", "")]),
+            solara.Html("div", children=[str(item.get("quantity", 0))]),
+            solara.Html("div", children=[f"${item.get('buy_price', 0):.2f}"]),
+            solara.Html("div", children=[f"${item.get('current_price', 0):.2f}"]),
+            solara.Html("div", children=[f"${item.get('unrealized_pnl', 0):.2f}"]),
+            solara.Html("div", children=[
+                solara.Button("Sell", on_click=lambda _pid=item.get("id"): on_sell(_pid)),
+            ])
+        ])
+
+    return solara.Html("div", children=[
+        solara.Html("h3", children=["Positions"]),
+        solara.Html("div", children=table_children)
+    ])
 ```
 
 #### Analytics Component
+
 ```python
-@component
-def Analytics():
+import solara
+from solara_ui.services.api import PortfolioAPI
+
+@solara.component
+def Analytics(portfolio_id):
     """Charts and metrics component"""
-    portfolio = use_state(Portfolio | None, None)
-    nav_data = use_state(list, [])
-    risk_metrics = use_state(dict, {})
-    
-    @effect([portfolio])
-    def load_analytics():
-        async def _load():
-            if portfolio.value:
-                nav_data.value = await PortfolioAPI().get_nav_history(portfolio.value.id)
-                risk_metrics.value = await PortfolioAPI().get_risk_metrics(portfolio.value.id)
-        asyncio.run(_load())
-    
-    return VContainer(
-        fluid=True,
-        children=[
-            VRow(children=[
-                VCol(cols=8, children=[
-                    NavChart(data=nav_data.value)
-                ]),
-                VCol(cols=4, children=[
-                    RiskMetricsCard(metrics=risk_metrics.value)
-                ])
-            ])
-        ]
-    )
+    nav_data = solara.reactive([])
+    risk_metrics = solara.reactive({})
+    loading = solara.reactive(True)
+
+    @solara.effect
+    def load():
+        async def _fetch():
+            try:
+                nav = await PortfolioAPI().get_nav_history(portfolio_id)
+                risk = await PortfolioAPI().get_risk_report(portfolio_id)
+                nav_data.value = nav
+                risk_metrics.value = risk
+                loading.value = False
+            except Exception as e:
+                print(f"Analytics load error: {e}")
+                loading.value = False
+        solara.lab.use_task(_fetch(), dependencies=[portfolio_id])
+
+    return solara.Html("div", children=[
+        solara.Html("h3", children=["Analytics"]),
+        solara.ProgressCircular(indeterminate=True) if loading.value else None,
+        solara.Html("div", children=[f"Sharpe Ratio: {risk_metrics.get('sharpe_ratio', 'N/A')}"]),
+        solara.Html("div", children=[f"Max Drawdown: {risk_metrics.get('max_drawdown', 'N/A')}%"]),
+    ])
 ```
 
 ## State Management
 
 ### Reactive State Pattern
 
-Solara's state management is reactive - components automatically update when state changes:
+Solara's state management is reactive — components automatically update when state changes:
 
 ```python
-@component
+import solara
+
+@solara.component
 def PortfolioApp():
-    portfolios = use_state(list[Portfolio], [])
-    current_portfolio = use_state(Portfolio | None, None)
-    
-    # Load portfolios once
-    @effect
-    def load_portfolios():
-        async def _load():
-            portfolios.value = await PortfolioAPI().list_portfolios()
-        asyncio.run(_load())
-    
-    # Navigation based on current portfolio
+    portfolios, set_portfolios = solara.use_state([])
+    current_portfolio = solara.reactive(None)
+
+    @solara.effect
+    def load():
+        async def _fetch():
+            data = await PortfolioAPI().list_portfolios()
+            set_portfolios(data)
+        solara.lab.use_task(_fetch(), dependencies=[])
+
     def navigate_to_analytics():
-        current_portfolio.value = portfolios.value[0] if portfolios.value else None
-    
-    return VAppBar(
-        children=[
-            VBtn(
-                text="Analytics",
-                on_click=navigate_to_analytics
-            )
-        ]
-    )
+        current_portfolio.value = portfolios[0] if portfolios else None
+
+    return solara.Html("div", children=[
+        solara.Button("Go to Analytics", on_click=navigate_to_analytics),
+        solara.Html("div", children=[f"Selected: {current_portfolio.value.name if current_portfolio.value else 'None'}"])
+    ])
 ```
 
 ### State Updates
@@ -240,7 +295,7 @@ State updates are batched and trigger re-renders automatically:
 ```python
 def update_portfolio(portfolio_id):
     # This update will trigger re-render of all components using current_portfolio
-    current_portfolio.value = next(p for p in portfolios.value if p.id == portfolio_id)
+    current_portfolio.value = next((p for p in portfolios if p.id == portfolio_id), None)
 ```
 
 ## API Integration
@@ -250,41 +305,151 @@ def update_portfolio(portfolio_id):
 ```python
 # solara-ui/services/api.py
 import httpx
-from portfolio_manager.models.schemas import Portfolio, Position, ChartData
+from solara_ui.models.schemas import Portfolio, Position, Trade, TradeSummary
 
 class PortfolioAPI:
     def __init__(self, base_url: str = "http://localhost:8000"):
         self.client = httpx.AsyncClient(base_url=base_url)
-    
+
+    # ── Portfolios ──────────────────────────────────────────────
     async def list_portfolios(self) -> list[Portfolio]:
+        """GET /api/v1/portfolios/"""
         response = await self.client.get("/api/v1/portfolios/")
         return [Portfolio(**p) for p in response.json()]
-    
-    async def get_positions(self, portfolio_id: str | None = None) -> list[Position]:
-        if portfolio_id:
-            response = await self.client.get(f"/api/v1/portfolios/{portfolio_id}/positions")
-        else:
-            response = await self.client.get("/api/v1/portfolios/")
-        return [Position(**p) for p in response.json()]
-    
-    async def get_nav_history(self, portfolio_id: str, benchmark: str = "SPY") -> list[ChartData]:
-        response = await self.client.get(
-            "/api/v1/charts/nav-history",
-            params={"portfolio_id": portfolio_id, "benchmark": benchmark}
+
+    async def create_portfolio(self, name: str) -> Portfolio:
+        """POST /api/v1/portfolios/"""
+        response = await self.client.post(
+            "/api/v1/portfolios/",
+            json={"name": name}
         )
-        return [ChartData(**d) for d in response.json().get("data", [])]
-    
-    async def get_risk_metrics(self, portfolio_id: str) -> dict:
-        response = await self.client.get(
-            "/api/v1/risk-report",
-            params={"portfolio_id": portfolio_id}
+        return Portfolio(**response.json())
+
+    async def get_portfolio(self, portfolio_id: str) -> dict:
+        """GET /api/v1/{portfolio_id} — returns portfolio + total_value, unrealized_pnl"""
+        response = await self.client.get(f"/api/v1/{portfolio_id}")
+        return response.json()
+
+    async def delete_portfolio(self, portfolio_id: str) -> None:
+        """DELETE /api/v1/{portfolio_id}"""
+        await self.client.delete(f"/api/v1/{portfolio_id}")
+
+    # ── Positions ───────────────────────────────────────────────
+    async def get_positions(self, portfolio_id: str) -> list[Position]:
+        """GET /api/v1/{portfolio_id}/positions"""
+        response = await self.client.get(f"/api/v1/{portfolio_id}/positions")
+        return [Position(**p) for p in response.json()]
+
+    async def buy_position(self, portfolio_id: str, symbol: str, quantity: float, price: float) -> Position:
+        """POST /api/v1/{portfolio_id}/positions"""
+        response = await self.client.post(
+            f"/api/v1/{portfolio_id}/positions",
+            json={"symbol": symbol, "quantity": quantity, "price": price}
+        )
+        return Position(**response.json())
+
+    async def sell_position(self, portfolio_id: str, position_id: str, quantity: float, price: float) -> dict:
+        """POST /api/v1/{portfolio_id}/positions/sell"""
+        response = await self.client.post(
+            f"/api/v1/{portfolio_id}/positions/sell",
+            json={"position_id": position_id, "quantity": quantity, "price": price}
         )
         return response.json()
-    
-    async def get_metrics(self, portfolio_id: str) -> dict:
-        response = await self.client.get(f"/api/v1/portfolios/{portfolio_id}/metrics")
+
+    async def refresh_prices(self, portfolio_id: str) -> list[dict]:
+        """POST /api/v1/{portfolio_id}/positions/refresh"""
+        response = await self.client.post(f"/api/v1/{portfolio_id}/positions/refresh")
+        return response.json()
+
+    # ── Charts ──────────────────────────────────────────────────
+    async def get_nav_history(self, portfolio_id: str, benchmark: str = "SPY") -> list[dict]:
+        """GET /api/v1/{portfolio_id}/charts/nav-history"""
+        response = await self.client.get(
+            f"/api/v1/{portfolio_id}/charts/nav-history",
+            params={"benchmark": benchmark}
+        )
+        return response.json().get("data", [])
+
+    async def get_nav(self, portfolio_id: str) -> list[dict]:
+        """GET /api/v1/{portfolio_id}/charts/nav"""
+        response = await self.client.get(f"/api/v1/{portfolio_id}/charts/nav")
+        return response.json()
+
+    async def get_drawdown(self, portfolio_id: str) -> list[dict]:
+        """GET /api/v1/{portfolio_id}/charts/drawdown"""
+        response = await self.client.get(f"/api/v1/{portfolio_id}/charts/drawdown")
+        return response.json()
+
+    async def get_allocation(self, portfolio_id: str) -> list[dict]:
+        """GET /api/v1/{portfolio_id}/charts/allocation"""
+        response = await self.client.get(f"/api/v1/{portfolio_id}/charts/allocation")
+        return response.json()
+
+    async def get_monthly_returns(self, portfolio_id: str) -> list[dict]:
+        """GET /api/v1/{portfolio_id}/charts/monthly-returns"""
+        response = await self.client.get(f"/api/v1/{portfolio_id}/charts/monthly-returns")
+        return response.json()
+
+    async def get_returns_distribution(self, portfolio_id: str) -> list[dict]:
+        """GET /api/v1/{portfolio_id}/charts/returns-distribution"""
+        response = await self.client.get(f"/api/v1/{portfolio_id}/charts/returns-distribution")
+        return response.json()
+
+    async def get_benchmark_comparison(self, portfolio_id: str) -> list[dict]:
+        """GET /api/v1/{portfolio_id}/charts/benchmark-comparison"""
+        response = await self.client.get(f"/api/v1/{portfolio_id}/charts/benchmark-comparison")
+        return response.json()
+
+    # ── Risk Report ─────────────────────────────────────────────
+    async def get_risk_report(self, portfolio_id: str) -> dict:
+        """GET /api/v1/{portfolio_id}/risk-report"""
+        response = await self.client.get(f"/api/v1/{portfolio_id}/risk-report")
+        return response.json()
+
+    # ── Trade Audit ─────────────────────────────────────────────
+    async def get_trades(self, portfolio_id: str) -> list[Trade]:
+        """GET /api/v1/{portfolio_id}/trades"""
+        response = await self.client.get(f"/api/v1/{portfolio_id}/trades")
+        return [Trade(**t) for t in response.json()]
+
+    async def get_trade_summary(self, portfolio_id: str) -> TradeSummary:
+        """GET /api/v1/{portfolio_id}/trades/summary"""
+        response = await self.client.get(f"/api/v1/{portfolio_id}/trades/summary")
+        return TradeSummary(**response.json())
+
+    # ── Transactions ────────────────────────────────────────────
+    async def create_transaction(self, portfolio_id: str, symbol: str, quantity: float,
+                                  price: float, side: str) -> dict:
+        """POST /api/v1/{portfolio_id}/transactions"""
+        response = await self.client.post(
+            f"/api/v1/{portfolio_id}/transactions",
+            json={"symbol": symbol, "quantity": quantity, "price": price, "side": side}
+        )
         return response.json()
 ```
+
+### Route Summary (all routes prefixed with `/api/v1`)
+
+| Category | Method | Route | Description |
+|----------|--------|-------|-------------|
+| Portfolios | GET | `/{portfolio_id}` | Get portfolio details |
+| Portfolios | POST | `/{portfolio_id}` | Create portfolio |
+| Portfolios | DELETE | `/{portfolio_id}` | Delete portfolio |
+| Positions | GET | `/{portfolio_id}/positions` | List positions |
+| Positions | POST | `/{portfolio_id}/positions` | Buy position |
+| Positions | POST | `/{portfolio_id}/positions/sell` | Sell position |
+| Positions | POST | `/{portfolio_id}/positions/refresh` | Refresh prices |
+| Transactions | POST | `/{portfolio_id}/transactions` | Record transaction |
+| Charts | GET | `/{portfolio_id}/charts/nav-history` | NAV history with benchmark |
+| Charts | GET | `/{portfolio_id}/charts/nav` | NAV history (simplified) |
+| Charts | GET | `/{portfolio_id}/charts/drawdown` | Drawdown history |
+| Charts | GET | `/{portfolio_id}/charts/allocation` | Asset allocation |
+| Charts | GET | `/{portfolio_id}/charts/monthly-returns` | Monthly returns |
+| Charts | GET | `/{portfolio_id}/charts/returns-distribution` | Returns distribution |
+| Charts | GET | `/{portfolio_id}/charts/benchmark-comparison` | Benchmark comparison |
+| Risk | GET | `/{portfolio_id}/risk-report` | 9 risk metrics |
+| Trades | GET | `/{portfolio_id}/trades` | FIFO trade audit |
+| Trades | GET | `/{portfolio_id}/trades/summary` | Trade summary stats |
 
 ### Model Schemas
 
@@ -299,15 +464,37 @@ class Portfolio(BaseModel):
     name: str
     created_at: datetime
     updated_at: datetime
+    # Populated via /{portfolio_id} response
+    total_value: float = 0.0
+    unrealized_pnl: float = 0.0
 
 class Position(BaseModel):
     id: str
     portfolio_id: str
     symbol: str
     quantity: float
-    avg_price: float
+    buy_price: float
     current_price: float
     created_at: datetime
+    # Derived fields
+    current_value: float = 0.0
+    unrealized_pnl: float = 0.0
+
+class Trade(BaseModel):
+    id: str
+    portfolio_id: str
+    symbol: str
+    transaction_type: str  # "buy" or "sell"
+    quantity: float
+    price: float
+    date: datetime
+
+class TradeSummary(BaseModel):
+    total_buys: int
+    total_sells: int
+    realized_gains: float
+    realized_losses: float
+    total_realized_pnl: float
 
 class ChartData(BaseModel):
     date: datetime
@@ -317,8 +504,15 @@ class ChartData(BaseModel):
 class RiskMetrics(BaseModel):
     portfolio_id: str
     sharpe_ratio: float
+    sortino_ratio: float
     max_drawdown: float
+    var_95: float
+    beta: float
+    alpha: float
     annualized_return: float
+    treynor_ratio: float
+    calmar_ratio: float
+    ulcer_index: float
 ```
 
 ## Chart Integration
@@ -328,32 +522,26 @@ class RiskMetrics(BaseModel):
 ```python
 # solara-ui/components/charts.py
 import plotly.express as px
-import solara as sl
+import solara
 
-@component
-def NavChart(data: list[ChartData]):
+@solara.component
+def NavChart(data: list[dict]):
     """NAV history chart using Plotly"""
     if not data:
-        return sl.VAlert(children=["No data available"], type="info")
-    
-    # Convert to DataFrame for Plotly
+        return solara.Alert("No data available", type="info")
+
     import pandas as pd
-    df = pd.DataFrame([{
-        "date": d.date,
-        "portfolio": d.portfolio_value,
-        "benchmark": d.benchmark_value
-    } for d in data])
-    
-    # Create Plotly figure
+    df = pd.DataFrame(data)
+
     fig = px.line(
         df,
         x="date",
-        y=["portfolio", "benchmark"],
+        y=["portfolio_value", "benchmark_value"],
         title="NAV History"
     )
-    
-    # Convert to Solara component
-    return sl.PlotlyComponent(fig=fig)
+    fig.update_layout(template="plotly_dark")
+
+    return solara.PlotlyComponent(fig=fig)
 ```
 
 ### Reactive Updates
@@ -361,17 +549,22 @@ def NavChart(data: list[ChartData]):
 Charts automatically update when data changes:
 
 ```python
-@component
-def Analytics():
-    nav_data = use_state(list, [])
-    
-    @effect([portfolio])
-    def load_data():
-        async def _load():
-            nav_data.value = await PortfolioAPI().get_nav_history(portfolio.value.id)
-        asyncio.run(_load())
-    
-    # Chart updates automatically when nav_data changes
+@solara.component
+def Analytics(portfolio_id):
+    nav_data = solara.reactive([])
+    loading = solara.reactive(True)
+
+    @solara.effect
+    def load():
+        async def _fetch():
+            data = await PortfolioAPI().get_nav_history(portfolio_id)
+            nav_data.value = data
+            loading.value = False
+        solara.lab.use_task(_fetch(), dependencies=[portfolio_id])
+
+    if loading.value:
+        return solara.ProgressCircular(indeterminate=True)
+
     return NavChart(data=nav_data.value)
 ```
 
@@ -396,7 +589,7 @@ solara-server run solara-ui/dist/app.py
 ### Docker Deployment
 
 ```dockerfile
-# docker-compose.yml
+# docker-compose.yml for Solara frontend
 version: '3.8'
 services:
   portfolio-manager:
@@ -405,7 +598,7 @@ services:
       - "8000:8000"
     environment:
       - PORTFOLIO_API_URL=http://backend:8000
-  
+
   solara-frontend:
     image: python:3.11-slim
     command: solara-server run /app/solara-ui/app.py
@@ -429,12 +622,12 @@ from solara_ui.components.dashboard import Dashboard
 
 @pytest.mark.asyncio
 async def test_dashboard_component():
-    component = Dashboard()
+    component = Dashboard(portfolio_id="test-1")
     instance = await mount(component)
-    
+
     # Test component renders
     assert instance is not None
-    
+
     # Test state initialization
     assert component.portfolio.value is None
     assert component.positions.value == []
@@ -453,14 +646,14 @@ async def test_portfolio_selection():
         browser = await p.chromium.launch()
         page = await browser.new_page()
         await page.goto("http://localhost:8001")
-        
+
         # Select portfolio
         await page.click("text=Select Portfolio")
         await page.click("text=Test Portfolio")
-        
+
         # Verify navigation
         await page.wait_for_selector(".dashboard")
-        
+
         await browser.close()
 ```
 
@@ -501,7 +694,7 @@ Changes to component files automatically trigger re-render.
 # solara-ui/mobile.py
 from solara import WebView
 
-@component
+@solara.component
 def MobileApp():
     return WebView(
         src="https://solara.example.com",
@@ -516,20 +709,21 @@ def MobileApp():
 # solara-ui/plugins/custom_charts.py
 from solara import component
 
-@component
+@solara.component
 def CustomChart():
     """Custom chart plugin"""
-    return VContainer(children=["Custom Chart Implementation"])
+    return solara.Html("div", children=["Custom Chart Implementation"])
 ```
 
 ## Conclusion
 
 This design document provides the technical specifications for the Solara frontend implementation. The architecture emphasizes:
 
-- **Reactive state management**: Automatic UI updates
-- **Component-based design**: Reusable and maintainable
-- **Type safety**: Python's optional typing
+- **Reactive state management**: Automatic UI updates via `solara.reactive` and `@solara.effect`
+- **Component-based design**: Reusable and maintainable with `@solara.component`
+- **Type safety**: Pydantic models shared between frontend and backend
 - **Production-ready**: Built on Starlette and ipyvuetify
+- **Correct async patterns**: `solara.lab.use_task()` instead of `asyncio.run()`
 - **Testable**: Unit and end-to-end testing support
 
 The implementation will follow the patterns described here, ensuring consistency and maintainability.

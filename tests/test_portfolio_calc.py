@@ -1,24 +1,27 @@
 """Tests for portfolio calculations."""
+
 import numpy as np
 import pandas as pd
 import pytest
 
 from portfolio_manager.services.portfolio_calc import (
+    build_price_series,
     calculate_portfolio_value,
     calculate_returns,
-    build_price_series,
 )
 
 
 class TestPortfolioValue:
     def test_single_position(self):
-        positions = pd.DataFrame({
-            "symbol": ["AAPL"],
-            "quantity": [100],
-            "price": [150.0],
-            "asset_class": ["equity"],
-            "cost_basis": [140.0],
-        })
+        positions = pd.DataFrame(
+            {
+                "symbol": ["AAPL"],
+                "quantity": [100],
+                "price": [150.0],
+                "asset_class": ["equity"],
+                "cost_basis": [140.0],
+            }
+        )
         result = calculate_portfolio_value(positions)
         assert result["total_value"] == 15000.0
         assert result["total_gain"] == 1000.0
@@ -26,13 +29,15 @@ class TestPortfolioValue:
         assert result["position_count"] == 1
 
     def test_multiple_positions(self):
-        positions = pd.DataFrame({
-            "symbol": ["AAPL", "GOOGL"],
-            "quantity": [100, 50],
-            "price": [150.0, 2800.0],
-            "asset_class": ["equity", "etf"],
-            "cost_basis": [140.0, 2700.0],
-        })
+        positions = pd.DataFrame(
+            {
+                "symbol": ["AAPL", "GOOGL"],
+                "quantity": [100, 50],
+                "price": [150.0, 2800.0],
+                "asset_class": ["equity", "etf"],
+                "cost_basis": [140.0, 2700.0],
+            }
+        )
         result = calculate_portfolio_value(positions)
         assert result["total_value"] == 155000.0  # 100*150 + 50*2800 = 15000 + 140000
         assert result["position_count"] == 2
@@ -40,19 +45,23 @@ class TestPortfolioValue:
         assert "etf" in result["by_class"]
 
     def test_empty_positions(self):
-        positions = pd.DataFrame(columns=["symbol", "quantity", "price", "asset_class", "cost_basis"])
+        positions = pd.DataFrame(
+            columns=["symbol", "quantity", "price", "asset_class", "cost_basis"]
+        )
         result = calculate_portfolio_value(positions)
         assert result["total_value"] == 0.0
         assert result["position_count"] == 0
 
     def test_allocation_percentages(self):
-        positions = pd.DataFrame({
-            "symbol": ["AAPL", "MSFT"],
-            "quantity": [100, 100],
-            "price": [100.0, 200.0],
-            "asset_class": ["equity", "equity"],
-            "cost_basis": [90.0, 180.0],
-        })
+        positions = pd.DataFrame(
+            {
+                "symbol": ["AAPL", "MSFT"],
+                "quantity": [100, 100],
+                "price": [100.0, 200.0],
+                "asset_class": ["equity", "equity"],
+                "cost_basis": [90.0, 180.0],
+            }
+        )
         result = calculate_portfolio_value(positions)
         alloc = {row["symbol"]: row["allocation_pct"] for row in result["allocation_pct"]}
         assert alloc["AAPL"] == pytest.approx(33.33, abs=0.01)

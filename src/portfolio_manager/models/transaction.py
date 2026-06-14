@@ -8,9 +8,8 @@ from typing import TYPE_CHECKING
 from sqlalchemy import Date, Enum, ForeignKey, Numeric, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from portfolio_manager.models.base import TimestampMixin, UuidMixin
 from portfolio_manager.database import Base
-
+from portfolio_manager.models.base import TimestampMixin, UuidMixin
 
 if TYPE_CHECKING:
     from portfolio_manager.models.asset import Asset  # noqa: F821
@@ -56,7 +55,11 @@ class Transaction(UuidMixin, TimestampMixin, Base):
     def total_amount(self) -> Decimal:
         if self.transaction_type in (TransactionType.BUY, TransactionType.DEPOSIT):
             return self.quantity * self.price + self.fees
-        elif self.transaction_type in (TransactionType.SELL, TransactionType.DIVIDEND, TransactionType.INTEREST):
+        elif self.transaction_type in (
+            TransactionType.SELL,
+            TransactionType.DIVIDEND,
+            TransactionType.INTEREST,
+        ):
             return self.quantity * self.price - self.fees
         return self.quantity * self.price
 

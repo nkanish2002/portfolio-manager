@@ -10,33 +10,30 @@ Provides endpoints for:
 - Risk metrics report
 """
 
-import math
 from datetime import date
 from typing import Annotated
 
 import pandas as pd
 from fastapi import APIRouter, Depends
-from sqlalchemy import func, select
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from portfolio_manager.database import get_db
 from portfolio_manager.models.portfolio import Portfolio
-from portfolio_manager.models.transaction import Transaction, TransactionType
+from portfolio_manager.models.transaction import Transaction
 from portfolio_manager.services.benchmark import (
     calculate_information_ratio,
     calculate_tracking_error,
 )
 from portfolio_manager.services.chart_data import (
-    generate_monthly_returns_heatmap,
-    generate_nav_chart,
     generate_returns_distribution,
 )
+from portfolio_manager.services.data_feed import YFinanceSource
 from portfolio_manager.services.nav_history import (
     build_nav_from_transactions,
     build_nav_with_benchmark,
 )
-from portfolio_manager.services.data_feed import YFinanceSource, get_historical
 
 router = APIRouter(tags=["charts"])
 
@@ -61,9 +58,9 @@ def _build_nav_df(transactions: list[Transaction]) -> pd.DataFrame:
 
 
 @router.get("/{portfolio_id}/charts/nav-history")
-async def get_nav_history(portfolio_id: str,
-                          db: Annotated[AsyncSession, Depends(get_db)],
-                          benchmark: str = "SPY") -> dict:
+async def get_nav_history(
+    portfolio_id: str, db: Annotated[AsyncSession, Depends(get_db)], benchmark: str = "SPY"
+) -> dict:
     """Get NAV history with benchmark overlay for TradingView Lightweight Charts.
 
     Returns data formatted for lightweight-charts line series:
@@ -92,13 +89,13 @@ async def get_nav_history(portfolio_id: str,
     # Format for TradingView Lightweight Charts
     portfolio_series = [
         {"time": str(d), "value": round(float(v), 2)}
-        for d, v in zip(nav_data["portfolio_dates"], nav_data["portfolio_nav"])
+        for d, v in zip(nav_data["portfolio_dates"], nav_data["portfolio_nav"], strict=False)
     ]
     benchmark_series = None
     if nav_data.get("benchmark_dates") and nav_data.get("benchmark_nav"):
         benchmark_series = [
             {"time": d, "value": round(float(v), 2)}
-            for d, v in zip(nav_data["benchmark_dates"], nav_data["benchmark_nav"])
+            for d, v in zip(nav_data["benchmark_dates"], nav_data["benchmark_nav"], strict=False)
         ]
 
     return {
@@ -109,9 +106,9 @@ async def get_nav_history(portfolio_id: str,
 
 
 @router.get("/{portfolio_id}/charts/nav")
-async def get_nav_chart(portfolio_id: str,
-                        db: Annotated[AsyncSession, Depends(get_db)],
-                        benchmark: str = "SPY") -> dict:
+async def get_nav_chart(
+    portfolio_id: str, db: Annotated[AsyncSession, Depends(get_db)], benchmark: str = "SPY"
+) -> dict:
     """Get NAV (Net Asset Value) chart data.
 
     Returns data formatted for both Plotly (legacy) and Lightweight Charts.
@@ -136,8 +133,9 @@ async def get_nav_chart(portfolio_id: str,
 
 
 @router.get("/{portfolio_id}/charts/drawdown")
-async def get_drawdown_chart(portfolio_id: str,
-                             db: Annotated[AsyncSession, Depends(get_db)]) -> dict:
+async def get_drawdown_chart(
+    portfolio_id: str, db: Annotated[AsyncSession, Depends(get_db)]
+) -> dict:
     """Get drawdown chart data from transaction history."""
     result = await db.execute(select(Portfolio).where(Portfolio.id == portfolio_id))
     portfolio = result.scalar_one_or_none()
@@ -165,8 +163,9 @@ async def get_drawdown_chart(portfolio_id: str,
 
 
 @router.get("/{portfolio_id}/charts/allocation")
-async def get_allocation_chart(portfolio_id: str,
-                               db: Annotated[AsyncSession, Depends(get_db)]) -> dict:
+async def get_allocation_chart(
+    portfolio_id: str, db: Annotated[AsyncSession, Depends(get_db)]
+) -> dict:
     """Get asset allocation pie chart data."""
     result = await db.execute(select(Portfolio).where(Portfolio.id == portfolio_id))
     portfolio = result.scalar_one_or_none()
@@ -188,14 +187,17 @@ async def get_allocation_chart(portfolio_id: str,
 
     rows = []
     for pos in positions:
-        rows.append({
-            "symbol": pos.asset.symbol if pos.asset else "?",
-            "market_value": float(pos.quantity) * float(pos.current_price or 0),
-            "asset_class": pos.asset.asset_class if pos.asset else "equity",
-        })
+        rows.append(
+            {
+                "symbol": pos.asset.symbol if pos.asset else "?",
+                "market_value": float(pos.quantity) * float(pos.current_price or 0),
+                "asset_class": pos.asset.asset_class if pos.asset else "equity",
+            }
+        )
 
     df = pd.DataFrame(rows)
     from portfolio_manager.services.benchmark import generate_allocation_pie
+
     result = generate_allocation_pie(df)
 
     # Map asset class colors for consistent palette
@@ -213,8 +215,9 @@ async def get_allocation_chart(portfolio_id: str,
 
 
 @router.get("/{portfolio_id}/charts/monthly-returns")
-async def get_monthly_returns(portfolio_id: str,
-                              db: Annotated[AsyncSession, Depends(get_db)]) -> dict:
+async def get_monthly_returns(
+    portfolio_id: str, db: Annotated[AsyncSession, Depends(get_db)]
+) -> dict:
     """Get monthly returns heatmap data from transaction history."""
     result = await db.execute(select(Portfolio).where(Portfolio.id == portfolio_id))
     portfolio = result.scalar_one_or_none()
@@ -222,21 +225,29 @@ async def get_monthly_returns(portfolio_id: str,
         return {"error": "Portfolio not found"}
 
     transactions = await get_transactions_for_portfolio(portfolio_id, db)
-    if not transactions:
-        return {"years": [], "months": [], "values": [], "labels": []}
-
     nav_series = build_nav_from_transactions(transactions)
-    if nav_series.empty or len(nav_series) < 60:
-        # Return what we have (may be sparse)
-        return _generate_monthly_from_nav(nav_series)
+    if nav_series.empty:
+        return {
+            "years": [],
+            "months": [],
+            "values": [],
+            "labels": [],
+            "insufficient_data": True,
+        }
 
     return _generate_monthly_from_nav(nav_series)
 
 
 def _generate_monthly_from_nav(nav_series: pd.Series) -> dict:
     """Generate monthly returns heatmap from a NAV series."""
-    if nav_series.empty or len(nav_series) < 60:
-        return {"years": [], "months": [], "values": [], "labels": []}
+    if nav_series.empty or len(nav_series) < 5:
+        return {
+            "years": [],
+            "months": [],
+            "values": [],
+            "labels": [],
+            "insufficient_data": True,
+        }
 
     nav = nav_series.copy()
     nav.index = pd.to_datetime(nav.index)
@@ -249,8 +260,20 @@ def _generate_monthly_from_nav(nav_series: pd.Series) -> dict:
         monthly_returns = monthly_returns.tail(36)
 
     years = [int(y) for y in monthly_returns.index]
-    month_names = ["Jan", "Feb", "Mar", "Apr", "May", "Jun",
-                   "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+    month_names = [
+        "Jan",
+        "Feb",
+        "Mar",
+        "Apr",
+        "May",
+        "Jun",
+        "Jul",
+        "Aug",
+        "Sep",
+        "Oct",
+        "Nov",
+        "Dec",
+    ]
     present_months = [m for m in monthly_returns.columns if m <= 12]
     present_month_names = [month_names[m - 1] for m in present_months]
 
@@ -266,8 +289,9 @@ def _generate_monthly_from_nav(nav_series: pd.Series) -> dict:
 
 
 @router.get("/{portfolio_id}/charts/returns-distribution")
-async def get_returns_distribution(portfolio_id: str,
-                                   db: Annotated[AsyncSession, Depends(get_db)]) -> dict:
+async def get_returns_distribution(
+    portfolio_id: str, db: Annotated[AsyncSession, Depends(get_db)]
+) -> dict:
     """Get returns distribution histogram data."""
     result = await db.execute(select(Portfolio).where(Portfolio.id == portfolio_id))
     portfolio = result.scalar_one_or_none()
@@ -286,9 +310,9 @@ async def get_returns_distribution(portfolio_id: str,
 
 
 @router.get("/{portfolio_id}/charts/benchmark-comparison")
-async def get_benchmark_comparison(portfolio_id: str,
-                                   db: Annotated[AsyncSession, Depends(get_db)],
-                                   benchmark: str = "SPY") -> dict:
+async def get_benchmark_comparison(
+    portfolio_id: str, db: Annotated[AsyncSession, Depends(get_db)], benchmark: str = "SPY"
+) -> dict:
     """Get benchmark comparison statistics for the portfolio.
 
     Returns tracking error, information ratio, correlation, excess returns,
@@ -302,18 +326,27 @@ async def get_benchmark_comparison(portfolio_id: str,
     transactions = await get_transactions_for_portfolio(portfolio_id, db)
     if not transactions:
         return {
-            "dates": [], "portfolio": [], "benchmark": [],
-            "excess_return": 0, "tracking_error": 0,
-            "information_ratio": 0, "correlation": 0,
+            "dates": [],
+            "portfolio": [],
+            "benchmark": [],
+            "excess_return": 0,
+            "tracking_error": 0,
+            "information_ratio": 0,
+            "correlation": 0,
         }
 
     # Build portfolio NAV series
     nav_series = build_nav_from_transactions(transactions)
-    if nav_series.empty or len(nav_series) < 60:
+    if nav_series.empty or len(nav_series) < 30:
         return {
-            "dates": [], "portfolio": [], "benchmark": [],
-            "excess_return": 0, "tracking_error": 0,
-            "information_ratio": 0, "correlation": 0,
+            "dates": [],
+            "portfolio": [],
+            "benchmark": [],
+            "excess_return": 0,
+            "tracking_error": 0,
+            "information_ratio": 0,
+            "correlation": 0,
+            "insufficient_data": True,
         }
 
     # Calculate portfolio returns
@@ -331,14 +364,16 @@ async def get_benchmark_comparison(portfolio_id: str,
                 "dates": [str(d) for d in portfolio_returns.index],
                 "portfolio": [round(float(v), 2) for v in portfolio_returns],
                 "benchmark": [],
-                "excess_return": 0, "tracking_error": 0,
-                "information_ratio": 0, "correlation": 0,
+                "excess_return": 0,
+                "tracking_error": 0,
+                "information_ratio": 0,
+                "correlation": 0,
             }
 
         # Normalize both to 100
         bm_close = bm_data["Close"]
-        port_norm = (nav_series / float(nav_series.iloc[0]) * 100)
-        bm_norm = (bm_close / float(bm_close.iloc[0]) * 100)
+        port_norm = nav_series / float(nav_series.iloc[0]) * 100
+        bm_norm = bm_close / float(bm_close.iloc[0]) * 100
 
         # Align on common dates
         common_idx = port_norm.index.intersection(bm_norm.index)
@@ -356,8 +391,10 @@ async def get_benchmark_comparison(portfolio_id: str,
                 "dates": [str(d) for d in common_idx],
                 "portfolio": [round(float(v), 2) for v in port_aligned],
                 "benchmark": [round(float(v), 2) for v in bm_aligned],
-                "excess_return": 0, "tracking_error": 0,
-                "information_ratio": 0, "correlation": 0,
+                "excess_return": 0,
+                "tracking_error": 0,
+                "information_ratio": 0,
+                "correlation": 0,
             }
 
         excess = aligned[0] - aligned[1]
@@ -382,14 +419,15 @@ async def get_benchmark_comparison(portfolio_id: str,
             "dates": [str(d) for d in port_norm.index],
             "portfolio": [round(float(v), 2) for v in port_norm],
             "benchmark": [],
-            "excess_return": 0, "tracking_error": 0,
-            "information_ratio": 0, "correlation": 0,
+            "excess_return": 0,
+            "tracking_error": 0,
+            "information_ratio": 0,
+            "correlation": 0,
         }
 
 
 @router.get("/{portfolio_id}/risk-report")
-async def get_risk_report(portfolio_id: str,
-                          db: Annotated[AsyncSession, Depends(get_db)]) -> dict:
+async def get_risk_report(portfolio_id: str, db: Annotated[AsyncSession, Depends(get_db)]) -> dict:
     """Get comprehensive risk report for a portfolio."""
     result = await db.execute(select(Portfolio).where(Portfolio.id == portfolio_id))
     portfolio = result.scalar_one_or_none()
@@ -401,11 +439,15 @@ async def get_risk_report(portfolio_id: str,
         return {"error": "No positions found"}
 
     nav_series = build_nav_from_transactions(transactions)
-    if nav_series.empty or len(nav_series) < 60:
-        return {"error": "Insufficient data for risk report"}
+    if nav_series.empty or len(nav_series) < 30:
+        return {
+            "error": "Insufficient data for risk report",
+            "insufficient_data": True,
+        }
 
     returns = nav_series.pct_change().dropna()
     from portfolio_manager.services.benchmark import calculate_risk_report
+
     report = calculate_risk_report(returns)
     report["portfolio_id"] = portfolio_id
     return report
