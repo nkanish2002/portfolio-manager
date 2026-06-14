@@ -18,28 +18,39 @@ This unified plan ensures we build the **correct thing** and avoids building the
 | Phase 1 | Foundation & Core Infrastructure | ✅ Complete |
 | Phase 2 | Core Business Logic & Data Integration | ✅ Complete |
 | Phase 3 | Advanced Analytics & Visualization | ✅ Complete |
-| Phase 5 | React Frontend SPA | ✅ Complete (deprecated) |
-| Phase 5.1 | Mobile-First Responsive Design | ✅ Complete (deprecated) |
-| Phase 6 | Real-Time Market Data Streaming | ✅ Complete (deprecated) |
-| Phase 7 | Sell Operations & Trade Audit Trail | ✅ Complete (deprecated) |
-| Phase 7.1 | Sharp Edges UI (No Rounded Corners) | ✅ Complete (deprecated) |
-| Phase 8 | Professional Charting & Benchmark Visualization | ✅ Complete (deprecated) |
+| Phase 5 | React Frontend SPA | ✅ Complete (removed) |
+| Phase 5.1 | Mobile-First Responsive Design | ✅ Complete (removed) |
+| Phase 6 | Real-Time Market Data Streaming | ✅ Complete (removed) |
+| Phase 7 | Sell Operations & Trade Audit Trail | ✅ Complete (removed) |
+| Phase 7.1 | Sharp Edges UI (No Rounded Corners) | ✅ Complete (removed) |
+| Phase 8 | Professional Charting & Benchmark Visualization | ✅ Complete (removed) |
 | Phase 10 | Robustness, Testing & Polish | ✅ Complete |
 
 **Backend Status:**
 - FastAPI app, lifespan management, config loading ✅
 - Async SQLAlchemy setup, SQLite file, 6 ORM models ✅
-- 8+ functional REST endpoints ✅
-- 9 professional-grade risk metrics ✅
-- NAV, returns, allocation, P&L calculations ✅
-- yfinance data feed wrapper ✅
+- 19 REST endpoints across 3 routers (`portfolios`, `charts`, `trades`) ✅
+- 9 professional-grade risk metrics (Sharpe, Sortino, Max Drawdown, VaR, Beta, Alpha, Treynor, Calmar, Ulcer Index) ✅
+- NAV history, benchmark overlay, allocation, P&L, FIFO trade audit ✅
+- yfinance data feed wrapper with price caching ✅
+- Benchmark comparison: tracking error, information ratio, correlation ✅
+- Structlog structured logging, global exception handlers ✅
+- Alembic migrations, 9 test files ✅
 
-**Frontend Status:**
-- React SPA (Vite + TypeScript + Tailwind) — ✅ Complete (deprecated, to be removed)
-- Sharp square corners, pure black theme — ✅ Complete (deprecated, to be removed)
-- Real-time WebSocket price streaming — ✅ Complete (deprecated, to be removed)
-- Sell operations with FIFO P&L — ✅ Complete (deprecated, to be removed)
-- Professional charts (TradingView Lightweight Charts) — ✅ Complete (deprecated, to be removed)
+**Known Backend Bugs (to fix in Phase 10.5):**
+- `total_value` hardcoded to `0.0` in all portfolio endpoints — dashboard will always show $0
+- FIFO P&L calculation is wrong across multiple sells — each sell rescans all buys from scratch without tracking consumed lots
+- 60-data-point minimum on analytics endpoints (`monthly-returns`, `benchmark-comparison`, `risk-report`) — any portfolio under 3 months of data sees blank pages
+
+**Known DESIGN.md Technical Errors (to fix in Phase 10.5):**
+- `asyncio.run()` used inside all Solara `@effect` callbacks — crashes at runtime because Solara runs inside Tornado's event loop (nested `asyncio.run()` raises `RuntimeError`)
+- `use_state(list[Portfolio], [])` signature doesn't exist in Solara — correct API is `solara.use_state([])` or `solara.reactive([])`
+
+**Frontend Status — ⚠️ No Working UI:**
+- React frontend (`frontend/`) — **already deleted** from the repo
+- Jinja2 templates exist in `src/portfolio_manager/templates/` — **dead code, no route serves them**
+- Solara frontend — **not yet started**
+- Running the app today returns 404 on `/`
 
 ---
 
@@ -94,7 +105,109 @@ portfolio-manager/
 
 ---
 
-## 3. Phase 11: Solara Frontend Migration (3-4 weeks)
+## 3. Phase 10.5: Pre-Solara Cleanup (2-3 days)
+
+This phase must complete before Phase 11 starts. It resolves all known blockers discovered during codebase audit: dead code, API spec mismatches, missing dependencies, backend bugs, and DESIGN.md technical errors that would cause Phase 11 to fail on day 1.
+
+### 10.5.1: Remove Dead Jinja2 Templates
+
+The React frontend was deleted but a set of Jinja2 HTML templates (`templates/dashboard.html`, `positions.html`, `analytics.html`, `settings.html`, `base.html`, `components/nav.html`) were left behind. No route in any router serves them — they are dead code.
+
+| Task | Description |
+|------|-------------|
+| 10.5.1.1 | Delete `src/portfolio_manager/templates/` entirely |
+| 10.5.1.2 | Remove `template_dir` config entry from `config.py` |
+| 10.5.1.3 | Confirm `main.py` returns a clean 404 JSON on `/` (not a Jinja2 error) |
+
+### 10.5.2: Fix API Spec Mismatches in DESIGN.md
+
+`docs/solara/DESIGN.md` documents API URLs that don't match the actual routes. The Solara API client will be written from this doc, so discrepancies must be fixed before Phase 11.1.5.
+
+| DESIGN.md (wrong) | Actual route | Fix |
+|--------------------|--------------|-----|
+| `GET /api/v1/charts/nav-history?portfolio_id=X` | `GET /api/v1/{portfolio_id}/charts/nav-history` | Update DESIGN.md |
+| `GET /api/v1/risk-report?portfolio_id=X` | `GET /api/v1/{portfolio_id}/risk-report` | Update DESIGN.md |
+| `GET /api/v1/portfolios/{id}/metrics` | **Does not exist** | Add the endpoint (see 10.5.4) |
+
+| Task | Description |
+|------|-------------|
+| 10.5.2.1 | Update all API URLs in `DESIGN.md` service layer section to match actual path-param routes |
+
+### 10.5.3: Add Missing Dependencies to pyproject.toml
+
+Solara and httpx (as a main dep, not dev-only) must be listed before Phase 11 begins.
+
+| Task | Description |
+|------|-------------|
+| 10.5.3.1 | Add `solara[assets]>=1.0` to `[project.dependencies]` in `pyproject.toml` |
+| 10.5.3.2 | Move `httpx` from `[dev]` optional to `[project.dependencies]` |
+| 10.5.3.3 | Run `uv sync` and confirm both packages install cleanly |
+
+### 10.5.4: Fix Backend Bugs
+
+These bugs will surface immediately once the Solara UI is built. Fix them before Phase 11 to avoid debugging backend issues through a new frontend.
+
+**Bug 1 — `total_value` always returns `0.0`**
+
+`list_portfolios`, `get_portfolio`, and `create_portfolio` all hardcode `"total_value": 0.0`. The `PortfolioResponse` schema has the field but nothing populates it. The Phase 11 dashboard "Total Value" card will permanently show $0 without this fix.
+
+| Task | Description |
+|------|-------------|
+| 10.5.4.1 | Add `GET /portfolios/{id}/metrics` endpoint returning `total_value`, `unrealized_pnl`, `position_count`, `cost_basis` (aggregated from current positions) |
+| 10.5.4.2 | Populate `total_value` in `list_portfolios` by summing `quantity × current_price` across positions (single subquery, not N+1) |
+
+**Bug 2 — FIFO P&L wrong across multiple sells**
+
+`_calc_pnl_from_history` in `routes/trades.py` rescans all buy lots from the beginning for every sell, without tracking which lots prior sells have already consumed. If you buy 10 shares then sell 5 twice, both sells calculate P&L against the same 10-share pool — the second sell overstates cost basis.
+
+| Task | Description |
+|------|-------------|
+| 10.5.4.3 | Rewrite `_calc_pnl_from_history` to process sells in chronological order, tracking cumulative lot consumption across all sells for a given symbol |
+| 10.5.4.4 | Add a test case: buy 10 @ $10, sell 5 @ $15, sell 5 @ $20 — verify each sell's P&L is calculated independently against the correct remaining lots |
+
+**Bug 3 — 60-point minimum blocks analytics for new portfolios**
+
+`monthly-returns`, `benchmark-comparison`, and `risk-report` return empty responses when `len(nav_series) < 60` (~3 months of daily data). New portfolios see blank analytics pages with no explanation.
+
+| Task | Description |
+|------|-------------|
+| 10.5.4.5 | Lower minimums: `monthly-returns` → 2 data points, `risk-report` → 30 points, `benchmark-comparison` → 30 points |
+| 10.5.4.6 | Return explicit `"insufficient_data": true` flag alongside partial results so the UI can show a contextual message instead of a blank page |
+
+### 10.5.5: Fix DESIGN.md Technical Errors
+
+These errors are in `docs/solara/DESIGN.md` and will cause Phase 11 to crash on day 1 if not corrected before writing any Solara code.
+
+**Error 1 — `asyncio.run()` inside Solara effects**
+
+All component examples in DESIGN.md use this pattern:
+```python
+@effect
+def load_portfolios():
+    async def _load():
+        portfolios.value = await PortfolioAPI().list_portfolios()
+    asyncio.run(_load())  # ← RuntimeError: event loop already running
+```
+Solara runs inside Tornado's event loop. Calling `asyncio.run()` from within it raises `RuntimeError: This event loop is already running`. The correct pattern is `solara.lab.use_task`.
+
+**Error 2 — `use_state` type-as-first-argument signature does not exist**
+
+DESIGN.md uses `use_state(list[Portfolio], [])` and `use_state(Portfolio | None, None)` throughout. Solara's actual API is:
+```python
+portfolios, set_portfolios = solara.use_state([])   # mutable state
+# or
+portfolios = solara.reactive([])                     # reactive variable
+```
+
+| Task | Description |
+|------|-------------|
+| 10.5.5.1 | Replace all `asyncio.run(_load())` patterns in DESIGN.md with the correct `solara.lab.use_task` pattern |
+| 10.5.5.2 | Replace all `use_state(Type, default)` signatures with `solara.use_state(default)` or `solara.reactive(default)` |
+| 10.5.5.3 | Add a canonical "Solara async data-fetch pattern" section to DESIGN.md for reference during Phase 11 |
+
+---
+
+## 4. Phase 11: Solara Frontend Migration (3-4 weeks)
 
 ### Phase 11.1: Core Infrastructure (3-5 days)
 
@@ -120,7 +233,7 @@ portfolio-manager/
 | 11.2.6 | **NavHeader Component** — Navigation bar with portfolio context |
 | 11.2.7 | **Settings Component** — API URL, theme settings |
 
-### Phase 11.3: State Management (2-3 days)
+### Phase 11.3: State Management & Live Prices (2-3 days)
 
 | Task | Description |
 |------|-------------|
@@ -128,6 +241,7 @@ portfolio-manager/
 | 11.3.2 | Current portfolio state (auto-updates UI on switch) |
 | 11.3.3 | Auto-refresh on portfolio change |
 | 11.3.4 | Clean shutdown handling |
+| 11.3.5 | **Live price refresh strategy** — implement polling via `solara.lab.use_task` with configurable interval (default 60s); use a manual "Refresh Prices" button that calls `POST /portfolios/{id}/positions/refresh` as the primary trigger, with background polling as secondary. No WebSocket needed — Solara's reactivity handles UI updates once state changes. |
 
 ### Phase 11.4: Deployment (3-5 days)
 
@@ -151,7 +265,7 @@ portfolio-manager/
 
 ---
 
-## 4. Phase 12: Enhanced Features (Post-Solara Migration)
+## 5. Phase 12: Enhanced Features (Post-Solara Migration)
 
 ### Phase 12.1: Benchmark Data Integration
 
@@ -181,7 +295,7 @@ portfolio-manager/
 
 ---
 
-## 5. Phase 13: Multi-User Support (Post-Solara Migration)
+## 6. Phase 13: Multi-User Support (Post-Solara Migration)
 
 | Task | Description |
 |------|-------------|
@@ -192,33 +306,27 @@ portfolio-manager/
 
 ---
 
-## 6. Migration Strategy
+## 7. Migration Strategy
 
 ### React Frontend Removal
 
-1. **Phase 11**: Build Solara frontend as the **primary** frontend
-   - Solara serves on `/*` (root routes)
-   - React frontend routes are **not implemented** in Phase 11
-2. **Phase 11.5**: Test Solara frontend thoroughly
-   - Manual testing of all pages
-   - Edge cases, performance tuning
-3. **Post-Phase 11**: Remove React frontend completely
-   - Remove React routes from FastAPI
-   - Delete `frontend/` directory (~385MB)
-   - Commit to Solara-only
+React frontend (`frontend/`) has already been deleted from the repo. There is no rollback to React — Solara is the only path forward.
+
+The remaining cleanup is Phase 10.5 (dead Jinja2 templates, API spec fixes, dependencies).
 
 ### Rollback Plan
 
-- Solara is the **only** frontend in Phase 11
-- No React fallback — if Solara has issues, fix them in Phase 11
-- React frontend is **deprecated** and will be removed
+- No React fallback exists
+- If Solara has issues during Phase 11, fix them in place
+- Jinja2 templates are **not** a fallback — they are dead code scheduled for deletion in Phase 10.5
 
 ---
 
-## 7. Estimated Timeline
+## 8. Estimated Timeline
 
 | Phase | Duration |
 |-------|----------|
+| **Phase 10.5** | **2-3 days** |
 | Phase 11.1 | 3-5 days |
 | Phase 11.2 | 5-7 days |
 | Phase 11.3 | 2-3 days |
@@ -230,7 +338,7 @@ portfolio-manager/
 
 ---
 
-## 8. Key Decisions
+## 9. Key Decisions
 
 | Decision | Rationale |
 |----------|-----------|
@@ -241,16 +349,18 @@ portfolio-manager/
 
 ---
 
-## 9. Next Steps
+## 10. Next Steps
 
 1. ✅ **Compile both PLAN.md files** — This document
-2. 🔄 **Open PR** — `feature/compile-plan-merge`
-3. 📝 **Create Phase 11 tasks** — Break down Phase 11.1-11.5 into tasks
-4. 🚀 **Start Phase 11.1** — Setup Solara project structure
+2. ✅ **Audit codebase against plan** — Found 3 structural blockers + 3 backend bugs + 2 DESIGN.md errors
+3. ✅ **Update plan** — Added Phase 10.5 with 5 sub-phases covering all known issues
+4. 🔄 **Open PR** — `feature/compile-plan-merge`
+5. 🚀 **Start Phase 10.5** — Dead templates → API spec → deps → backend bugs → DESIGN.md fixes
+6. 📝 **Start Phase 11.1** — Setup Solara project structure
 
 ---
 
-## 10. Files to Reference
+## 11. Files to Reference
 
 | File | Purpose |
 |------|---------|
@@ -262,7 +372,7 @@ portfolio-manager/
 
 ---
 
-*Last Updated: June 13, 2026*
+*Last Updated: June 14, 2026*
 
 *Branch: `feature/compile-plan-merge`*
 
