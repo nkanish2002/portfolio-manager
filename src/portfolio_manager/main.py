@@ -2,7 +2,7 @@
 
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 
 from portfolio_manager.config import settings
@@ -64,9 +64,3 @@ from portfolio_manager.routes import trades  # noqa: E402
 app.include_router(portfolios.router, prefix="/api/v1")
 app.include_router(charts.router, prefix="/api/v1")
 app.include_router(trades.router, prefix="/api/v1")
-
-
-@app.get("/{full_path:path}")
-async def not_found(full_path: str):
-    """404 handler for all non-API routes."""
-    raise HTTPException(status_code=404, detail="Not found")

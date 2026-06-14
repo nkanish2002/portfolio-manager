@@ -51,36 +51,81 @@ def _calc_pnl_from_history(
     all_transactions: list[Transaction],
     symbol: str,
 ) -> float:
-    """Calculate realized P&L for a sell by matching against buy transactions (FIFO)."""
+    """Calculate realized P&L for a sell using FIFO with cumulative lot tracking.
+
+    Processes ALL transactions for the symbol chronologically, tracking
+    how many shares have been consumed by prior sells. This ensures that
+    if you buy 10 shares, sell 5, then sell 5 again, each sell matches
+    against the correct remaining lots.
+    """
     if sell_tx.transaction_type != TransactionType.SELL:
         return 0.0
 
-    qty_remaining = float(sell_tx.quantity)
     fees = float(sell_tx.fees or 0)
     sell_price = float(sell_tx.price)
+    sell_qty = float(sell_tx.quantity)
 
-    # Collect all BUY transactions for this symbol, sorted oldest first (FIFO)
-    buys = sorted(
-        [t for t in all_transactions if t.asset and t.asset.symbol == symbol and t.transaction_type == TransactionType.BUY],
-        key=lambda t: t.transaction_date,
-    )
+    # Collect all transactions for this symbol, sorted chronologically
+    symbol_txns = [
+        t for t in all_transactions
+        if t.asset and t.asset.symbol == symbol and t.transaction_type in (TransactionType.BUY, TransactionType.SELL)
+    ]
+    symbol_txns.sort(key=lambda t: t.transaction_date or date.min)
 
+    # Build a lookup: transaction_id -> shares consumed by that sell
+    # Process all sells in order, tracking cumulative consumption
+    cumulative_consumed = 0.0  # total shares sold so far (across ALL sells for this symbol)
+
+    # Pre-pass: calculate how much was consumed BEFORE this specific sell
+    for t in symbol_txns:
+        if t is sell_tx:
+            break  # stop before processing our target sell
+        if t.transaction_type == TransactionType.SELL:
+            cumulative_consumed += float(t.quantity)
+
+    # Now match this sell's quantity against buy lots (FIFO), starting from
+    # the point after cumulative_consumed shares have already been sold
+    buys = [
+        t for t in symbol_txns
+        if t.transaction_type == TransactionType.BUY
+    ]
+
+    # Track how many buy shares have been consumed across ALL sells
+    # We need to know what's already been consumed before this sell
+    # Build a running map: for each buy, how many shares consumed by sells BEFORE this one
+    buy_consumed_map: dict[int, float] = {id(buy): 0.0 for buy in buys}
+
+    # Walk through all transactions before this sell and distribute buy consumption
+    for t in symbol_txns:
+        if t is sell_tx:
+            break
+        if t.transaction_type == TransactionType.SELL:
+            sell_remaining = float(t.quantity)
+            for buy in buys:
+                if sell_remaining <= 0:
+                    break
+                available = float(buy.quantity) - buy_consumed_map[id(buy)]
+                if available <= 0:
+                    continue
+                take = min(sell_remaining, available)
+                buy_consumed_map[id(buy)] += take
+                sell_remaining -= take
+
+    # Now calculate cost basis for THIS sell using remaining buy shares
+    qty_to_match = sell_qty
     cost_basis = 0.0
     for buy in buys:
-        if qty_remaining <= 0:
+        if qty_to_match <= 0:
             break
-        buy_qty = float(buy.quantity)
-        buy_price = float(buy.price)
-        take_qty = min(qty_remaining, buy_qty)
-        cost_basis += take_qty * buy_price
-        qty_remaining -= take_qty
-        if take_qty == buy_qty:
-            # Fully consumed this buy
-            pass
-        # If partial, we still keep the remainder for next buy
+        available = float(buy.quantity) - buy_consumed_map[id(buy)]
+        if available <= 0:
+            continue
+        take = min(qty_to_match, available)
+        cost_basis += take * float(buy.price)
+        qty_to_match -= take
 
-    if cost_basis > 0 and sell_tx.quantity > 0:
-        return round(sell_price * float(sell_tx.quantity) - cost_basis - fees, 2)
+    if cost_basis > 0:
+        return round(sell_price * sell_qty - cost_basis - fees, 2)
     return 0.0
 
 

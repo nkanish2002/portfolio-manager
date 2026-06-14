@@ -19,8 +19,29 @@ from portfolio_manager.models.transaction import Transaction, TransactionType
 from portfolio_manager.services.data_feed import get_price
 
 logger = structlog.getLogger(__name__)
-
 router = APIRouter(prefix="/portfolios", tags=["portfolios"])
+
+
+async def _portfolio_stats(db: AsyncSession, portfolio_id: str) -> dict:
+    """Compute position_count and total_value for a portfolio."""
+    from sqlalchemy import func as sql_func
+    
+    pos_count_result = await db.execute(
+        select(sql_func.count(Position.id)).where(Position.portfolio_id == portfolio_id)
+    )
+    pos_count = pos_count_result.scalar_one() or 0
+    
+    # total_value = sum(quantity * current_price) for all positions
+    pos_val_result = await db.execute(
+        select(
+            sql_func.sum(
+                Position.quantity * sql_func.coalesce(Position.current_price, 0)
+            )
+        ).where(Position.portfolio_id == portfolio_id)
+    )
+    total_value = round(float(pos_val_result.scalar_one() or 0), 2)
+    
+    return {"position_count": pos_count, "total_value": total_value}
 
 
 # --- Pydantic schemas ---
@@ -143,20 +164,16 @@ async def list_portfolios(db: Annotated[AsyncSession, Depends(get_db)]):
     result = await db.execute(select(Portfolio).order_by(Portfolio.created_at.desc()))
     portfolios = result.scalars().all()
     
-    # Build position counts with a single query per portfolio
     portfolio_responses = []
     for p in portfolios:
-        pos_count_result = await db.execute(
-            select(func.count(Position.id)).where(Position.portfolio_id == p.id)
-        )
-        pos_count = pos_count_result.scalar_one()
+        stats = await _portfolio_stats(db, str(p.id))
         portfolio_responses.append({
             "id": str(p.id), 
             "name": p.name, 
             "description": p.description,
             "currency": p.currency, 
-            "position_count": pos_count or 0,
-            "total_value": 0.0
+            "position_count": stats["position_count"],
+            "total_value": stats["total_value"]
         })
     return portfolio_responses
 
@@ -175,9 +192,11 @@ async def create_portfolio(data: PortfolioCreate, db: Annotated[AsyncSession, De
     db.add(portfolio)
     await db.commit()
     await db.refresh(portfolio)
-    return {"id": str(portfolio.id), "name": portfolio.name,
-            "description": portfolio.description, "currency": portfolio.currency,
-            "position_count": 0, "total_value": 0.0}
+    return {
+        "id": str(portfolio.id), "name": portfolio.name,
+        "description": portfolio.description, "currency": portfolio.currency,
+        "position_count": 0, "total_value": 0.0
+    }
 
 
 @router.get("/{portfolio_id}", response_model=PortfolioResponse)
@@ -187,9 +206,13 @@ async def get_portfolio(portfolio_id: str, db: Annotated[AsyncSession, Depends(g
     if not portfolio:
         from fastapi import HTTPException
         raise HTTPException(status_code=404, detail="Portfolio not found")
-    return {"id": str(portfolio.id), "name": portfolio.name,
-            "description": portfolio.description, "currency": portfolio.currency,
-            "position_count": 0, "total_value": 0.0}
+    stats = await _portfolio_stats(db, portfolio_id)
+    return {
+        "id": str(portfolio.id), "name": portfolio.name,
+        "description": portfolio.description, "currency": portfolio.currency,
+        "position_count": stats["position_count"],
+        "total_value": stats["total_value"]
+    }
 
 
 @router.delete("/{portfolio_id}", status_code=204)

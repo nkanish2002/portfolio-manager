@@ -222,21 +222,23 @@ async def get_monthly_returns(portfolio_id: str,
         return {"error": "Portfolio not found"}
 
     transactions = await get_transactions_for_portfolio(portfolio_id, db)
-    if not transactions:
-        return {"years": [], "months": [], "values": [], "labels": []}
-
     nav_series = build_nav_from_transactions(transactions)
-    if nav_series.empty or len(nav_series) < 60:
-        # Return what we have (may be sparse)
-        return _generate_monthly_from_nav(nav_series)
+    if nav_series.empty:
+        return {
+            "years": [], "months": [], "values": [], "labels": [],
+            "insufficient_data": True,
+        }
 
     return _generate_monthly_from_nav(nav_series)
 
 
 def _generate_monthly_from_nav(nav_series: pd.Series) -> dict:
     """Generate monthly returns heatmap from a NAV series."""
-    if nav_series.empty or len(nav_series) < 60:
-        return {"years": [], "months": [], "values": [], "labels": []}
+    if nav_series.empty or len(nav_series) < 5:
+        return {
+            "years": [], "months": [], "values": [], "labels": [],
+            "insufficient_data": True,
+        }
 
     nav = nav_series.copy()
     nav.index = pd.to_datetime(nav.index)
@@ -309,11 +311,12 @@ async def get_benchmark_comparison(portfolio_id: str,
 
     # Build portfolio NAV series
     nav_series = build_nav_from_transactions(transactions)
-    if nav_series.empty or len(nav_series) < 60:
+    if nav_series.empty or len(nav_series) < 30:
         return {
             "dates": [], "portfolio": [], "benchmark": [],
             "excess_return": 0, "tracking_error": 0,
             "information_ratio": 0, "correlation": 0,
+            "insufficient_data": True,
         }
 
     # Calculate portfolio returns
@@ -401,8 +404,11 @@ async def get_risk_report(portfolio_id: str,
         return {"error": "No positions found"}
 
     nav_series = build_nav_from_transactions(transactions)
-    if nav_series.empty or len(nav_series) < 60:
-        return {"error": "Insufficient data for risk report"}
+    if nav_series.empty or len(nav_series) < 30:
+        return {
+            "error": "Insufficient data for risk report",
+            "insufficient_data": True,
+        }
 
     returns = nav_series.pct_change().dropna()
     from portfolio_manager.services.benchmark import calculate_risk_report
