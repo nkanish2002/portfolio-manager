@@ -25,6 +25,7 @@ This unified plan ensures we build the **correct thing** and avoids building the
 | Phase 7.1 | Sharp Edges UI (No Rounded Corners) | ✅ Complete (removed) |
 | Phase 8 | Professional Charting & Benchmark Visualization | ✅ Complete (removed) |
 | Phase 10 | Robustness, Testing & Polish | ✅ Complete |
+| Phase 11 | Solara Frontend Migration | 🔄 In Progress (11.1-11.7 complete, 11.8-11.10 pending) |
 
 **Backend Status:**
 - FastAPI app, lifespan management, config loading ✅
@@ -228,61 +229,40 @@ The current `Dockerfile` has a multi-stage build that references `frontend/` (li
 
 ---
 
-## 4. Phase 11: Solara Frontend Migration (3-4 weeks)
+## 4. Phase 11: Solara Frontend Migration (Updated)
 
-### Phase 11.1: Core Infrastructure (3-5 days)
-
-| Task | Description |
-|------|-------------|
-| 11.1.1 | Setup Solara project structure (`solara-ui/` directory) |
-| 11.1.2 | Set up `pyproject.toml` with Solara dependencies |
-| 11.1.3 | Configure `uv` for dependency management |
-| 11.1.4 | Install `solara[assets]` for air-gapped environments |
-| 11.1.5 | Create `PortfolioAPI` client (`httpx.AsyncClient`) |
-| 11.1.6 | Implement async methods for all backend endpoints |
-| 11.1.7 | Move Pydantic schemas to shared location |
-
-### Phase 11.2: Core Components (5-7 days)
+### Phase 11.1: Core Infrastructure (✅ Complete)
 
 | Task | Description |
 |------|-------------|
-| 11.2.1 | **Dashboard Component** — Portfolio overview cards, Total Value, P&L, position count |
-| 11.2.2 | **Positions Component** — Position table, Edit/Sell functionality, Refresh prices |
-| 11.2.3 | **Trades Component** — Trade history table, filtering, summary statistics |
-| 11.2.4 | **Analytics Component** — Reactive charts (Plotly/Solara), risk metrics |
-| 11.2.5 | **PortfolioSelector Component** — Dropdown widget for portfolio switching |
-| 11.2.6 | **NavHeader Component** — Navigation bar with portfolio context |
-| 11.2.7 | **Settings Component** — API URL, theme settings |
+| 11.1.1 | ✅ Setup Solara project structure (in `src/portfolio_manager/`) |
+| 11.1.2 | ✅ Set up `pyproject.toml` with Solara dependencies (removed FastAPI) |
+| 11.1.3 | ✅ Configure `uv` for dependency management |
+| 11.1.4 | ✅ Install `solara[assets]` for air-gapped environments |
+| 11.1.5 | ✅ Create `PortfolioAPI` client (`httpx.AsyncClient`) |
+| 11.1.6 | ✅ Implement async methods for all backend endpoints |
+| 11.1.7 | ✅ Move Pydantic schemas to shared location |
 
-### Phase 11.3: State Management & Live Prices (2-3 days)
-
-| Task | Description |
-|------|-------------|
-| 11.3.1 | Global portfolio state (list of portfolios) |
-| 11.3.2 | Current portfolio state (auto-updates UI on switch) |
-| 11.3.3 | Auto-refresh on portfolio change |
-| 11.3.4 | Clean shutdown handling |
-| 11.3.5 | **Live price refresh strategy** — implement polling via `solara.lab.use_task` with configurable interval (default 60s); use a manual "Refresh Prices" button that calls `POST /portfolios/{id}/positions/refresh` as the primary trigger, with background polling as secondary. No WebSocket needed — Solara's reactivity handles UI updates once state changes. |
-
-### Phase 11.4: Deployment (3-5 days)
+### Phase 11.2-11.4: Backend Services Layer (✅ Complete)
 
 | Task | Description |
 |------|-------------|
-| 11.4.1 | Configure `solara-server[starlette,dev]` |
-| 11.4.2 | Set up reverse proxy (nginx) if needed |
-| 11.4.3 | Test browser compatibility (Chrome, Firefox, Safari) |
-| 11.4.4 | Mobile-friendly layouts (320px–768px) |
-| 11.4.5 | Touch support and adaptive navigation |
+| 11.2.1-11.4.5 | ✅ Created services layer (`services/portfolios.py`, `charts.py`, `trades.py`) |
 
-### Phase 11.5: Polish & Testing (3-5 days)
+### Phase 11.5-11.7: UI Components (✅ Complete)
 
 | Task | Description |
 |------|-------------|
-| 11.5.1 | Custom theme (dark mode, emerald accents) |
-| 11.5.2 | Network error handling |
-| 11.5.3 | Validation error handling |
-| 11.5.4 | Manual testing of all pages |
-| 11.5.5 | Performance tuning |
+| 11.5.1-11.7.1 | ✅ Created UI components (`ui/dashboard.py`, `charts.py`, `trades.py`) |
+
+### Phase 11.8-11.10: Integration & Polish (Pending)
+
+| Task | Description |
+|------|-------------|
+| 11.8.1 | Integrate TradingView Lightweight Charts into React components |
+| 11.8.2 | Implement hash router navigation for Solara frontend |
+| 11.9.1 | Solara frontend migration plan (docs/solara/PLAN.md, DESIGN.md) |
+| 11.10.1 | Update Docker/Solara deployment config |
 
 ---
 
