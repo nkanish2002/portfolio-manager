@@ -1,10 +1,8 @@
-"""SQLAlchemy async engine, session, base model, and Jinja2 templates."""
+"""SQLAlchemy async engine, session, and base model."""
 
 import sqlite3
 from uuid import UUID
 
-from fastapi.templating import Jinja2Templates
-from jinja2 import Environment, FileSystemLoader
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.orm import DeclarativeBase
 
@@ -46,13 +44,3 @@ async def init_db():
 
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
-
-
-# Create a Jinja2 Environment with caching disabled (Python 3.14 compatibility fix)
-# where Jinja2 uses unhashable dict keys in its internal cache.
-jinja_env = Environment(
-    loader=FileSystemLoader(settings.template_dir),
-    autoescape=True,
-    cache_size=0,
-)
-templates = Jinja2Templates(env=jinja_env)

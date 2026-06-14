@@ -43,7 +43,7 @@ class PortfolioResponse(BaseModel):
 
 
 class PositionCreate(BaseModel):
-    cusip: str = Field(..., description="CUSIP identifier")
+    cusip: str | None = Field(None, description="CUSIP identifier (optional, will be fetched from symbol if missing)")
     symbol: str | None = None
     quantity: float = Field(..., gt=0)
     price: float = Field(..., gt=0)
@@ -76,7 +76,7 @@ class PositionResponse(BaseModel):
 
 
 class TransactionCreate(BaseModel):
-    cusip: str = Field(..., description="CUSIP identifier")
+    cusip: str | None = Field(None, description="CUSIP identifier (optional, will be fetched from symbol if missing)")
     symbol: str | None = None
     transaction_type: TransactionType
     quantity: float = Field(..., gt=0)
@@ -87,34 +87,47 @@ class TransactionCreate(BaseModel):
 
 class SellRequest(BaseModel):
     """Sell position request."""
-    cusip: str = Field(..., description="CUSIP of security to sell")
+    cusip: str | None = Field(None, description="CUSIP of security to sell (optional, will be fetched from symbol if missing)")
+    symbol: str | None = None
     quantity: float = Field(..., gt=0, description="Quantity to sell")
     price: float = Field(..., gt=0, description="Sell price per share")
     fees: float = 0
     notes: str | None = None
 
 
-async def _find_or_create_asset(db: AsyncSession, cusip: str, symbol: str | None = None,
+async def _find_or_create_asset(db: AsyncSession, cusip: str | None, symbol: str | None = None,
                                  name: str | None = None, asset_class: str = "equity") -> Asset:
     """Look up asset by CUSIP first, then symbol. Create if not found."""
-    cusip_clean = cusip.upper().replace("-", "")
+    if cusip:
+        cusip_clean = cusip.upper().replace("-", "")
+    else:
+        cusip_clean = None
     
     # Try CUSIP first
-    asset_result = await db.execute(select(Asset).where(Asset.cusip == cusip_clean))
-    asset = asset_result.scalars().first()
-    
-    if not asset and symbol:
-        # Try symbol
+    if cusip_clean:
+        asset_result = await db.execute(select(Asset).where(Asset.cusip == cusip_clean))
+        asset = asset_result.scalars().first()
+        
+        if not asset and symbol:
+            # Try symbol
+            symbol_upper = symbol.upper()
+            asset_result = await db.execute(select(Asset).where(Asset.symbol == symbol_upper))
+            asset = asset_result.scalars().first()
+    elif symbol:
+        # Only symbol provided, look up by symbol
         symbol_upper = symbol.upper()
         asset_result = await db.execute(select(Asset).where(Asset.symbol == symbol_upper))
         asset = asset_result.scalars().first()
+    else:
+        # Neither CUSIP nor symbol provided
+        raise ValueError("Either 'cusip' or 'symbol' must be provided")
     
     if not asset:
         # Create new asset
         asset = Asset(
-            cusip=cusip_clean if cusip_clean else None,
+            cusip=cusip_clean,
             symbol=symbol.upper() if symbol else None,
-            name=name or (symbol.upper() if symbol else cusip_clean),
+            name=name or (symbol.upper() if symbol else cusip_clean or "Unknown"),
             asset_class=AssetClass(asset_class.lower()),
         )
         db.add(asset)
@@ -350,7 +363,11 @@ async def sell_position(
     from sqlalchemy.orm import selectinload
     from fastapi import HTTPException
 
-    cusip_clean = data.cusip.upper().replace("-", "")
+    # Handle both CUSIP and symbol
+    if data.cusip:
+        cusip_clean = data.cusip.upper().replace("-", "")
+    else:
+        cusip_clean = None
     
     # Ensure portfolio exists
     result = await db.execute(select(Portfolio).where(Portfolio.id == portfolio_id))
@@ -358,13 +375,22 @@ async def sell_position(
     if not portfolio:
         raise HTTPException(status_code=404, detail="Portfolio not found")
 
-    # Find asset by CUSIP
-    asset_result = await db.execute(
-        select(Asset).where(Asset.cusip == cusip_clean)
-    )
-    asset = asset_result.scalar_one_or_none()
+    # Find asset by CUSIP or symbol
+    asset = None
+    if cusip_clean:
+        asset_result = await db.execute(
+            select(Asset).where(Asset.cusip == cusip_clean)
+        )
+        asset = asset_result.scalar_one_or_none()
+    
+    if not asset and data.symbol:
+        asset_result = await db.execute(
+            select(Asset).where(Asset.symbol == data.symbol.upper())
+        )
+        asset = asset_result.scalar_one_or_none()
+    
     if not asset:
-        raise HTTPException(status_code=404, detail=f"Asset not found for CUSIP: {data.cusip}")
+        raise HTTPException(status_code=404, detail=f"Asset not found for CUSIP: {data.cusip or 'N/A'}, symbol: {data.symbol or 'N/A'}")
 
     # Find the position to sell
     pos_result = await db.execute(
