@@ -1,20 +1,13 @@
-# Multi-stage build for portfolio-manager
-# Stage 1: Build frontend (React SPA)
-FROM node:20-alpine AS frontend-builder
-WORKDIR /app
-COPY frontend/package.json frontend/package-lock.json* ./
-RUN npm ci
-COPY frontend/ ./
-RUN npm run build
-
-# Stage 2: Build Python dependencies
+# Multi-stage build for portfolio-manager with Solara frontend
+# Stage 1: Build Python dependencies
 FROM ghcr.io/astral-sh/uv:python3.11-bookworm-slim AS builder
 WORKDIR /app
+
 COPY pyproject.toml uv.lock ./
 RUN uv sync --frozen --no-install-project
 COPY src/ ./src/
 
-# Stage 3: Runtime image
+# Stage 2: Runtime image
 FROM ghcr.io/astral-sh/uv:python3.11-bookworm-slim
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -29,8 +22,6 @@ COPY --from=builder /app/.venv /app/.venv
 COPY --from=builder /app/src /app/src
 # Copy migrations
 COPY migrations /app/migrations
-# Copy React SPA build
-COPY --from=frontend-builder /app/dist /app/frontend/dist
 
 # Set environment variables
 ENV PATH="/app/.venv/bin:$PATH"
@@ -41,6 +32,8 @@ ENV DATABASE_URL="sqlite+aiosqlite:///data/portfolio.db"
 # Create data directory for persistent storage
 RUN mkdir -p /app/data && chmod 777 /app/data
 
+# Expose Solara port (8002) and FastAPI API port (8000) if running separately
+# Solara serves both frontend and API when configured properly
 EXPOSE 8000
 
 CMD ["uvicorn", "portfolio_manager.main:app", "--host", "0.0.0.0", "--port", "8000"]
