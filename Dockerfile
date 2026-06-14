@@ -32,8 +32,7 @@ ENV DATABASE_URL="sqlite+aiosqlite:///data/portfolio.db"
 # Create data directory for persistent storage
 RUN mkdir -p /app/data && chmod 777 /app/data
 
-# Expose Solara port (8002) and FastAPI API port (8000) if running separately
-# Solara serves both frontend and API when configured properly
+# Expose Solara port
 EXPOSE 8000
 
-CMD ["uvicorn", "portfolio_manager.main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["solara-server", "run", "portfolio_manager.solara_app:solara_app"]
