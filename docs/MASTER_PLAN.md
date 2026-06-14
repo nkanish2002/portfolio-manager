@@ -1,10 +1,10 @@
-# Portfolio Manager — Master Plan (Unified)
+1|# Portfolio Manager — Master Plan (Unified)
 
 ## Overview
 
 This is the **unified master plan** that combines:
 
-1. **Original PLAN.md** — FastAPI backend + React frontend + phases 1-10
+1. **Original PLAN.md** — FastAPI backend + phases 1-10
 2. **docs/solara/PLAN.md** — Solara frontend migration plan
 
 This unified plan ensures we build the **correct thing** and avoids building the wrong thing.
@@ -18,12 +18,12 @@ This unified plan ensures we build the **correct thing** and avoids building the
 | Phase 1 | Foundation & Core Infrastructure | ✅ Complete |
 | Phase 2 | Core Business Logic & Data Integration | ✅ Complete |
 | Phase 3 | Advanced Analytics & Visualization | ✅ Complete |
-| Phase 5 | React Frontend SPA | ✅ Complete |
-| Phase 5.1 | Mobile-First Responsive Design | ✅ Complete |
-| Phase 6 | Real-Time Market Data Streaming | ✅ Complete |
-| Phase 7 | Sell Operations & Trade Audit Trail | ✅ Complete |
-| Phase 7.1 | Sharp Edges UI (No Rounded Corners) | ✅ Complete |
-| Phase 8 | Professional Charting & Benchmark Visualization | ✅ Complete |
+| Phase 5 | React Frontend SPA | ✅ Complete (deprecated) |
+| Phase 5.1 | Mobile-First Responsive Design | ✅ Complete (deprecated) |
+| Phase 6 | Real-Time Market Data Streaming | ✅ Complete (deprecated) |
+| Phase 7 | Sell Operations & Trade Audit Trail | ✅ Complete (deprecated) |
+| Phase 7.1 | Sharp Edges UI (No Rounded Corners) | ✅ Complete (deprecated) |
+| Phase 8 | Professional Charting & Benchmark Visualization | ✅ Complete (deprecated) |
 | Phase 10 | Robustness, Testing & Polish | ✅ Complete |
 
 **Backend Status:**
@@ -35,11 +35,11 @@ This unified plan ensures we build the **correct thing** and avoids building the
 - yfinance data feed wrapper ✅
 
 **Frontend Status:**
-- React SPA (Vite + TypeScript + Tailwind) ✅
-- Sharp square corners, pure black theme ✅
-- Real-time WebSocket price streaming ✅
-- Sell operations with FIFO P&L ✅
-- Professional charts (TradingView Lightweight Charts) ✅
+- React SPA (Vite + TypeScript + Tailwind) — ✅ Complete (deprecated, to be removed)
+- Sharp square corners, pure black theme — ✅ Complete (deprecated, to be removed)
+- Real-time WebSocket price streaming — ✅ Complete (deprecated, to be removed)
+- Sell operations with FIFO P&L — ✅ Complete (deprecated, to be removed)
+- Professional charts (TradingView Lightweight Charts) — ✅ Complete (deprecated, to be removed)
 
 ---
 
@@ -194,26 +194,24 @@ portfolio-manager/
 
 ## 6. Migration Strategy
 
-### Incremental Approach
+### React Frontend Removal
 
-1. **Phase 11**: Build Solara frontend **alongside** React frontend
-   - Both frontends can coexist
-   - Solara frontends serves on `/solara/*`
-   - React frontend serves on `/*` (fallback)
+1. **Phase 11**: Build Solara frontend as the **primary** frontend
+   - Solara serves on `/*` (root routes)
+   - React frontend routes are **not implemented** in Phase 11
 2. **Phase 11.5**: Test Solara frontend thoroughly
    - Manual testing of all pages
    - Edge cases, performance tuning
-3. **Phase 11.6** (optional): Deprecate React frontend
+3. **Post-Phase 11**: Remove React frontend completely
    - Remove React routes from FastAPI
-   - Delete `frontend/` directory
+   - Delete `frontend/` directory (~385MB)
    - Commit to Solara-only
 
 ### Rollback Plan
 
-- Keep React frontend available during Phase 11
-- Solara routes: `/solara/dashboard`, `/solara/positions`, etc.
-- React routes: `/*` (fallback)
-- If Solara has issues, users can fall back to React
+- Solara is the **only** frontend in Phase 11
+- No React fallback — if Solara has issues, fix them in Phase 11
+- React frontend is **deprecated** and will be removed
 
 ---
 
@@ -238,7 +236,7 @@ portfolio-manager/
 |----------|-----------|
 | **Keep yfinance** | Already working, robust, no API key required |
 | **Build Solara frontend** | Eliminates hash router bugs, pure Python, no build step |
-| **Incremental migration** | Both frontends can coexist, rollback plan |
+| **Remove React frontend** | React has hash router bugs, JavaScript complexity, build steps |
 | **No Phase 9/10** | Already completed in Phase 1-10 |
 
 ---
