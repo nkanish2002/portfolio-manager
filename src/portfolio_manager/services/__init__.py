@@ -1,7 +1,6 @@
-"""Services package — business logic layer for Solara frontend.
+"""Services package — business logic layer.
 
-This package contains domain services that Solara components call directly.
-No FastAPI routes — all services use async Python functions.
+All services use direct async SQLAlchemy — no framework dependency.
 """
 
 from portfolio_manager.services.portfolios import PortfolioService

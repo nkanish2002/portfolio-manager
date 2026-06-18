@@ -44,3 +44,6 @@ Thumbs.db
 # Local data
 *.db
 data/
+
+# Solara CDN cache (can be huge)
+venv/share/solara/

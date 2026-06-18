@@ -4,7 +4,7 @@ This service is called directly by Solara components. No FastAPI routes.
 """
 
 import structlog
-from sqlalchemy import func as sql_func
+from sqlalchemy import func as sql_func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from portfolio_manager.database import async_session
@@ -41,7 +41,7 @@ class PortfolioService:
 async def _list_portfolios(db: AsyncSession) -> list[dict]:
     """List all portfolios with stats."""
     result = await db.execute(
-        sql_func.select(Portfolio).order_by(Portfolio.created_at.desc())
+        select(Portfolio).order_by(Portfolio.created_at.desc())
     )
     portfolios = result.scalars().all()
 
@@ -63,7 +63,7 @@ async def _list_portfolios(db: AsyncSession) -> list[dict]:
 
 async def _get_portfolio(db: AsyncSession, portfolio_id: str) -> dict | None:
     """Get a portfolio by ID with stats."""
-    result = await db.execute(sql_func.select(Portfolio).where(Portfolio.id == portfolio_id))
+    result = await db.execute(select(Portfolio).where(Portfolio.id == portfolio_id))
     portfolio = result.scalar_one_or_none()
     if not portfolio:
         return None
@@ -82,7 +82,7 @@ async def _get_portfolio(db: AsyncSession, portfolio_id: str) -> dict | None:
 async def _portfolio_stats(db: AsyncSession, portfolio_id: str) -> dict:
     """Compute position_count and total_value for a portfolio."""
     pos_count_result = await db.execute(
-        sql_func.select(sql_func.count(Position.id)).where(
+        select(sql_func.count(Position.id)).where(
             Position.portfolio_id == portfolio_id
         )
     )
@@ -90,7 +90,7 @@ async def _portfolio_stats(db: AsyncSession, portfolio_id: str) -> dict:
 
     # total_value = sum(quantity * current_price) for all positions
     pos_val_result = await db.execute(
-        sql_func.select(
+        select(
             sql_func.sum(
                 Position.quantity * sql_func.coalesce(Position.current_price, 0)
             )
@@ -123,7 +123,7 @@ async def _create_portfolio(
 async def _delete_portfolio(db: AsyncSession, portfolio_id: str) -> bool:
     """Delete a portfolio."""
     result = await db.execute(
-        sql_func.select(Portfolio).where(Portfolio.id == portfolio_id)
+        select(Portfolio).where(Portfolio.id == portfolio_id)
     )
     portfolio = result.scalar_one_or_none()
     if not portfolio:
