@@ -1,12 +1,11 @@
 # Portfolio Manager — Master Plan
 
-||> **Status:** Backend services complete. Solara UI removed. Textual TUI migration planned. 🔄
-||> **Last Updated:** June 17, 2026
+||> **Status:** Backend services complete. UI layer removed (Solara). Textual TUI migration in progress. 🔄
+||> **Last Updated:** June 18, 2026
 ||> **Tech Stack:** Python 3.11+, SQLAlchemy (Async), SQLite, yfinance, Plotly.
-||> **UI:** Textual TUI (planned) — Solara UI removed June 17, 2026.
-|> **Tests:** 73/73 passing (pytest).
-|> **Docker:** Dockerfile + docker-compose.yaml ready for deployment.
-|> **UI:** Sharp square corners (no rounded edges), pure black bg (#000), off-white text, emerald accents.
+||> **UI:** Textual TUI (planned) — Solara UI and FastAPI routes removed June 17, 2026.
+|> **Tests:** 39/43 passing (4 db-dependent tests failing in isolation).
+|> **Docker:** Dockerfile + docker-compose.yaml updated for Textual TUI.
 
 ---
 
@@ -20,7 +19,7 @@ Build a professional, self-hosted portfolio management tool that mirrors the cap
 - Advanced risk analytics (Sharpe, Sortino, VaR, Beta, Alpha, etc.).
 - Benchmark comparison (Portfolio vs. S&P 500, Custom indices).
 - Interactive visualizations (Plotly charts for NAV, allocation, drawdowns).
-- Clean, dark-themed web UI with HTMX for dynamic updates without SPA complexity.
+- Clean, dark-themed UI — **Textual TUI** (planned), replacing previous FastAPI/React/Solara layers.
 
 ---
 
@@ -29,30 +28,38 @@ Build a professional, self-hosted portfolio management tool that mirrors the cap
 ```text
 portfolio-manager/
 ├── src/portfolio_manager/
-│   ├── main.py              # [CORE] FastAPI app factory, lifespan, middleware
 │   ├── config.py            # [CORE] Pydantic settings (.env, DB URL, toggles)
 │   ├── database.py          # [CORE] Async SQLAlchemy engine, session, Base
-│   ├── models/              # [DATA] ORM definitions (Asset, Portfolio, Position, Transaction, Benchmark)
-│   ├── routes/              # [API] HTTP handlers (CRUD, Dashboard, Transactions, WS)
-│   ├── services/            # [LOGIC] Business rules (Risk engine, Calculations, Data feeds)
-│   ├── templates/           # [UI-LEGACY] Jinja2 + Tailwind + HTMX (deprecated)
-│   └── static/              # [UI-NEW] Vite React build output (served by FastAPI)
-├── frontend/                # [UI-NEW] Vite + React + TypeScript SPA
-│   ├── src/
-│   │   ├── components/      # React components (PortfolioCard, PositionTable, SellModal)
-│   │   ├── hooks/           # Custom hooks (useWebSocket, usePortfolio, useMarketData)
-│   │   ├── pages/           # Route pages (Dashboard, Positions, Analytics, TradeAudit, Settings)
-│   │   ├── store/           # Zustand stores (portfolioStore, positionStore, tradeStore)
-│   │   ├── services/        # API client (axios, WebSocket manager)
-│   │   ├── charts/          # Chart components (Lightweight Charts, Recharts)
-│   │   └── App.tsx          # Root component with TanStack Router
-│   ├── package.json         # Frontend dependencies
-│   └── vite.config.ts       # Vite configuration
-├── tests/                   # [QA] Pytest suite
+│   ├── models/              # [DATA] ORM definitions (6 models: Asset, Portfolio, Position, Transaction, Benchmark, base)
+│   │   ├── asset.py
+│   │   ├── benchmark.py
+│   │   ├── portfolio.py
+│   │   ├── position.py
+│   │   └── transaction.py
+│   ├── services/            # [LOGIC] Business rules (direct async SQLAlchemy, no framework)
+│   │   ├── portfolios.py    # PortfolioService — CRUD, position management
+│   │   ├── trades.py        # TradeService — buy/sell, FIFO P&L, trade audit
+│   │   ├── charts.py        # ChartService — allocation, drawdown, monthly returns
+│   │   ├── risk.py          # 9 professional risk metrics (Sharpe, Sortino, VaR, etc.)
+│   │   ├── portfolio_calc.py# NAV, returns, allocation, P&L calculations
+│   │   ├── data_feed.py     # yfinance wrapper — price lookup, historical data
+│   │   ├── nav_history.py   # Historical NAV from transaction records
+│   │   ├── benchmark.py     # Benchmark comparison calculations
+│   │   ├── classification.py# Sector/industry/region mapping for 150+ tickers
+│   │   ├── price_cache.py   # In-memory TTL cache for market data
+│   │   └── chart_data.py    # Chart data generation utilities
+│   └── __init__.py
+├── tests/                   # [QA] Pytest suite (43 tests, 39 passing)
 ├── migrations/              # [DB] Alembic migrations
 ├── pyproject.toml           # [DEPS] Hatch configuration, dependencies
-└── PLAN.md                  # [DOC] This file
+├── Dockerfile               # Multi-stage build, Python 3.11, uv
+├── docker-compose.yaml      # Service definition with volume persistence
+├── .dockerignore            # Clean build exclusions
+├── PLAN.md                  # [DOC] This file
+└── README.md
 ```
+
+**Note:** Previous architecture included FastAPI routes, React SPA, WebSocket streaming, and Solara UI — all removed June 17, 2026. The services layer (`services/`) remains framework-agnostic and is the target for the Textual TUI migration.
 
 ---
 
@@ -94,7 +101,10 @@ portfolio-manager/
 - [x] **.dockerignore**: Proper exclusions for clean builds.
 **Status:** ✅ 100% Complete
 
-### Phase 5: React Frontend SPA ✅ **COMPLETED**
+> **Note:** Phase 4 (Benchmark Comparison) was implicitly part of Phase 3 and never had a separate header.
+
+### Phase 5: React Frontend SPA ✅ **COMPLETED** ⚠️
+> **⚠️ Removed June 17, 2026** — This phase documented the React SPA that was built and later removed (Solara migration attempt failed). Code no longer present.
 **Goal:** Replace the Jinja2/HTMX UI with a modern React + TypeScript SPA alongside the FastAPI backend.
 - [x] **Vite + React + TypeScript**: Scaffold the frontend project
   - [x] Vite configuration (dev server, proxy to FastAPI `/api/v1/`)
@@ -125,7 +135,8 @@ portfolio-manager/
 - [x] **Docker Update**: Multi-stage build with Vite + Python, serves React static files from FastAPI
 **Status:** ✅ 100% Complete
 
-### Phase 5.1: Mobile-First Responsive Design
+### Phase 5.1: Mobile-First Responsive Design ✅ **COMPLETED** ⚠️
+> **⚠️ Removed June 17, 2026** — React SPA mobile optimizations. Code no longer present.
 **Goal:** Ensure the entire React SPA works seamlessly on mobile devices (320px–768px).
 - [x] **Navigation Bar Mobile Optimization**:
   - [x] Hamburger menu on mobile (≤768px) with smooth open/close
@@ -159,7 +170,8 @@ portfolio-manager/
   - [x] All pages functional on mobile viewport
 **Status:** ✅ 100% Complete
 
-### Phase 6: Real-Time Market Data Streaming ✅ **COMPLETED**
+### Phase 6: Real-Time Market Data Streaming ✅ **COMPLETED** ⚠️
+> **⚠️ Removed June 17, 2026** — FastAPI WebSocket + React WebSocket hook. Code no longer present.
 **Goal:** Replace the "Refresh Prices" button with live WebSocket market data.
 - [x] **FastAPI WebSocket Service**: `/ws/quotes` endpoint
   - [x] Accept multiple symbol subscriptions per connection
@@ -178,7 +190,8 @@ portfolio-manager/
   - [x] Cache invalidation on new position creation
 **Status:** ✅ 100% Complete
 
-### Phase 7: Sell Operations & Trade Audit Trail ✅ **COMPLETED**
+### Phase 7: Sell Operations & Trade Audit Trail ✅ **COMPLETED** ⚠️
+> **⚠️ Removed June 17, 2026** — FastAPI sell endpoint, React SellModal, TradeAudit page. Code no longer present.
 **Goal:** Complete buy/sell workflow with full trade history and P&L tracking.
 - [x] **Backend — Sell Endpoint**:
   - [x] `POST /api/v1/portfolios/{id}/positions/sell` — partial or full sell
@@ -207,7 +220,8 @@ portfolio-manager/
 - [x] **Nav link** — "Trade Audit" added to PageLayout navigation
 **Status:** ✅ 100% Complete
 
-### Phase 7.1: Sharp Edges UI (No Rounded Corners) ✅ **COMPLETED**
+### Phase 7.1: Sharp Edges UI (No Rounded Corners) ✅ **COMPLETED** ⚠️
+> **⚠️ Removed June 17, 2026** — React CSS styling. Code no longer present.
 **Goal:** Replace all rounded corners across the UI with sharp square edges for a clean, professional look.
 - [x] **Global CSS Replacement**: Replaced all `rounded-*` Tailwind classes with `rounded-none` across:
   - [x] Navigation bar links (`.rounded-none` on nav items)
@@ -224,7 +238,8 @@ portfolio-manager/
 - [x] **Theme Consistency**: Pure black background (`#000`), off-white text (`#E2E8F0`), emerald accents, sharp edges throughout
 **Status:** ✅ 100% Complete
 
-### Phase 8: Professional Charting & Benchmark Visualization ✅ **COMPLETED**
+### Phase 8: Professional Charting & Benchmark Visualization ✅ **COMPLETED** ⚠️
+> **⚠️ Removed June 17, 2026** — TradingView Lightweight Charts, React chart components, FastAPI chart endpoints. Code no longer present.
 **Goal:** Upgrade from basic Plotly charts to professional-grade financial visualizations using TradingView Lightweight Charts.
 - [x] **Charting Library**: Installed TradingView Lightweight Charts v4 (industry standard for financial charting)
 - [x] **Backend NAV Enhancement**: New `nav_history.py` service that builds proper historical NAV from transaction records
@@ -270,11 +285,12 @@ portfolio-manager/
 **Goal:** Ensure reliability, maintainability, and production-readiness.
 - [x] **Git Repository**: Initialized, `.gitignore` added, commits tracking all changes.
 - [x] **Alembic Migrations**: Configured for async SQLAlchemy with `aiosqlite`. Initial schema + UUID type fix migrations.
-- [x] **Unit & Integration Tests**: 62 passing tests covering:
-  - 10 API endpoint tests (portfolios CRUD, positions, transactions, health, refresh prices, integration)
-  - 8 portfolio calculation tests (value, returns, price series, empty DataFrame handling)
+- [x] **Unit & Integration Tests**: 43 tests (39 passing, 4 db-dependent failures in isolated runs) covering:
+  - 5 chart service tests (allocation, drawdown, monthly returns, chart service instance)
+  - 14 portfolio calculation tests (value, returns, price series, empty DataFrame handling)
+  - 3 portfolio service tests (instance, methods, list empty)
   - 24 risk metric tests (Sharpe, Sortino, MaxDrawdown, VaR, Beta, Alpha, Treynor, Calmar, Ulcer, FullReport)
-  - 20 portfolio integration tests (create, read, update, delete, duplicate, empty, error cases)
+  - 3 trades service tests (instance, methods, list empty)
 - [x] **SQLite UUID Adapter**: Registered for proper UUID storage in `aiosqlite`.
 - [x] **Edge Case Handling**: Empty DataFrames, zero-variance benchmarks, no-drawdown portfolios, NaN Sortino.
 - [x] **Lazy-Loading Fix**: Eager loading with `selectinload` for asset relationships.
@@ -291,15 +307,17 @@ portfolio-manager/
 | Component | Details |
 |---|---|
 | **Database** | Async SQLAlchemy setup, SQLite file, 6 fully defined ORM models with relationships. |
-| **Services** | PortfolioService, TradeService, ChartService — direct async SQLAlchemy (no framework). |
+| **Services** | PortfolioService, TradeService, ChartService (in `__init__.py`); plus `risk.py`, `portfolio_calc.py`, `data_feed.py`, `nav_history.py`, `benchmark.py`, `classification.py`, `price_cache.py`, `chart_data.py`. Direct async SQLAlchemy — no framework. |
 | **Risk Engine** | 9 professional-grade metrics implemented (`risk.py`). |
 | **Calc Engine** | NAV, returns, allocation, P&L calculations (`portfolio_calc.py`). |
 | **Data Feed** | `yfinance` wrapper with price lookup and historical data fetching (`data_feed.py`). |
-| **Price Cache** | Server-side in-memory TTL cache for market data. |
+| **Price Cache** | Server-side in-memory TTL cache for market data (`price_cache.py`). |
 | **Chart Data** | Allocation pie, NAV history, drawdown, monthly returns, returns distribution, benchmark comparison. |
-| **Portfolio Classification** | Sector/industry/region mapping for 150+ tickers. |
+| **NAV History** | Historical NAV built from transaction records (`nav_history.py`). |
+| **Classification** | Sector/industry/region mapping for 150+ tickers (`classification.py`). |
+| **Benchmark** | Benchmark comparison calculations (`benchmark.py`). |
 | **Sell Operations** | Partial/full sell with FIFO P&L in TradeService. |
-| **Tests** | 5 passing test files (chart_service, portfolio_calc, portfolio_service, risk_metrics, trades_service). |
+| **Tests** | 5 test files (chart_service, portfolio_calc, portfolio_service, risk_metrics, trades_service). 43 tests total: 39 passing, 4 db-dependent failures in isolated runs. |
 
 ### What Was Removed 🔧 (June 17, 2026)
 | Component | Reason |
@@ -328,4 +346,6 @@ portfolio-manager/
 
 1. ✅ **Phase 0 (Cleanup)** — June 17, 2026: Removed Solara UI, FastAPI routes, orphaned code. Clean backend services remain.
 2. **Phase 1 (Textual UI)** — Build terminal UI with Textual: portfolio dashboard, positions table, charts, trade history.
-3. **Phase 2 (Enhanced Features)** — Benchmark data, CSV export, portfolio classification.
+3. **Phase 2 (Enhanced Features)** — Benchmark data (SPY/QQQ), CSV export, portfolio classification.
+
+> **Phase numbering note:** Phases 4 (Benchmark Comparison) was absorbed into Phase 3. Phase 9 (Global Exception Handlers) and Phase 9.1 (Production Readiness Fixes) were removed with FastAPI.
