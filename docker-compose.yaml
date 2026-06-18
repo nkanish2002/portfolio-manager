@@ -6,15 +6,14 @@ services:
             context: .
             dockerfile: Dockerfile
         container_name: portfolio-manager
-        ports:
-            - "0.0.0.0:8000:8000"
         volumes:
             - portfolio-data:/app/data
         environment:
             - DATABASE_URL=sqlite+aiosqlite:///data/portfolio.db
             - DEBUG=false
-        command: ["solara", "run", "portfolio_manager.solara_app", "--host", "0.0.0.0", "--port", "8000"]
-        restart: unless-stopped
+        # Note: Textual UI runs in terminal. Use:
+        #   podman run --rm -it -v portfolio-data:/app/data portfolio-manager uv run textual portfolio_manager
+        # Or just run locally: uv run textual portfolio_manager
 
 volumes:
     portfolio-data:

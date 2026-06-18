@@ -1,4 +1,4 @@
-# Multi-stage build for portfolio-manager with Solara frontend
+# Multi-stage build for portfolio-manager
 # Stage 1: Build Python dependencies
 FROM ghcr.io/astral-sh/uv:python3.11-bookworm-slim AS builder
 WORKDIR /app
@@ -32,7 +32,5 @@ ENV DATABASE_URL="sqlite+aiosqlite:///data/portfolio.db"
 # Create data directory for persistent storage
 RUN mkdir -p /app/data && chmod 777 /app/data
 
-# Expose Solara port
-EXPOSE 8000
-
-CMD ["solara", "run", "portfolio_manager.solara_app"]
+# Note: Textual UI runs in terminal — no server needed.
+# To run locally: uv run textual portfolio_manager

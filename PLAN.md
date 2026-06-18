@@ -1,8 +1,9 @@
 # Portfolio Manager — Master Plan
 
-|> **Status:** Foundation, Core Logic, Analytics, React SPA, Real-Time Data & Sell Operations Complete. 🚀
-|> **Last Updated:** June 09, 2026
-|> **Tech Stack:** Python 3.11+, FastAPI, SQLAlchemy (Async), SQLite, React + TypeScript + Vite + Tailwind, Plotly, yfinance.
+||> **Status:** Backend services complete. Solara UI removed. Textual TUI migration planned. 🔄
+||> **Last Updated:** June 17, 2026
+||> **Tech Stack:** Python 3.11+, SQLAlchemy (Async), SQLite, yfinance, Plotly.
+||> **UI:** Textual TUI (planned) — Solara UI removed June 17, 2026.
 |> **Tests:** 73/73 passing (pytest).
 |> **Docker:** Dockerfile + docker-compose.yaml ready for deployment.
 |> **UI:** Sharp square corners (no rounded edges), pure black bg (#000), off-white text, emerald accents.
@@ -288,36 +289,43 @@ portfolio-manager/
 
 ### What's Already Done ✅
 | Component | Details |
-||---|---|
-|| **App Skeleton** | FastAPI app, lifespan management, config loading. |
-|| **Database** | Async SQLAlchemy setup, SQLite file, 6 fully defined ORM models with relationships. |
-|| **API Endpoints** | 8 functional REST endpoints (Portfolios CRUD, Positions, Transactions, Refresh). |
-|| **Risk Engine** | 9 professional-grade metrics implemented (`risk.py`, 175 lines). |
-|| **Calc Engine** | NAV, returns, allocation, P&L calculations (`portfolio_calc.py`, 125 lines). |
-|| **Data Feed** | `yfinance` wrapper with price lookup and historical data fetching (`data_feed.py`, 71 lines). |
-|| **React SPA** | Vite + React + TypeScript + Tailwind, sharp square corners, pure black theme. |
-|| **WebSocket** | Real-time price streaming with flash highlights. |
-|| **Sell Operations** | Partial/full sell with FIFO P&L, SellModal, TradeAudit page. |
-|| **Dependencies** | All dev/production deps installed in `.venv`. |
+|---|---|
+| **Database** | Async SQLAlchemy setup, SQLite file, 6 fully defined ORM models with relationships. |
+| **Services** | PortfolioService, TradeService, ChartService — direct async SQLAlchemy (no framework). |
+| **Risk Engine** | 9 professional-grade metrics implemented (`risk.py`). |
+| **Calc Engine** | NAV, returns, allocation, P&L calculations (`portfolio_calc.py`). |
+| **Data Feed** | `yfinance` wrapper with price lookup and historical data fetching (`data_feed.py`). |
+| **Price Cache** | Server-side in-memory TTL cache for market data. |
+| **Chart Data** | Allocation pie, NAV history, drawdown, monthly returns, returns distribution, benchmark comparison. |
+| **Portfolio Classification** | Sector/industry/region mapping for 150+ tickers. |
+| **Sell Operations** | Partial/full sell with FIFO P&L in TradeService. |
+| **Tests** | 5 passing test files (chart_service, portfolio_calc, portfolio_service, risk_metrics, trades_service). |
+
+### What Was Removed 🔧 (June 17, 2026)
+| Component | Reason |
+|---|---|
+| **Solara UI** (`solara_app.py`, `ui/`) | Solara routing broken, no working UI. |
+| **FastAPI routes** (`routes/`) | Orphaned — not used by Solara. |
+| **FastAPI exception handlers** (`exceptions.py`) | FastAPI-specific, not needed for Textual. |
+| **Solara test files** (8 files) | Tested deleted routes/UI components. |
+| **test_server.py** | Ran Solara server, no longer applicable. |
+| **docs/solara/DESIGN.md** | Solara-specific design doc. |
+| **`solara[assets]` dep** | No longer in pyproject.toml. |
+| **`httpx` dep** | Not needed for Textual UI. |
 
 ### What is Left to Build ❌
 | Priority | Component | Description |
 |---|---|---|
-| ~~**P1**~~ ~~**Global Exception Handlers**~~ ✅ | ~~FastAPI exception handlers for consistent error responses.~~ | ~~COMPLETED~~ |
-| ~~**P2**~~ ~~**Production Readiness Fixes**~~ ✅ | ~~Portfolio dropdown, navigation fixes, B&W theme, CUSIP system~~ | ~~COMPLETED~~ |
-|| **P2** | **Production Data Feed** | ✅ Keep `yfinance` — already working, robust, no API key required. |
-|| **P2** | **Benchmark Data Integration** | Wire up actual benchmark data (SPY, QQQ) from yfinance. |
-|| **P3** | **Portfolio Classification Enhancement** | Integrate with a free ticker API for live sector/industry lookups. |
-|| **P3** | **Export/Import** | CSV/Excel export for positions, import from broker statements. |
-|| **P3** | **User Authentication** | Multi-user support with JWT auth. |
+| **P0** | **Textual TUI UI** | Build terminal-based UI replacing Solara — dashboard, positions, charts, trades. |
+|**P2** | **Production Data Feed** | ✅ Keep `yfinance` — already working, robust, no API key required. |
+|**P2** | **Benchmark Data Integration** | Wire up actual benchmark data (SPY, QQQ) from yfinance. |
+|**P3** | **Export/Import** | CSV export for positions, transactions. |
+|**P3** | **Portfolio Classification Enhancement** | Integrate with a free ticker API for live sector/industry lookups. |
 
 ---
 
 ## 5. Next Steps
 
-1. ~~**Phase 9 (Global Exception Handlers)**~~ ✅ **COMPLETED** — Consistent error responses across FastAPI, detailed error logging.
-2. ~~**Phase 9.1 (Production Readiness Fixes)**~~ ✅ **COMPLETED** — Portfolio dropdown, navigation fixes, B&W theme, CUSIP system.
-3. **Phase 11 (Enhanced Features)** — Benchmark data integration (SPY/QQQ), CSV/Excel export, portfolio classification enhancement.
-4. **Phase 12 (Multi-User)** — JWT authentication, user registration, portfolio sharing.
-
-*Phase 8 (Professional Charting) is now complete. Next is global exception handlers and production readiness.*
+1. ✅ **Phase 0 (Cleanup)** — June 17, 2026: Removed Solara UI, FastAPI routes, orphaned code. Clean backend services remain.
+2. **Phase 1 (Textual UI)** — Build terminal UI with Textual: portfolio dashboard, positions table, charts, trade history.
+3. **Phase 2 (Enhanced Features)** — Benchmark data, CSV export, portfolio classification.
