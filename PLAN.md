@@ -2,7 +2,7 @@
 
 ||> **Status:** Backend services complete. Textual TUI migration in progress. 🔄
 ||> **Last Updated:** June 18, 2026
-||> **Tech Stack:** Python 3.11+, SQLAlchemy (Async), SQLite, yfinance, Plotly, Textual.
+||> **Tech Stack:** Python 3.11+, SQLAlchemy (Async), SQLite, yfinance, Textual, textual-plotext.
 ||> **UI:** Textual TUI (in progress) — replacing Solara/FastAPI/React layers removed June 17, 2026.
 |> **Tests:** 39/43 passing (4 db-dependent tests failing in isolation).
 |> **Docker:** Dockerfile + docker-compose.yaml updated for Textual TUI.
@@ -18,7 +18,7 @@ Build a professional, terminal-based portfolio management tool with a Textual TU
 - Real-time price fetching via `yfinance` (extensible to paid APIs).
 - Advanced risk analytics (Sharpe, Sortino, VaR, Beta, Alpha, etc.).
 - Benchmark comparison (Portfolio vs. S&P 500, Custom indices).
-- Interactive visualizations (Plotly charts rendered externally + Textual-native charts for terminal).
+- Interactive visualizations (`textual-plotext` — line, bar, candlestick, pie, heatmap, histogram, radar, boxplot — all rendered directly in terminal).
 - Clean, dark-themed TUI with keyboard navigation and responsive layout.
 
 ---
@@ -114,17 +114,37 @@ portfolio-manager/
 │  Treynor: 12.4 [██████░░░░]  Calmar: 4.2 [██████████]       │
 │  Ulcer Index: 2.1 [██░░░░░░░░]                                │
 ├──────────────────────────────────────────────────────────────┤
-│  [O]pen Charts in Browser  [B]enchmark: [SPY] [QQQ] [Custom] │
+│  [B]enchmark: [SPY] [QQQ] [Custom]                         │
 │  [1]M  [3]M  [6]M  [1]Y  [A]ll   [R]eturn                    │
 └──────────────────────────────────────────────────────────────┘
 ```
 
-### Chart Strategy
-Textual has limited native charting. Two approaches:
-1. **Textual-native:** Use `textual-chart` or ASCII-based charts for simple visualizations (allocation pie as bar chart, drawdown as text area chart).
-2. **External browser:** Generate Plotly HTML and open in browser with `[O]pen Charts` keybinding. This is the pragmatic choice for complex financial charts.
+### Chart Strategy — `textual-plotext`
 
-**Decision:** Use Textual-native for simple data displays (allocation bars, risk metric gauges). Use Plotly-in-browser for complex charts (NAV history, drawdown, monthly returns, benchmark comparison).
+All charts are rendered directly in the terminal using `textual-plotext` — a Textual widget wrapper for the Plotext plotting library. This eliminates the need for an external browser and keeps everything self-contained within the TUI.
+
+**Chart types by screen:**
+
+| Chart | Widget/Screen | Description |
+|---|---|---|
+| **NAV History** | `NavHistoryChart` widget on Analytics screen | Line chart — portfolio NAV over time, with optional benchmark overlay (SPY/QQQ) |
+| **Drawdown** | `DrawdownChart` widget on Analytics screen | Area chart — portfolio drawdown over time, color-coded by severity |
+| **Allocation** | `AllocationChart` widget on Dashboard screen | Pie/bar chart — asset class breakdown, color-coded by sector |
+| **Monthly Returns** | `MonthlyReturnsChart` widget on Analytics screen | Heatmap — performance by month/year, green/red by direction |
+| **Returns Distribution** | `ReturnsDistributionChart` widget on Analytics screen | Histogram — returns frequency distribution |
+| **Benchmark Comparison** | `BenchmarkComparisonChart` widget on Analytics screen | Line chart — portfolio vs benchmark, with excess return stats |
+| **Price Action** | `PriceChart` widget on positions detail | Candlestick chart — OHLC data from yfinance |
+| **Risk Gauges** | Inline text bars on Analytics screen | ASCII progress bars for risk metrics (Sharpe, Sortino, etc.) |
+
+**Why `textual-plotext` over alternatives:**
+- Only mature Textual charting library (v1.0.1, used by `tradr`, `finterm`, `vimsheet`)
+- Renders directly in terminal — no browser required
+- Full chart type coverage: line, bar, candlestick, pie, heatmap, histogram, radar, boxplot
+- Color output with ANSI escape codes (256-color capable)
+- Simple API — drop it into any Textual widget
+- No Plotly dependency weight — keeps the TUI lightweight
+
+**Note:** `plotext` supports 256-color terminal output. For terminals that don't support colors, it falls back to character-based rendering (ASCII). The `textual-plotext` wrapper handles the Textual `Widget` integration.
 
 ---
 
@@ -132,7 +152,7 @@ Textual has limited native charting. Two approaches:
 
 ### Phase 1: Textual Foundation
 **Goal:** Set up Textual project structure, app shell, and basic navigation.
-- [ ] Add `textual` to pyproject.toml dependencies
+- [ ] Add `textual>=0.86.0` and `textual-plotext>=1.0.1` to pyproject.toml dependencies
 - [ ] Create `src/portfolio_manager/ui/` directory structure
 - [ ] Build `app.py` — Textual app with async database lifecycle
 - [ ] Implement screen routing (Dashboard, Analytics, Trades, Settings)
@@ -164,15 +184,19 @@ Textual has limited native charting. Two approaches:
 **Status:** ⬜ Not Started
 
 ### Phase 4: Analytics & Risk Metrics
-**Goal:** Risk metrics display and chart integration.
+**Goal:** Risk metrics display and chart integration with `textual-plotext`.
 - [ ] `AnalyticsScreen` — risk metrics with visual gauges
 - [ ] Risk metric coloring (green/yellow/red thresholds)
 - [ ] Benchmark selection (SPY, QQQ, custom)
 - [ ] Time range selector (1M, 3M, 6M, 1Y, All)
-- [ ] Plotly chart generation — NAV history, drawdown, allocation, monthly returns
-- [ ] `[O]pen Charts` keybinding to launch browser with Plotly charts
+- [ ] `NavHistoryChart` — `textual-plotext` line chart (portfolio NAV + benchmark overlay)
+- [ ] `DrawdownChart` — `textual-plotext` area chart (drawdown over time)
+- [ ] `AllocationChart` — `textual-plotext` pie/bar chart (asset allocation)
+- [ ] `MonthlyReturnsChart` — `textual-plotext` heatmap (monthly returns)
+- [ ] `ReturnsDistributionChart` — `textual-plotext` histogram (returns distribution)
+- [ ] `BenchmarkComparisonChart` — `textual-plotext` line chart (portfolio vs benchmark)
 - [ ] Benchmark comparison stats (excess return, tracking error, information ratio)
-- [ ] Keyboard shortcuts: `[A]`nalytics, `[O]`pen Charts, `[B]`enchmark
+- [ ] Keyboard shortcuts: `[A]`nalytics, `[B]`enchmark
 **Status:** ⬜ Not Started
 
 ### Phase 5: Data Feed & Real-Time Updates
@@ -260,13 +284,21 @@ Textual has limited native charting. Two approaches:
 ```toml
 [project]
 dependencies = [
-    "textual>=0.68.0",          # TUI framework
+    "textual>=0.86.0",        # TUI framework
+    "textual-plotext>=1.0.1", # Terminal charting (line, bar, candlestick, pie, heatmap, histogram)
     # ... existing deps remain
 ]
 
 [project.scripts]
 portfolio-manager = "portfolio_manager.ui.app:run"
 ```
+
+### Charting Library — `textual-plotext`
+- **PyPI:** `textual-plotext` v1.0.1 (Nov 2024)
+- **Requires:** `plotext>=5.2.8,<6.0.0`, `textual>=0.86.2`
+- **Chart types:** Line, bar, scatter, pie, candlestick, heatmap, histogram, radar, boxplot
+- **Verified in production:** Used by `tradr` (trading cockpit), `finterm` (financial TUI), `vimsheet` (spreadsheet)
+- **All other Textual charting libraries** (`textual-chart`, `textual-chartjs`, `textual-plotly`, `textual-vizzu`, `textual-mpl`, `textual-echarts`, `textual-charting`, `textual-chartkit`, etc.) **do not exist on PyPI**
 
 ---
 
@@ -295,7 +327,6 @@ portfolio-manager = "portfolio_manager.ui.app:run"
 | `C` | Create portfolio |
 | `B` | Buy position |
 | `S` | Sell position (from position row) |
-| `O` | Open charts in browser |
 | `S` | Settings screen |
 | `?` / `H` | Help / keybinding reference |
 | `Q` | Quit |
