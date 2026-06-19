@@ -1,3 +1,9 @@
 """Portfolio Manager — Textual TUI Widgets."""
 
-# Widgets will be added here as needed
+from portfolio_manager.ui.widgets.portfolio_modal import (
+    CreatePortfolioModal,
+    DeletePortfolioModal,
+)
+from portfolio_manager.ui.widgets.position_table import PositionTable
+
+__all__ = ["CreatePortfolioModal", "DeletePortfolioModal", "PositionTable"]
