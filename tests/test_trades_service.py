@@ -23,20 +23,18 @@ class TestTradeService:
 
         # Check that all expected methods exist
         assert hasattr(service, "list_trades")
-        assert hasattr(service, "get_trade")
-        assert hasattr(service, "create_trade")
-        assert hasattr(service, "update_trade")
-        assert hasattr(service, "delete_trade")
+        assert hasattr(service, "add_transaction")
+        assert hasattr(service, "sell_position")
+        assert hasattr(service, "get_trades_summary")
 
         # Verify they are async methods
         import inspect
 
         for method_name in [
             "list_trades",
-            "get_trade",
-            "create_trade",
-            "update_trade",
-            "delete_trade",
+            "add_transaction",
+            "sell_position",
+            "get_trades_summary",
         ]:
             method = getattr(service, method_name)
             assert inspect.iscoroutinefunction(method)

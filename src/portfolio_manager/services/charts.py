@@ -8,7 +8,7 @@ from datetime import date
 from typing import Annotated
 
 import pandas as pd
-from sqlalchemy import func as sql_func
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from portfolio_manager.database import async_session
@@ -75,7 +75,7 @@ async def _get_nav_history(
 ) -> dict:
     """Get NAV history with benchmark overlay."""
     result = await db.execute(
-        sql_func.select(Portfolio).where(Portfolio.id == portfolio_id)
+        select(Portfolio).where(Portfolio.id == portfolio_id)
     )
     portfolio = result.scalar_one_or_none()
     if not portfolio:
@@ -99,7 +99,7 @@ async def _get_nav_history(
 async def _get_drawdown(db, portfolio_id: str) -> dict:
     """Get drawdown chart data."""
     result = await db.execute(
-        sql_func.select(Portfolio).where(Portfolio.id == portfolio_id)
+        select(Portfolio).where(Portfolio.id == portfolio_id)
     )
     portfolio = result.scalar_one_or_none()
     if not portfolio:
@@ -130,14 +130,14 @@ async def _get_allocation(db, portfolio_id: str) -> dict:
     from portfolio_manager.models.asset import Asset
 
     result = await db.execute(
-        sql_func.select(Portfolio).where(Portfolio.id == portfolio_id)
+        select(Portfolio).where(Portfolio.id == portfolio_id)
     )
     portfolio = result.scalar_one_or_none()
     if not portfolio:
         return {"error": "Portfolio not found"}
 
     pos_result = await db.execute(
-        sql_func.select(Position)
+        select(Position)
         .where(Position.portfolio_id == portfolio_id)
         .join(Position.asset)
     )
@@ -175,7 +175,7 @@ async def _get_allocation(db, portfolio_id: str) -> dict:
 async def _get_monthly_returns(db, portfolio_id: str) -> dict:
     """Get monthly returns heatmap data."""
     result = await db.execute(
-        sql_func.select(Portfolio).where(Portfolio.id == portfolio_id)
+        select(Portfolio).where(Portfolio.id == portfolio_id)
     )
     portfolio = result.scalar_one_or_none()
     if not portfolio:
@@ -212,6 +212,7 @@ def _generate_monthly_from_nav(nav_series: pd.Series) -> dict:
     monthly_returns = (
         nav.pct_change().groupby([nav.index.year, nav.index.month]).last()
     )
+    monthly_returns.index.names = ["year", "month"]
     monthly_returns = monthly_returns.unstack("month")
 
     if len(monthly_returns) > 36:
@@ -245,13 +246,14 @@ def _generate_monthly_from_nav(nav_series: pd.Series) -> dict:
         "labels": [
             f"{year} {month}" for year in years for month in present_month_names
         ],
+        "insufficient_data": False,
     }
 
 
 async def _get_returns_distribution(db, portfolio_id: str) -> dict:
     """Get returns distribution histogram data."""
     result = await db.execute(
-        sql_func.select(Portfolio).where(Portfolio.id == portfolio_id)
+        select(Portfolio).where(Portfolio.id == portfolio_id)
     )
     portfolio = result.scalar_one_or_none()
     if not portfolio:
@@ -273,7 +275,7 @@ async def _get_benchmark_comparison(
 ) -> dict:
     """Get benchmark comparison statistics."""
     result = await db.execute(
-        sql_func.select(Portfolio).where(Portfolio.id == portfolio_id)
+        select(Portfolio).where(Portfolio.id == portfolio_id)
     )
     portfolio = result.scalar_one_or_none()
     if not portfolio:
@@ -378,7 +380,7 @@ async def _get_benchmark_comparison(
 async def _get_risk_report(db, portfolio_id: str) -> dict:
     """Get comprehensive risk report."""
     result = await db.execute(
-        sql_func.select(Portfolio).where(Portfolio.id == portfolio_id)
+        select(Portfolio).where(Portfolio.id == portfolio_id)
     )
     portfolio = result.scalar_one_or_none()
     if not portfolio:
@@ -405,7 +407,7 @@ async def _get_risk_report(db, portfolio_id: str) -> dict:
 async def _get_transactions(db, portfolio_id: str):
     """Fetch all transactions for a portfolio."""
     result = await db.execute(
-        sql_func.select(Transaction)
+        select(Transaction)
         .where(Transaction.portfolio_id == portfolio_id)
         .order_by(Transaction.transaction_date.asc())
     )

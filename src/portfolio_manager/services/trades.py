@@ -8,7 +8,7 @@ from datetime import date
 from typing import Literal
 
 import pandas as pd
-from sqlalchemy import func as sql_func
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from portfolio_manager.database import async_session
@@ -104,14 +104,14 @@ async def _sell_position(
 ) -> dict:
     """Sell a quantity of an existing position."""
     result = await db.execute(
-        sql_func.select(Portfolio).where(Portfolio.id == portfolio_id)
+        select(Portfolio).where(Portfolio.id == portfolio_id)
     )
     portfolio = result.scalar_one_or_none()
     if not portfolio:
         raise ValueError("Portfolio not found")
 
     pos_result = await db.execute(
-        sql_func.select(Position)
+        select(Position)
         .where(
             Position.portfolio_id == portfolio_id,
             Position.asset_id == asset_id,
@@ -172,7 +172,7 @@ async def _sell_position(
 async def _list_trades(db: AsyncSession, portfolio_id: str) -> list[dict]:
     """List all trades for a portfolio."""
     result = await db.execute(
-        sql_func.select(Transaction)
+        select(Transaction)
         .where(Transaction.portfolio_id == portfolio_id)
         .order_by(Transaction.transaction_date.desc())
     )
@@ -200,7 +200,7 @@ async def _list_trades(db: AsyncSession, portfolio_id: str) -> list[dict]:
 async def _get_trades_summary(db: AsyncSession, portfolio_id: str) -> dict:
     """Get trades summary statistics."""
     result = await db.execute(
-        sql_func.select(Transaction).where(Transaction.portfolio_id == portfolio_id)
+        select(Transaction).where(Transaction.portfolio_id == portfolio_id)
     )
     transactions = result.scalars().all()
 
