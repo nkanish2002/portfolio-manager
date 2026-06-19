@@ -1,0 +1,198 @@
+/* Portfolio Manager — Textual TUI Styles */
+
+/* Color Palette */
+/* Background: #000 (pure black) */
+/* Text: #E2E8F0 (off-white) */
+/* Accent: #10B981 (emerald) */
+/* Positive P&L: #22C55E (green) */
+/* Negative P&L: #EF4444 (red) */
+/* Warning: #F59E0B (amber) */
+/* Border: #334155 (slate) */
+/* Highlight: #1E293B (dark slate) */
+
+Screen {
+    background: #000;
+    color: #E2E8F0;
+}
+
+/* Sharp edges everywhere — no rounded corners */
+Widget {
+    border: none;
+    border-subtitle: none;
+    border-titled: none;
+}
+
+/* Header */
+.Header {
+    width: 100%;
+    height: auto;
+    background: #1E293B;
+    color: #E2E8F0;
+    text-align: center;
+    padding: 1;
+}
+
+.Header Title {
+    color: #10B981;
+    text-style: bold;
+}
+
+/* Footer */
+.Footer {
+    width: 100%;
+    height: auto;
+    background: #1E293B;
+    color: #94A3B8;
+    text-align: center;
+    padding: 1;
+    dock: bottom;
+}
+
+/* Buttons — sharp edges */
+Button {
+    background: #1E293B;
+    color: #E2E8F0;
+    border: solid #334155;
+    padding: 0 2;
+    margin: 1;
+}
+
+Button:hover {
+    background: #334155;
+    color: #10B981;
+    border: solid #10B981;
+}
+
+Button#primary {
+    background: #10B981;
+    color: #000;
+    border: none;
+}
+
+Button#primary:hover {
+    background: #059669;
+}
+
+/* Data Table */
+DataTable {
+    border: solid #334155;
+}
+
+DataTable .data-table--header {
+    background: #1E293B;
+    color: #10B981;
+}
+
+DataTable .data-table--hover {
+    background: #1E293B;
+}
+
+/* Input fields */
+Input {
+    border: solid #334155;
+    background: #1E293B;
+    color: #E2E8F0;
+    padding: 0 1;
+}
+
+Input:focus {
+    border: solid #10B981;
+}
+
+/* Modal dialogs */
+Modal {
+    width: 60%;
+    height: auto;
+    background: #1E293B;
+    border: solid #334155;
+}
+
+Modal Title {
+    color: #10B981;
+    text-style: bold;
+}
+
+/* Positive/Negative indicators */
+Label.positive {
+    color: #22C55E;
+}
+
+Label.negative {
+    color: #EF4444;
+}
+
+Label.warning {
+    color: #F59E0B;
+}
+
+Label.accent {
+    color: #10B981;
+}
+
+/* Portfolio cards */
+PortfolioCard {
+    width: 100%;
+    height: auto;
+    background: #1E293B;
+    border: solid #334155;
+    padding: 1 2;
+    margin: 1;
+}
+
+/* Navigation tabs */
+Tab {
+    background: #1E293B;
+    color: #94A3B8;
+    border: none;
+    padding: 0 2;
+}
+
+Tab:hover {
+    color: #E2E8F0;
+}
+
+Tab--tab--content--active {
+    color: #10B981;
+    text-style: bold;
+}
+
+/* Scrollbar */
+Scrollbar {
+    background: #1E293B;
+    color: #334155;
+}
+
+Scrollbar:hover {
+    color: #10B981;
+}
+
+/* Loading indicator */
+LoadingIndicator {
+    color: #10B981;
+}
+
+/* Sparkline/Plotext charts */
+Chart {
+    border: solid #334155;
+    background: #000;
+}
+
+/* Status bar */
+StatusBar {
+    width: 100%;
+    height: auto;
+    background: #1E293B;
+    color: #94A3B8;
+    padding: 0 2;
+    dock: bottom;
+}
+
+/* Error messages */
+ErrorLabel {
+    color: #EF4444;
+}
+
+/* Info messages */
+InfoLabel {
+    color: #3B82F6;
+}

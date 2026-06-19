@@ -8,6 +8,7 @@ class Settings(BaseSettings):
     debug: bool = True
     database_url: str = "sqlite+aiosqlite:///./portfolio.db"
     yfinance_enabled: bool = True
+    price_refresh_interval: int = 30  # seconds between background price refreshes
 
     model_config = {"env_file": ".env", "env_file_encoding": "utf-8"}
 

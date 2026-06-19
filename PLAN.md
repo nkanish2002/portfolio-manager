@@ -1,350 +1,199 @@
 # Portfolio Manager — Textual TUI Migration Plan
 
-||> **Status:** Backend services complete. Textual TUI migration in progress. 🔄
-||> **Last Updated:** June 18, 2026
-||> **Tech Stack:** Python 3.11+, SQLAlchemy (Async), SQLite, yfinance, Textual, textual-plotext.
-||> **UI:** Textual TUI (in progress) — replacing Solara/FastAPI/React layers removed June 17, 2026.
-|> **Tests:** 39/43 passing (4 db-dependent tests failing in isolation).
-|> **Docker:** Dockerfile + docker-compose.yaml updated for Textual TUI.
+> **Status:** Backend services complete. Phase 1 (Textual foundation) merged. 🔄
+> **Last Updated:** June 18, 2026
+> **Stack:** Python 3.11+, SQLAlchemy 2.x (async), SQLite + aiosqlite, yfinance, Textual ≥0.86, textual-plotext ≥1.0.1.
+> **Tests:** 50/50 passing.
 
 ---
 
-## 1. Vision & Scope
+## 1. Vision
 
-Build a professional, terminal-based portfolio management tool with a Textual TUI that mirrors the capabilities of Schwab's brokerage interface — accessible from any terminal, fast, keyboard-driven, and visually rich.
+A keyboard-driven, dark-themed Textual TUI for portfolio management. Multi-asset support, live yfinance prices, professional risk metrics, and in-terminal charts via `textual-plotext`. No browser, no web stack — runs from any terminal.
 
-**Key Capabilities:**
-- Multi-asset-class support (Equities, Options, Futures, Bonds, ETFs, MFs, ADRs, CFDs, Crypto, Cash).
-- Real-time price fetching via `yfinance` (extensible to paid APIs).
-- Advanced risk analytics (Sharpe, Sortino, VaR, Beta, Alpha, etc.).
-- Benchmark comparison (Portfolio vs. S&P 500, Custom indices).
-- Interactive visualizations (`textual-plotext` — line, bar, candlestick, pie, heatmap, histogram, radar, boxplot — all rendered directly in terminal).
-- Clean, dark-themed TUI with keyboard navigation and responsive layout.
+**Out of scope:** order routing, auth, web/mobile, tax lots beyond FIFO.
 
 ---
 
-## 2. System Architecture
+## 2. Architecture
 
 ```text
-portfolio-manager/
-├── src/portfolio_manager/
-│   ├── config.py            # [CORE] Pydantic settings (.env, DB URL, toggles)
-│   ├── database.py          # [CORE] Async SQLAlchemy engine, session, Base
-│   ├── models/              # [DATA] ORM definitions (6 models)
-│   │   ├── asset.py
-│   │   ├── benchmark.py
-│   │   ├── portfolio.py
-│   │   ├── position.py
-│   │   └── transaction.py
-│   ├── services/            # [LOGIC] Business rules (framework-agnostic, async SQLAlchemy)
-│   │   ├── portfolios.py    # Portfolio CRUD, position management
-│   │   ├── trades.py        # Buy/sell, FIFO P&L, trade audit
-│   │   ├── charts.py        # Allocation, drawdown, monthly returns
-│   │   ├── risk.py          # 9 risk metrics (Sharpe, Sortino, VaR, etc.)
-│   │   ├── portfolio_calc.py# NAV, returns, allocation, P&L
-│   │   ├── data_feed.py     # yfinance wrapper
-│   │   ├── nav_history.py   # Historical NAV from transactions
-│   │   ├── benchmark.py     # Benchmark comparison calculations
-│   │   ├── classification.py# Sector/industry/region mapping
-│   │   ├── price_cache.py   # In-memory TTL cache
-│   │   └── chart_data.py    # Chart data generation utilities
-│   ├── ui/                  # [TEXTUAL TUI] — NEW
-│   │   ├── app.py           # Textual application entry point
-│   │   ├── screens/         # TUI screens (Dashboard, Portfolio, Analytics, Trades, Settings)
-│   │   ├── widgets/         # Custom Textual widgets (PositionTable, PortfolioCard, etc.)
-│   │   └── styles.tcss      # Textual CSS for dark theme
-│   └── __init__.py
-├── tests/                   # [QA] Pytest suite (43 tests, 39 passing)
-├── migrations/              # [DB] Alembic migrations
-├── pyproject.toml           # [DEPS] Hatch configuration
-├── Dockerfile               # Multi-stage build, Python 3.11, uv
-├── docker-compose.yaml      # Service definition
-├── PLAN.md                  # [DOC] This file
-└── README.md
+src/portfolio_manager/
+├── config.py            # Pydantic settings
+├── database.py          # Async SQLAlchemy engine + session
+├── models/              # 6 ORM models (asset, benchmark, portfolio, position, transaction)
+├── services/            # Framework-agnostic async business logic
+│   ├── portfolios.py    # CRUD, position management
+│   ├── trades.py        # Buy/sell, average-cost P&L
+│   ├── charts.py        # Allocation, drawdown, monthly returns
+│   ├── chart_data.py    # Chart data generation
+│   ├── risk.py          # 9 risk metrics
+│   ├── portfolio_calc.py# NAV, returns, allocation
+│   ├── data_feed.py     # yfinance wrapper
+│   ├── price_cache.py   # In-memory TTL cache
+│   ├── nav_history.py   # Historical NAV
+│   ├── benchmark.py     # Benchmark comparison
+│   └── classification.py# Sector/industry/region
+└── ui/                  # Textual TUI
+    ├── app.py           # App entry point
+    ├── styles.tcss      # Dark theme
+    ├── screens/         # base, dashboard, analytics, trades, settings
+    └── widgets/         # (empty — to be built)
 ```
 
-**Architecture Principle:** The services layer is framework-agnostic. Textual TUI is a thin presentation layer that calls services via async. No framework coupling in services.
+**Principle:** Services are framework-agnostic. The TUI calls them and binds the results to widgets.
 
 ---
 
-## 3. Textual TUI Design
+## 3. Design
 
-### Design Philosophy
-- **Keyboard-first:** Every action accessible via keyboard shortcuts.
-- **Dark theme:** Pure black (`#000`), off-white text (`#E2E8F0`), emerald accents.
-- **Sharp edges:** No rounded corners — clean, professional look.
-- **Responsive:** Adapts to terminal size (min 80x24, optimal 120x40+).
-- **Real-time:** Background task for price refresh with live updates.
+- **Keyboard-first**, dark theme (`#000` bg, `#E2E8F0` text, `#10B981` accent).
+- **Sharp edges, no rounded corners.**
+- Min terminal 80×24, optimal 120×40+.
+- Background price refresh; flash rows on change.
+- Charts rendered via `textual-plotext` — line, bar, candlestick, pie, heatmap, histogram.
 
-### Screen Layout
+**Charts by screen:**
 
-#### Dashboard Screen
-```
-┌──────────────────────────────────────────────────────────────┐
-│ PORTFOLIO MANAGER              [1] Wacky  [2] Stable  [ESC] │
-├──────────────────────────────────────────────────────────────┤
-│ Portfolio: Wacky (1/2)                              Jun 18  │
-├──────────────────────────────────────────────────────────────┤
-│  Total Value: $542,318.42    Day Change: +$1,234.56 (+0.23%) │
-│  Positions: 15             Unrealized P&L: +$12,345.67       │
-├──────────────────────────────────────────────────────────────┤
-│  ┌────────┬────────┬────────┬────────┬────────┬────────┐    │
-│  │ Symbol │ Qty    │ Price  │ Value  │ P&L    │ Action │    │
-│  ├────────┼────────┼────────┼────────┼────────┼────────┤    │
-│  │ AAPL   │ 100    │ $198.5 │ $19,850│ +$1,230│ [S]ell │    │
-│  │ MSFT   │ 50     │ $420.1 │ $21,005│ +$2,100│ [S]ell │    │
-│  │ SPY    │ 200    │ $540.2 │ $108,040│+$5,400│ [S]ell │    │
-│  │ ...    │ ...    │ ...    │ ...    │ ...    │ ...    │    │
-│  └────────┴────────┴────────┴────────┴────────┴────────┘    │
-├──────────────────────────────────────────────────────────────┤
-│ [R]efresh  [A]nalytics  [T]rades  [C]reate  [S]ettings [Q]uit│
-└──────────────────────────────────────────────────────────────┘
-```
-
-#### Analytics Screen
-```
-┌──────────────────────────────────────────────────────────────┐
-│ PORTFOLIO MANAGER  > Analytics              [ESC] Back       │
-├──────────────────────────────────────────────────────────────┤
-│  Risk Metrics (Portfolio vs SPY, 1Y)                         │
-├──────────────────────────────────────────────────────────────┤
-│  Sharpe Ratio: 1.42 [████████░░]  Sortino: 2.18 [███████░░░] │
-│  Max Drawdown: -8.3% [███░░░░░░░]  VaR(95): -$4,231 [███░░░░]│
-│  Beta: 0.95 [█████░░░░░]  Alpha: +3.2% [████████░░]         │
-│  Treynor: 12.4 [██████░░░░]  Calmar: 4.2 [██████████]       │
-│  Ulcer Index: 2.1 [██░░░░░░░░]                                │
-├──────────────────────────────────────────────────────────────┤
-│  [B]enchmark: [SPY] [QQQ] [Custom]                         │
-│  [1]M  [3]M  [6]M  [1]Y  [A]ll   [R]eturn                    │
-└──────────────────────────────────────────────────────────────┘
-```
-
-### Chart Strategy — `textual-plotext`
-
-All charts are rendered directly in the terminal using `textual-plotext` — a Textual widget wrapper for the Plotext plotting library. This eliminates the need for an external browser and keeps everything self-contained within the TUI.
-
-**Chart types by screen:**
-
-| Chart | Widget/Screen | Description |
+| Chart | Screen | Source |
 |---|---|---|
-| **NAV History** | `NavHistoryChart` widget on Analytics screen | Line chart — portfolio NAV over time, with optional benchmark overlay (SPY/QQQ) |
-| **Drawdown** | `DrawdownChart` widget on Analytics screen | Area chart — portfolio drawdown over time, color-coded by severity |
-| **Allocation** | `AllocationChart` widget on Dashboard screen | Pie/bar chart — asset class breakdown, color-coded by sector |
-| **Monthly Returns** | `MonthlyReturnsChart` widget on Analytics screen | Heatmap — performance by month/year, green/red by direction |
-| **Returns Distribution** | `ReturnsDistributionChart` widget on Analytics screen | Histogram — returns frequency distribution |
-| **Benchmark Comparison** | `BenchmarkComparisonChart` widget on Analytics screen | Line chart — portfolio vs benchmark, with excess return stats |
-| **Price Action** | `PriceChart` widget on positions detail | Candlestick chart — OHLC data from yfinance |
-| **Risk Gauges** | Inline text bars on Analytics screen | ASCII progress bars for risk metrics (Sharpe, Sortino, etc.) |
-
-**Why `textual-plotext` over alternatives:**
-- Only mature Textual charting library (v1.0.1, used by `tradr`, `finterm`, `vimsheet`)
-- Renders directly in terminal — no browser required
-- Full chart type coverage: line, bar, candlestick, pie, heatmap, histogram, radar, boxplot
-- Color output with ANSI escape codes (256-color capable)
-- Simple API — drop it into any Textual widget
-- No Plotly dependency weight — keeps the TUI lightweight
-
-**Note:** `plotext` supports 256-color terminal output. For terminals that don't support colors, it falls back to character-based rendering (ASCII). The `textual-plotext` wrapper handles the Textual `Widget` integration.
+| NAV History (line) | Analytics | `nav_history.py` + `benchmark.py` |
+| Drawdown (area) | Analytics | `chart_data.py` |
+| Allocation (bar) | Dashboard | `chart_data.py` |
+| Monthly Returns (heatmap) | Analytics | `charts.py` |
+| Returns Distribution (histogram) | Analytics | `portfolio_calc.py` |
+| Benchmark Comparison (line) | Analytics | `benchmark.py` |
+| Risk Gauges (ASCII bars) | Analytics | `risk.py` |
 
 ---
 
-## 4. Phased Implementation
+## 4. Phases
 
-### Phase 1: Textual Foundation
-**Goal:** Set up Textual project structure, app shell, and basic navigation.
-- [ ] Add `textual>=0.86.0` and `textual-plotext>=1.0.1` to pyproject.toml dependencies
-- [ ] Create `src/portfolio_manager/ui/` directory structure
-- [ ] Build `app.py` — Textual app with async database lifecycle
-- [ ] Implement screen routing (Dashboard, Analytics, Trades, Settings)
-- [ ] Create base `Screen` class with common functionality (status bar, keybindings)
-- [ ] Build `styles.tcss` — dark theme with sharp edges
-- [ ] Create CLI entry point (`portfolio-manager` command)
-**Status:** ⬜ Not Started
+### Phase 1: Foundation — ✅ Done (commit `bee8a73`)
+App shell, screen routing (Dashboard / Analytics / Trades / Settings), base screen class, dark `styles.tcss`, CLI entry point `portfolio-manager`. Screens currently render placeholder content.
 
-### Phase 2: Dashboard & Portfolio Management
-**Goal:** Build the core dashboard — portfolio list, position table, CRUD operations.
-- [ ] `DashboardScreen` — portfolio overview with total value, day change, position count
-- [ ] `PositionTable` widget — sortable table with gain/loss coloring
-- [ ] Portfolio selection (switch between portfolios via number keys)
-- [ ] Create portfolio dialog (modal)
-- [ ] Delete portfolio dialog with confirmation
-- [ ] Price refresh (background task, auto-refresh toggle)
-- [ ] Keyboard shortcuts: `[R]`efresh, `[C]`reate, `[D]`elete, `[S]`ettings
-**Status:** ⬜ Not Started
+### Phase 2: Dashboard & Portfolios — ⬜
 
-### Phase 3: Trade Operations
-**Goal:** Buy, sell, and trade audit trail.
-- [ ] Buy position dialog — symbol, quantity, price, fee
-- [ ] Sell position dialog — quantity, price, fee, P&L preview
-- [ ] `TradesScreen` — paginated trade history with filters
-- [ ] Trade type indicators (BUY, SELL, DIVIDEND, FEE)
-- [ ] FIFO P&L display for realized gains
-- [ ] CSV export of trade history
-- [ ] Keyboard shortcuts: `[B]`uy, `[S]`ell, `[T]`rades
-**Status:** ⬜ Not Started
+**Prerequisites** (must land first):
+- Wire `app.py::_initialize_database` to `database.async_session` and pass the session factory to screens (currently a TODO stub).
+- Replace hardcoded fixture rows in `dashboard.py:41–55` with real service calls.
+- Drop orphaned deps `plotly>=5.24` and `python-multipart>=0.0.18` from `pyproject.toml`.
 
-### Phase 4: Analytics & Risk Metrics
-**Goal:** Risk metrics display and chart integration with `textual-plotext`.
-- [ ] `AnalyticsScreen` — risk metrics with visual gauges
-- [ ] Risk metric coloring (green/yellow/red thresholds)
-- [ ] Benchmark selection (SPY, QQQ, custom)
-- [ ] Time range selector (1M, 3M, 6M, 1Y, All)
-- [ ] `NavHistoryChart` — `textual-plotext` line chart (portfolio NAV + benchmark overlay)
-- [ ] `DrawdownChart` — `textual-plotext` area chart (drawdown over time)
-- [ ] `AllocationChart` — `textual-plotext` pie/bar chart (asset allocation)
-- [ ] `MonthlyReturnsChart` — `textual-plotext` heatmap (monthly returns)
-- [ ] `ReturnsDistributionChart` — `textual-plotext` histogram (returns distribution)
-- [ ] `BenchmarkComparisonChart` — `textual-plotext` line chart (portfolio vs benchmark)
-- [ ] Benchmark comparison stats (excess return, tracking error, information ratio)
-- [ ] Keyboard shortcuts: `[A]`nalytics, `[B]`enchmark
-**Status:** ⬜ Not Started
+**Tasks:**
+- Wire `DashboardScreen` to `portfolios` + `portfolio_calc` services.
+- `PositionTable` widget — sortable, gain/loss coloring, live flash.
+- Create / delete portfolio modals.
+- Portfolio switching via `1`–`9`.
+- `[R]` refresh wired to yfinance.
 
-### Phase 5: Data Feed & Real-Time Updates
-**Goal:** Background price fetching with live updates.
-- [ ] Background worker for periodic price refresh
-- [ ] Price cache integration (use existing `price_cache.py`)
-- [ ] Live price flash (green/red highlight on change)
-- [ ] Connection status indicator (yfinance connectivity)
-- [ ] Configurable refresh interval (settings)
-- [ ] Manual refresh with `[R]` key
-**Status:** ⬜ Not Started
+**Done when:** creating a portfolio persists to SQLite, dashboard shows real positions and NAV, `[R]` triggers a real yfinance fetch and updates the table.
 
-### Phase 6: Settings & Configuration
-**Goal:** Settings screen for user preferences.
-- [ ] `SettingsScreen` — dark/light theme toggle
-- [ ] Data source configuration (yfinance toggle, future API keys)
-- [ ] Refresh interval setting
-- [ ] Default portfolio selection
-- [ ] Database path display
-- [ ] Keyboard shortcuts: `[S]`ettings, `[ESC]` back
-**Status:** ⬜ Not Started
+### Phase 3: Trades — ⬜
+- Buy / Sell modals with validation + P&L preview.
+- `TradesScreen` paginated history with `ALL` / `BUY` / `SELL` / `DIV` / `FEE` filters.
+- CSV export.
 
-### Phase 7: Polish & Production Readiness
-**Goal:** Production polish, error handling, Docker integration.
-- [ ] Error handling — database errors, network errors, yfinance failures
-- [ ] Startup sequence — database init, migration check, price cache warmup
-- [ ] Graceful shutdown — close DB connections, save state
-- [ ] Terminal size handling — responsive layout for small terminals
-- [ ] Help screen / keybinding reference (`[?]` or `[H]`elp)
-- [ ] Update Dockerfile to run Textual app
-- [ ] Update docker-compose.yaml
-- [ ] Update pyproject.toml entry point
-- [ ] Write Textual-specific tests
-- [ ] Integration tests for TUI workflows
-**Status:** ⬜ Not Started
+**Done when:** buy/sell modals round-trip through `TradeService`, trade history paginates and filters, CSV export round-trips through pandas without precision loss.
+
+### Phase 4: Analytics & Charts — ⬜
+- Risk metric gauges with green/amber/red thresholds.
+- Six `textual-plotext` charts (table above).
+- Benchmark selector (SPY / QQQ / custom) and range selector (1M / 3M / 6M / 1Y / All).
+
+**Done when:** all six charts render with real data for a portfolio with ≥3 months of history; switching benchmark or range updates every chart and gauge in sync.
+
+### Phase 5: Real-Time Prices — ⬜
+- Background refresh task on a configurable interval.
+- Row-flash on price change.
+- Connection status indicator.
+- Manual refresh bypasses cache.
+
+**Done when:** background refresh runs on the configured interval; offline flips the status indicator red, reconnect restores it without restart; `[R]` forces an immediate refresh bypassing cache.
+
+### Phase 6: Settings — ⬜
+- `.env`-backed persistence via `pydantic-settings`.
+- Theme toggle, yfinance toggle, refresh interval, default portfolio.
+
+**Done when:** changing the refresh interval persists across restarts; theme toggle repaints without restart; invalid values surface inline and don't persist.
+
+### Phase 7: Polish — ⬜
+- Centralized error handling via `self.notify(..., severity="error")`.
+- Startup + graceful shutdown (DB init, task cleanup).
+- Help screen auto-generated from `BINDINGS`.
+- Update `Dockerfile` + `docker-compose.yaml` for TUI (drop Solara entry point / port mapping).
+- Add `Pilot` and snapshot tests for screens.
+
+**Done when:** `docker compose run --rm portfolio-manager` launches the TUI interactively; Pilot test suite is green; 30-minute run with refresh enabled shows no task leaks.
 
 ---
 
-## 5. Current State & Gap Analysis
+## 5. Recommended Order
 
-### What's Already Done ✅
-| Component | Details |
-|---|---|
-| **Database** | Async SQLAlchemy setup, SQLite, 6 ORM models with relationships. |
-| **Services** | 11 service files — framework-agnostic, direct async SQLAlchemy. |
-| **Risk Engine** | 9 professional-grade metrics (`risk.py`). |
-| **Calc Engine** | NAV, returns, allocation, P&L (`portfolio_calc.py`). |
-| **Data Feed** | `yfinance` wrapper (`data_feed.py`). |
-| **Price Cache** | TTL cache for market data (`price_cache.py`). |
-| **Chart Data** | Allocation, NAV history, drawdown, monthly returns, benchmark comparison. |
-| **NAV History** | Historical NAV from transactions (`nav_history.py`). |
-| **Classification** | Sector/industry/region for 150+ tickers (`classification.py`). |
-| **Benchmark** | Benchmark comparison calculations (`benchmark.py`). |
-| **Sell Operations** | Partial/full sell with FIFO P&L in TradeService. |
-| **Tests** | 43 tests: 39 passing, 4 db-dependent failures. |
-| **Docker** | Dockerfile + docker-compose.yaml (needs Textual update). |
-
-### What Was Removed 🔧 (June 17, 2026)
-| Component | Reason |
-|---|---|
-| Solara UI (`solara_app.py`, `ui/`) | Solara routing broken, no working UI. |
-| FastAPI routes (`routes/`) | Orphaned — not used by Solara. |
-| FastAPI exception handlers (`exceptions.py`) | FastAPI-specific, not needed for Textual. |
-| Solara test files (8 files) | Tested deleted routes/UI components. |
-| `test_server.py` | Ran Solara server, no longer applicable. |
-| `solara[assets]` dep | No longer in pyproject.toml. |
-| `httpx` dep | Not needed for Textual UI. |
-
-### What Needs to Be Built ❌
-| Priority | Component | Description |
-|---|---|---|
-| **P0** | Textual app shell | App entry point, screen routing, base styles. |
-| **P0** | Dashboard screen | Portfolio overview, position table, price refresh. |
-| **P0** | Trade operations | Buy, sell, trade audit trail. |
-| **P1** | Analytics screen | Risk metrics, chart integration. |
-| **P1** | Real-time updates | Background worker, price cache, live flash. |
-| **P2** | Settings screen | Theme, data source, refresh interval. |
-| **P2** | CSV export | Positions, trade history. |
-| **P3** | Portfolio classification | Live sector/industry lookups. |
+1. Phase 2 — ship a working dashboard against real data.
+2. Phase 3 — buy/sell + trade history.
+3. Phase 4 — analytics + charts.
+4. Phase 5 — real-time refresh.
+5. Phase 6 — settings persistence.
+6. Phase 7 — polish, Docker, release.
 
 ---
 
-## 6. Dependencies to Add
+## 6. Known Issues
 
-```toml
-[project]
-dependencies = [
-    "textual>=0.86.0",        # TUI framework
-    "textual-plotext>=1.0.1", # Terminal charting (line, bar, candlestick, pie, heatmap, histogram)
-    # ... existing deps remain
-]
+**Docker config still targets Solara** — `Dockerfile` entry point and `docker-compose.yaml` port mapping are stale. Tracked under Phase 7.
 
-[project.scripts]
-portfolio-manager = "portfolio_manager.ui.app:run"
+**Trade accounting is average-cost, not FIFO.** `trades.py::_sell_position` computes realized P&L against `Position.avg_cost_basis`. BUYs now correctly maintain the running weighted average (`_apply_buy_to_position`). If lot-tracked FIFO is genuinely required for tax reporting, it would need an explicit lot ledger — currently out of scope.
+
+(Phase 2 prerequisites — `_initialize_database` stub, hardcoded dashboard fixtures, orphaned deps — moved into Phase 2 itself.)
+
+---
+
+## 7. Running
+
+```bash
+uv sync                                              # install
+uv run portfolio-manager                             # run TUI
+uv run pytest -q                                     # tests
+uv run ruff check src/ tests/                        # lint
+uv run alembic upgrade head                          # migrations
+
+# Textual devtools (live reload + console)
+uv run textual run --dev portfolio_manager.ui.app:run
+uv run textual console                               # in a second terminal
 ```
 
-### Charting Library — `textual-plotext`
-- **PyPI:** `textual-plotext` v1.0.1 (Nov 2024)
-- **Requires:** `plotext>=5.2.8,<6.0.0`, `textual>=0.86.2`
-- **Chart types:** Line, bar, scatter, pie, candlestick, heatmap, histogram, radar, boxplot
-- **Verified in production:** Used by `tradr` (trading cockpit), `finterm` (financial TUI), `vimsheet` (spreadsheet)
-- **All other Textual charting libraries** (`textual-chart`, `textual-chartjs`, `textual-plotly`, `textual-vizzu`, `textual-mpl`, `textual-echarts`, `textual-charting`, `textual-chartkit`, etc.) **do not exist on PyPI**
+**Test fixtures:** new service tests reuse `tests/conftest.py::isolated_db` — an autouse fixture that builds a fresh in-memory SQLite per test, creates all tables, and swaps `async_session` in every service module. No `portfolio.db` writes from the test suite.
 
 ---
 
-## 7. Next Steps
-
-1. **Phase 1 (Foundation)** — Set up Textual project structure, app shell, and navigation.
-2. **Phase 2 (Dashboard)** — Build the core dashboard with position table.
-3. **Phase 3 (Trades)** — Add buy/sell operations and trade audit.
-4. **Phase 4 (Analytics)** — Risk metrics and chart integration.
-5. **Phase 5 (Real-time)** — Background price fetching.
-6. **Phase 6 (Settings)** — User preferences.
-7. **Phase 7 (Polish)** — Production readiness, Docker, tests.
-
-> **Legacy plan archived:** The previous PLAN.md (covering FastAPI/React/Solara phases) has been moved to `docs/PLAN_LEGACY.md` for historical reference.
-
----
-
-## Appendix A: Keybindings Reference
+## Appendix: Keybindings
 
 | Key | Action |
 |---|---|
-| `1-9` | Switch to portfolio N |
+| `1`–`9` | Switch portfolio |
 | `R` | Refresh prices |
 | `A` | Analytics screen |
 | `T` | Trades screen |
 | `C` | Create portfolio |
-| `B` | Buy position |
-| `S` | Sell position (from position row) |
-| `S` | Settings screen |
-| `?` / `H` | Help / keybinding reference |
+| `B` | Buy |
+| `S` | **Context-sensitive:** Sell modal when a `DataTable` row is focused on the Dashboard; otherwise Settings screen |
+| `E` | Export CSV (Trades) |
+| `?` / `H` | Help |
 | `Q` | Quit |
-| `ESC` | Go back / close dialog |
-| `↑↓←→` | Navigate tables |
-| `Enter` | Confirm / select |
+| `ESC` | Back / close dialog |
 
-## Appendix B: Color Palette
+**`S` implementation hint:** define the Sell binding on `DashboardScreen` with higher priority than the app-level Settings binding, and gate its action handler on `isinstance(self.focused, DataTable)`. Falls through to Settings when no row is focused.
+
+## Appendix: Colors
 
 | Element | Color |
 |---|---|
-| Background | `#000` (pure black) |
-| Text | `#E2E8F0` (off-white) |
+| Background | `#000000` |
+| Text | `#E2E8F0` |
 | Accent | `#10B981` (emerald) |
-| Positive P&L | `#22C55E` (green) |
-| Negative P&L | `#EF4444` (red) |
-| Warning | `#F59E0B` (amber) |
-| Border | `#334155` (slate) |
-| Highlight | `#1E293B` (dark slate) |
+| Positive | `#22C55E` |
+| Negative | `#EF4444` |
+| Warning | `#F59E0B` |
+| Border | `#334155` |
+| Highlight | `#1E293B` |
 
-</content>

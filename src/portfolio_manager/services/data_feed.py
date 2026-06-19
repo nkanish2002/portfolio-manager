@@ -26,6 +26,19 @@ class YFinanceSource:
     def __init__(self, timeout: int = 30) -> None:
         self.timeout = timeout
 
+    def check_connection(self) -> bool:
+        """Check if yfinance can reach Yahoo Finance.
+
+        Returns:
+            True if a lightweight price fetch succeeds, False otherwise.
+        """
+        try:
+            # Probe with a well-known, liquid symbol
+            result = self.get_price("SPY")
+            return result is not None
+        except Exception:
+            return False
+
     def get_price(self, symbol: str, as_of: date | None = None) -> Decimal | None:
         """Get latest (or historical) price for a symbol."""
         ticker = yf.Ticker(symbol)
