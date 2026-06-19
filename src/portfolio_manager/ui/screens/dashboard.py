@@ -8,6 +8,7 @@ from textual.containers import Container
 from textual.screen import Screen
 from textual.widgets import (
     Button,
+    DataTable,
     Footer,
     Header,
     Label,
@@ -22,7 +23,6 @@ from portfolio_manager.ui.widgets.portfolio_modal import (
     CreatePortfolioModal,
     DeletePortfolioModal,
 )
-from portfolio_manager.ui.widgets.position_table import PositionTable
 
 
 class DashboardScreen(Screen):
@@ -370,8 +370,13 @@ class DashboardScreen(Screen):
                 classes="warning",
             )
 
-            # Position table (uses PositionTable widget with sortable headers, gain/loss coloring)
-            table = PositionTable(id="positions-table")
+            # Position table
+            table = DataTable(id="positions-table")
+            table.add_columns(
+                "Symbol", "Asset", "Qty", "Avg Cost", "Price",
+                "Value", "P&L", "P&L%", "Last",
+            )
+            table.show_header = True
             yield table
 
             # Action buttons
@@ -511,14 +516,41 @@ class DashboardScreen(Screen):
     def _update_positions_table(self, positions_data: list[dict]) -> None:
         """Update the positions table with data."""
         try:
-            table = self.query_one("#positions-table", PositionTable)
-            table.set_positions(positions_data)
-            # Flash updated rows
+            table = self.query_one("#positions-table", DataTable)
+            table.clear()
             for pos in positions_data:
-                symbol = pos.get("symbol", "?")
-                if symbol in self._price_cache:
-                    table.flash_price(symbol)
-                    table.clear_flash()
+                qty = str(pos.get("quantity", 0))
+                avg_cost = f"${pos.get('avg_cost_basis', 0):.2f}"
+                price = f"${pos.get('current_price', 0):.2f}"
+                market_value = f"${pos.get('market_value', 0):.2f}"
+                gain = pos.get("unrealized_gain", 0)
+                gain_pct = pos.get("unrealized_gain_pct", 0)
+
+                if gain > 0:
+                    pnl_str = f"+${gain:,.2f}"
+                    pnl_pct_str = f"+{gain_pct:.2f}%"
+                elif gain < 0:
+                    pnl_str = f"${abs(gain):,.2f}"
+                    pnl_pct_str = f"{gain_pct:.2f}%"
+                else:
+                    pnl_str = "$0.00"
+                    pnl_pct_str = "0.00%"
+
+                last = pos.get("last_price_date", "N/A")
+                if hasattr(last, "strftime"):
+                    last = last.strftime("%Y-%m-%d")
+
+                table.add_row(
+                    str(pos.get("symbol", "?")),
+                    str(pos.get("asset_name", "")),
+                    qty,
+                    avg_cost,
+                    price,
+                    market_value,
+                    pnl_str,
+                    pnl_pct_str,
+                    str(last),
+                )
         except Exception:
             pass
 
