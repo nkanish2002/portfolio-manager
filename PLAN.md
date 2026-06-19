@@ -24,7 +24,7 @@ src/portfolio_manager/
 ├── models/              # 6 ORM models (asset, benchmark, portfolio, position, transaction)
 ├── services/            # Framework-agnostic async business logic
 │   ├── portfolios.py    # CRUD, position management
-│   ├── trades.py        # Buy/sell, FIFO P&L
+│   ├── trades.py        # Buy/sell, average-cost P&L
 │   ├── charts.py        # Allocation, drawdown, monthly returns
 │   ├── chart_data.py    # Chart data generation
 │   ├── risk.py          # 9 risk metrics
@@ -142,6 +142,12 @@ App shell, screen routing (Dashboard / Analytics / Trades / Settings), base scre
 
 **Docker config still targets Solara** — `Dockerfile` entry point and `docker-compose.yaml` port mapping are stale. Tracked under Phase 7.
 
+**`chart_data.py:76::generate_monthly_returns_heatmap` still has the old 60-data-point minimum** and returns empty arrays silently (no `insufficient_data` flag). This is duplicate logic with `charts.py:200::_generate_monthly_from_nav` which was fixed. Reduce to ~5 points and surface `insufficient_data: True`. Tracked under Phase 4.
+
+**Average-cost P&L, not FIFO** — `trades.py::_sell_position` computes realized P&L against `Position.avg_cost_basis`, not the lot-tracked FIFO the deleted `routes/trades.py` attempted. Math is correct for average-cost accounting. Two follow-ups for Phase 3:
+- `_add_transaction` does not update `Position.avg_cost_basis` on BUY transactions — positions added through that code path will price sells against `avg_cost = 0`. Either route BUYs through a dedicated `buy_position` that maintains the running average, or decide BUYs only ever flow through a different path.
+- If FIFO (lot-tracked) accounting is actually desired, implement it explicitly; otherwise keep the doc honest as "average-cost."
+
 (Phase 2 prerequisites — `_initialize_database` stub, hardcoded dashboard fixtures, orphaned deps — moved into Phase 2 itself.)
 
 ---
@@ -195,4 +201,3 @@ uv run textual console                               # in a second terminal
 | Border | `#334155` |
 | Highlight | `#1E293B` |
 
-> Legacy FastAPI/React/Solara plan archived at `docs/PLAN_LEGACY.md`.
