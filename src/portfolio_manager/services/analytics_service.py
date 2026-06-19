@@ -95,46 +95,60 @@ class AnalyticsService:
             async with self._get_session_factory()() as session:
                 nav_series = await self._get_nav_series(session, portfolio_id)
 
-            if nav_series.empty or len(nav_series) < 30:
-                return {"insufficient_data": True}
+                if nav_series.empty or len(nav_series) < 30:
+                    return {"insufficient_data": True}
 
-            returns = nav_series.pct_change().dropna()
-            prices = (1 + returns).cumsum() * nav_series.iloc[0]
-            prices.index = nav_series.index
+                returns = nav_series.pct_change().dropna()
+                prices = (1 + returns).cumsum() * nav_series.iloc[0]
+                prices.index = returns.index
 
-            # Core portfolio metrics
-            report = {
-                "sharpe_ratio": round(calculate_sharpe(returns), 2),
-                "sortino_ratio": round(calculate_sortino(returns), 2),
-                "max_drawdown": calculate_max_drawdown(prices),
-                "ulcer_index": round(calculate_ulcer_index(prices), 2),
-                "var": calculate_var(
-                    returns, portfolio_value=float(prices.iloc[-1])
-                ),
-                "calmar_ratio": round(calculate_calmar(returns, prices), 2),
-                "benchmark_sharpe": None,
-                "benchmark_sortino": None,
-                "benchmark_max_drawdown": None,
-            }
+                # Core portfolio metrics
+                report = {
+                    "sharpe_ratio": round(calculate_sharpe(returns), 2),
+                    "sortino_ratio": round(calculate_sortino(returns), 2),
+                    "max_drawdown": calculate_max_drawdown(prices),
+                    "ulcer_index": round(calculate_ulcer_index(prices), 2),
+                    "var": calculate_var(
+                        returns, portfolio_value=float(prices.iloc[-1])
+                    ),
+                    "calmar_ratio": round(calculate_calmar(returns, prices), 2),
+                    "benchmark_sharpe": None,
+                    "benchmark_sortino": None,
+                    "benchmark_max_drawdown": None,
+                }
 
-            # Benchmark comparison
-            benchmark_returns = await self._fetch_benchmark_returns(session, portfolio_id)
-            if benchmark_returns is not None and not benchmark_returns.empty:
-                report["beta"] = round(calculate_beta(returns, benchmark_returns), 2)
-                report["alpha"] = round(calculate_alpha(returns, benchmark_returns), 2)
-                report["treynor_ratio"] = round(
-                    calculate_treynor(returns, benchmark_returns), 2
+                # Benchmark comparison
+                benchmark_returns = await self._fetch_benchmark_returns(
+                    session, portfolio_id
                 )
+                if benchmark_returns is not None and not benchmark_returns.empty:
+                    report["beta"] = round(
+                        calculate_beta(returns, benchmark_returns), 2
+                    )
+                    report["alpha"] = round(
+                        calculate_alpha(returns, benchmark_returns), 2
+                    )
+                    report["treynor_ratio"] = round(
+                        calculate_treynor(returns, benchmark_returns), 2
+                    )
 
-                # Benchmark own metrics
-                bm_prices = (1 + benchmark_returns).cumsum() * benchmark_returns.iloc[0]
-                bm_prices.index = benchmark_returns.index
-                report["benchmark_sharpe"] = round(calculate_sharpe(benchmark_returns), 2)
-                report["benchmark_sortino"] = round(calculate_sortino(benchmark_returns), 2)
-                bm_mdd = calculate_max_drawdown(bm_prices)
-                report["benchmark_max_drawdown"] = round(bm_mdd["max_drawdown_pct"], 2)
+                    # Benchmark own metrics
+                    bm_prices = (
+                        1 + benchmark_returns
+                    ).cumsum() * benchmark_returns.iloc[0]
+                    bm_prices.index = benchmark_returns.index
+                    report["benchmark_sharpe"] = round(
+                        calculate_sharpe(benchmark_returns), 2
+                    )
+                    report["benchmark_sortino"] = round(
+                        calculate_sortino(benchmark_returns), 2
+                    )
+                    bm_mdd = calculate_max_drawdown(bm_prices)
+                    report["benchmark_max_drawdown"] = round(
+                        bm_mdd["max_drawdown_pct"], 2
+                    )
 
-            return report
+                return report
         except Exception:
             return {"insufficient_data": True}
 

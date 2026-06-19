@@ -399,7 +399,7 @@ async def _get_risk_report(db, portfolio_id: str) -> dict:
 
     returns = nav_series.pct_change().dropna()
     from portfolio_manager.services.benchmark import calculate_risk_report
-    report = calculate_risk_report(returns)
+    report = calculate_risk_report(returns, nav_series)
     report["portfolio_id"] = portfolio_id
     return report
 

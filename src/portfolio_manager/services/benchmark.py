@@ -11,6 +11,7 @@ Calculates:
 
 import numpy as np
 import pandas as pd
+from typing import Any
 
 
 def calculate_excess_returns(
@@ -126,22 +127,42 @@ def generate_drawdown_chart(nav_series: pd.Series) -> dict:
 
 
 def calculate_risk_report(
-    portfolio_returns: pd.Series, benchmark_returns: pd.Series | None = None
+    portfolio_returns: pd.Series,
+    portfolio_prices: pd.Series | None = None,
+    benchmark_returns: pd.Series | None = None,
 ) -> dict:
-    """Full risk report combining portfolio metrics with benchmark comparison."""
+    """Full risk report combining portfolio metrics with benchmark comparison.
+
+    Args:
+        portfolio_returns: Daily returns series.
+        portfolio_prices: Optional prices series needed for
+            max_drawdown, calmar, and ulcer index.  Falls back
+            to cumsum of returns when not provided.
+        benchmark_returns: Optional benchmark returns series.
+
+    Returns:
+        dict with 9 risk metrics (+ benchmark comparison).
+    """
     from portfolio_manager.services.risk import (
         calculate_alpha,
         calculate_beta,
-        calculate_calmar_ratio,
+        calculate_calmar,
         calculate_max_drawdown,
         calculate_sharpe,
         calculate_sortino,
-        calculate_treynor_ratio,
+        calculate_treynor,
         calculate_ulcer_index,
-        calculate_value_at_risk,
+        calculate_var,
     )
 
-    report = {
+    # Build prices from returns if not supplied
+    if portfolio_prices is None or portfolio_prices.empty:
+        portfolio_prices = (1 + portfolio_returns).cumsum()
+        portfolio_prices.index = portfolio_returns.index
+    assert portfolio_prices is not None
+    prices: pd.Series = portfolio_prices
+
+    report: dict[str, Any] = {
         "portfolio_returns_count": len(portfolio_returns),
     }
 
@@ -150,29 +171,29 @@ def calculate_risk_report(
     report["sortino_ratio"] = round(calculate_sortino(portfolio_returns), 2)
 
     # Max drawdown
-    nav = (1 + portfolio_returns).cumsum()
-    nav.index = portfolio_returns.index
-    mdd = calculate_max_drawdown(nav)
+    mdd = calculate_max_drawdown(portfolio_prices)
     report["max_drawdown"] = mdd
 
     # VaR
-    var = calculate_value_at_risk(portfolio_returns)
+    var = calculate_var(portfolio_returns)
     report["var_95"] = var
 
-    if benchmark_returns is not None:
+    if benchmark_returns is not None and not benchmark_returns.empty:
         # Benchmark comparison
-        benchmark_nav = (1 + benchmark_returns).cumsum()
-        benchmark_nav.index = benchmark_returns.index
-        bm_mdd = calculate_max_drawdown(benchmark_nav)
+        benchmark_prices = (1 + benchmark_returns).cumsum()
+        benchmark_prices.index = benchmark_returns.index
+        bm_mdd = calculate_max_drawdown(benchmark_prices)
 
         excess = calculate_excess_returns(portfolio_returns, benchmark_returns)
         tracking_error = calculate_tracking_error(excess)
         info_ratio = calculate_information_ratio(excess, tracking_error)
-        correlation = calculate_benchmark_correlation(portfolio_returns, benchmark_returns)
+        correlation = calculate_benchmark_correlation(
+            portfolio_returns, benchmark_returns
+        )
         beta = calculate_beta(portfolio_returns, benchmark_returns)
         alpha = calculate_alpha(portfolio_returns, benchmark_returns)
-        treynor = calculate_treynor_ratio(portfolio_returns, benchmark_returns)
-        calmar = calculate_calmar_ratio(portfolio_returns, mdd["max_drawdown_pct"])
+        treynor = calculate_treynor(portfolio_returns, benchmark_returns)
+        calmar = calculate_calmar(portfolio_returns, portfolio_prices)
 
         report.update(
             {
@@ -190,6 +211,6 @@ def calculate_risk_report(
             }
         )
 
-    report["ulcer_index"] = round(calculate_ulcer_index(nav), 2)
+    report["ulcer_index"] = round(calculate_ulcer_index(portfolio_prices), 2)
 
     return report

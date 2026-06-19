@@ -10,6 +10,7 @@ import pytest_asyncio
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 from portfolio_manager import database
+from portfolio_manager.services import analytics_service as analytics_svc
 from portfolio_manager.services import charts as charts_svc
 from portfolio_manager.services import portfolios as portfolios_svc
 from portfolio_manager.services import trades as trades_svc
@@ -29,6 +30,7 @@ async def isolated_db(monkeypatch):
         await conn.run_sync(database.Base.metadata.create_all)
 
     monkeypatch.setattr(database, "async_session", session_factory)
+    monkeypatch.setattr(analytics_svc, "_default_session", session_factory)
     monkeypatch.setattr(portfolios_svc, "async_session", session_factory)
     monkeypatch.setattr(trades_svc, "async_session", session_factory)
     monkeypatch.setattr(charts_svc, "async_session", session_factory)

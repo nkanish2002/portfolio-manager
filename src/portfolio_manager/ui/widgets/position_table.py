@@ -29,7 +29,10 @@ class PositionTable(DataTable):
 
     def compose(self) -> ComposeResult:
         """Compose the table layout."""
-        self.add_columns("Symbol", "Qty", "Avg Cost", "Price", "Value", "P&L", "P&L %", "Last")
+        self.add_columns(
+            "Symbol", "Asset", "Qty", "Avg Cost", "Price",
+            "Value", "P&L", "P&L %", "Last",
+        )
         yield self
 
     def set_positions(self, positions: list[dict[str, Any]]) -> None:

@@ -54,6 +54,32 @@ class PortfolioManagerApp(App):
 
     .flash {
         color: #60A5FA;
+        background: #1E3A5F;
+    }
+
+    DataTable .flash {
+        background: #1E3A5F;
+        color: #60A5FA;
+    }
+
+    #connection-indicator {
+        width: 100%;
+        height: 1;
+        background: #1E293B;
+        color: #F59E0B;
+        padding: 0 2;
+        content-align: center middle;
+        text-align: center;
+    }
+
+    #connection-indicator.positive {
+        color: #22C55E;
+        background: #064E3B;
+    }
+
+    #connection-indicator.negative {
+        color: #EF4444;
+        background: #7F1D1D;
     }
 
     Button {
@@ -87,6 +113,10 @@ class PortfolioManagerApp(App):
     DataTable .data-table--header {
         background: #1E293B;
         color: #10B981;
+    }
+
+    DataTable .data-table--selected {
+        background: #1E3A5F;
     }
 
     Input {
@@ -191,11 +221,10 @@ class PortfolioManagerApp(App):
 
     def action_refresh(self) -> None:
         """Refresh all prices."""
-        self.notify("Refreshing prices...", title="Refresh")
+        self.notify("Refreshing prices... (bypassing cache)", title="Refresh")
         try:
             dashboard = self.query_one(DashboardScreen)
-            if hasattr(dashboard, "refresh_prices_async"):
-                asyncio.create_task(dashboard.refresh_prices_async())
+            dashboard.action_refresh()
         except Exception:
             pass
 
