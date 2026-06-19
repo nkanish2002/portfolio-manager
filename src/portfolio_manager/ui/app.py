@@ -4,18 +4,64 @@ Main entry point for the Textual-based portfolio management tool.
 Provides dashboard, analytics, trades, and settings screens.
 """
 
+from __future__ import annotations
+
 import asyncio
+from typing import Any
 
 from sqlalchemy.ext.asyncio import async_sessionmaker
 from textual.app import App, ComposeResult
 from textual.binding import Binding
 from textual.widgets import Label
 
+from portfolio_manager.config import settings
 from portfolio_manager.database import async_session as _default_session
 from portfolio_manager.database import init_db
+from portfolio_manager.services.settings_service import load_settings
 from portfolio_manager.ui.screens.analytics import AnalyticsScreen
 from portfolio_manager.ui.screens.dashboard import DashboardScreen
+from portfolio_manager.ui.screens.settings import SettingsScreen
 from portfolio_manager.ui.screens.trades import TradesScreen
+
+
+# ---------------------------------------------------------------------------
+# Theme CSS fragments
+# ---------------------------------------------------------------------------
+
+_THEME_CSS = {
+    "dark": {
+        "Screen": {"background": "#0F172A", "color": "#E2E8F0"},
+        ".header": {"background": "#1E293B", "color": "#E2E8F0"},
+        "DataTable .data-table--header": {"background": "#1E293B", "color": "#10B981"},
+        "DataTable .data-table--selected": {"background": "#1E3A5F"},
+        "Button": {"background": "#1E293B", "color": "#E2E8F0", "border": "solid #334155"},
+        "Button:hover": {"background": "#334155", "color": "#10B981", "border": "solid #10B981"},
+        "Button#primary": {"background": "#10B981", "color": "#000", "border": "none"},
+        "Button#primary:hover": {"background": "#059669"},
+        "DataTable": {"border": "solid #334155"},
+        "Input": {"background": "#1E293B", "color": "#E2E8F0", "border": "solid #334155"},
+        "Input:focus": {"border": "solid #10B981"},
+        "#connection-indicator": {"background": "#1E293B", "color": "#F59E0B"},
+        "#status-bar": {"background": "#334155", "color": "#94A3B8"},
+        "#save-status": {"background": "transparent"},
+    },
+    "light": {
+        "Screen": {"background": "#F8FAFC", "color": "#1E293B"},
+        ".header": {"background": "#E2E8F0", "color": "#1E293B"},
+        "DataTable .data-table--header": {"background": "#E2E8F0", "color": "#059669"},
+        "DataTable .data-table--selected": {"background": "#DBEAFE"},
+        "Button": {"background": "#E2E8F0", "color": "#1E293B", "border": "solid #CBD5E1"},
+        "Button:hover": {"background": "#CBD5E1", "color": "#059669", "border": "solid #059669"},
+        "Button#primary": {"background": "#059669", "color": "#fff", "border": "none"},
+        "Button#primary:hover": {"background": "#047857"},
+        "DataTable": {"border": "solid #CBD5E1"},
+        "Input": {"background": "#F1F5F9", "color": "#1E293B", "border": "solid #CBD5E1"},
+        "Input:focus": {"border": "solid #059669"},
+        "#connection-indicator": {"background": "#E2E8F0", "color": "#D97706"},
+        "#status-bar": {"background": "#CBD5E1", "color": "#475569"},
+        "#save-status": {"background": "transparent"},
+    },
+}
 
 
 class PortfolioManagerApp(App):
@@ -23,7 +69,7 @@ class PortfolioManagerApp(App):
 
     CSS = """
     Screen {
-        background: #000;
+        background: #0F172A;
         color: #E2E8F0;
     }
 
@@ -158,32 +204,71 @@ class PortfolioManagerApp(App):
     TITLE = "Portfolio Manager"
     SUB_TITLE = "Textual TUI"
 
-    def __init__(self, session_factory: async_sessionmaker | None = None) -> None:
+    def __init__(
+        self,
+        session_factory: async_sessionmaker | None = None,
+        user_settings: dict[str, Any] | None = None,
+    ) -> None:
         """Initialize the application.
 
         Args:
             session_factory: Optional async session factory for DB access.
                 Uses the global async_session from database module if not provided.
+            user_settings: Optional pre-loaded settings dict.  Loaded from
+                ``.settings.json`` on startup if not provided.
         """
         super().__init__()
+        self._settings = user_settings or load_settings()
         self._db_initialized = False
         self._session_factory = session_factory or _default_session
         self._portfolio_ids: list[str] = []
         self._current_portfolio_index = 0
+        self._refresh_interval: int = self._settings.get(
+            "price_refresh_interval", 30
+        )
+        self._yfinance_enabled: bool = self._settings.get(
+            "yfinance_enabled", True
+        )
+        self._default_portfolio_id: str = self._settings.get(
+            "default_portfolio_id", ""
+        )
+        self._theme: str = self._settings.get("theme", "dark")
 
     @property
     def session_factory(self) -> async_sessionmaker:
         """Return the DB session factory."""
         return self._session_factory
 
+    @property
+    def settings(self) -> dict[str, Any]:
+        """Return the current user settings."""
+        return self._settings
+
     async def _initialize_database(self) -> None:
         """Initialize the database and prepare the session factory."""
         await init_db()
         self._db_initialized = True
 
+    def _apply_theme(self, theme: str) -> None:
+        """Apply a theme by injecting CSS rules."""
+        if theme not in _THEME_CSS:
+            return
+        # Merge theme CSS on top of existing styles
+        for selector, declarations in _THEME_CSS[theme].items():
+            # Build CSS block: "selector { k: v; k: v; }"
+            parts = "; ".join(f"{k}: {v}" for k, v in declarations.items())
+            self.add_css(f"{selector} {{ {parts} }}")
+
     def compose(self) -> ComposeResult:
         """Compose the initial layout."""
-        yield DashboardScreen(session_factory=self._session_factory)
+        # Apply the loaded theme
+        self._apply_theme(self._theme)
+        yield DashboardScreen(
+            session_factory=self._session_factory,
+            refresh_interval=self._refresh_interval,
+            yfinance_enabled=self._yfinance_enabled,
+            default_portfolio_id=self._default_portfolio_id,
+        )
 
     async def on_mount(self) -> None:
         """Initialize app on mount."""
@@ -192,6 +277,23 @@ class PortfolioManagerApp(App):
 
         # Fetch initial portfolio list
         await self._load_portfolios()
+
+        # If a default portfolio is set, switch to it
+        if self._default_portfolio_id and self._portfolio_ids:
+            try:
+                idx = self._portfolio_ids.index(self._default_portfolio_id)
+                self._current_portfolio_index = idx
+                try:
+                    dashboard = self.query_one(DashboardScreen)
+                    dashboard.portfolio_id = self._default_portfolio_id
+                    dashboard.current_portfolio_index = idx
+                    dashboard.refresh_positions()
+                except Exception:
+                    pass
+            except ValueError:
+                # Default portfolio no longer exists — fall back to first
+                self._default_portfolio_id = ""
+                self._settings["default_portfolio_id"] = ""
 
     async def _load_portfolios(self) -> None:
         """Load portfolio list from the database."""
@@ -253,6 +355,36 @@ class PortfolioManagerApp(App):
             CreatePortfolioModal(session_factory=self._session_factory),
             on_created,
         )
+
+    def action_settings(self) -> None:
+        """Show settings screen."""
+        # Build portfolio list for the selector
+        portfolio_list = []
+        if self._portfolio_ids:
+            try:
+                from portfolio_manager.services.portfolios import _list_portfolios
+
+                async def _fetch():
+                    async with self.session_factory() as session:
+                        return await _list_portfolios(session)
+
+                portfolio_list = asyncio.run(_fetch())
+            except Exception:
+                portfolio_list = []
+
+        # Pass current settings so the screen shows live values
+        settings_screen = SettingsScreen(
+            session_factory=self._session_factory,
+            portfolio_list=portfolio_list,
+        )
+
+        def on_saved(_result=None) -> None:
+            """Called after the user saves settings."""
+            # Apply the new theme immediately
+            theme = settings_screen._settings.get("theme", "dark")
+            self._apply_theme(theme)
+
+        self.push_screen(settings_screen, on_saved)
 
     def _switch_portfolio(self, index: int) -> None:
         """Switch to a portfolio by index (1-based key, 0-based internally)."""

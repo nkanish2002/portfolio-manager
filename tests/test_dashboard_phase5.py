@@ -69,20 +69,16 @@ class TestDashboardBackgroundRefresh:
     """Test DashboardScreen background refresh functionality."""
 
     def test_refresh_interval_from_config(self):
-        """Dashboard should read refresh interval from config."""
-        with patch("portfolio_manager.ui.screens.dashboard.settings") as mock_settings:
-            mock_settings.price_refresh_interval = 15
-            mock_sf = MagicMock()
-            screen = DashboardScreen(session_factory=mock_sf)
-            assert screen._refresh_interval == 15
+        """Dashboard should accept refresh interval via constructor."""
+        mock_sf = MagicMock()
+        screen = DashboardScreen(session_factory=mock_sf, refresh_interval=15)
+        assert screen._refresh_interval == 15
 
     def test_refresh_interval_default(self):
         """Default refresh interval should be 30 seconds."""
-        with patch("portfolio_manager.ui.screens.dashboard.settings") as mock_settings:
-            mock_settings.price_refresh_interval = 30
-            mock_sf = MagicMock()
-            screen = DashboardScreen(session_factory=mock_sf)
-            assert screen._refresh_interval == 30
+        mock_sf = MagicMock()
+        screen = DashboardScreen(session_factory=mock_sf)
+        assert screen._refresh_interval == 30
 
     def test_previous_prices_tracked(self):
         """Dashboard should track previous prices for flash detection."""

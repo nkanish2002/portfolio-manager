@@ -45,6 +45,9 @@ class DashboardScreen(Screen):
         self,
         portfolio_id: str | None = None,
         session_factory: async_sessionmaker | None = None,
+        refresh_interval: int = 30,
+        yfinance_enabled: bool = True,
+        default_portfolio_id: str = "",
     ) -> None:
         """Initialize dashboard screen.
 
@@ -52,6 +55,10 @@ class DashboardScreen(Screen):
             portfolio_id: Optional portfolio ID to display. None = use first available.
             session_factory: Async session factory for DB access.
                 Uses the global async_session if not provided.
+            refresh_interval: Background price refresh interval in seconds.
+            yfinance_enabled: Whether to fetch live prices from yfinance.
+                When False, uses cached/DB prices only.
+            default_portfolio_id: Portfolio ID to start with.  Empty = first available.
         """
         super().__init__()
         self.portfolio_id = portfolio_id
@@ -65,10 +72,12 @@ class DashboardScreen(Screen):
         self._online = True
         self._consecutive_failures = 0
         self._connection_source = YFinanceSource()
+        self._yfinance_enabled = yfinance_enabled
+        self._default_portfolio_id = default_portfolio_id
         # Track previous prices for flash detection
         self._previous_prices: dict[str, float] = {}
         # Background refresh interval (from config, in seconds)
-        self._refresh_interval = settings.price_refresh_interval
+        self._refresh_interval = refresh_interval
         # Background refresh timer handle
         self._refresh_timer_handle = None
 
@@ -111,10 +120,13 @@ class DashboardScreen(Screen):
 
     def _start_background_refresh(self) -> None:
         """Start the background price refresh timer using Textual's set_interval."""
+        # Only start background refresh if yfinance is enabled
+        if not self._yfinance_enabled:
+            return
         # Cancel any existing timer first
         if self._refresh_timer_handle is not None:
             self._refresh_timer_handle.remove()
-        # Set up new interval using the configured refresh interval in milliseconds
+        # Set up new interval using the configured refresh interval in seconds
         self._refresh_timer_handle = self.set_interval(
             self._refresh_interval, self._background_refresh
         )
@@ -182,7 +194,11 @@ class DashboardScreen(Screen):
             pass
 
     def _check_connection(self) -> None:
-        """Periodic connectivity check."""
+        """Periodic connectivity check (only when yfinance is enabled)."""
+        if not self._yfinance_enabled:
+            self._online = False
+            self._consecutive_failures = 0
+            return
         try:
             online = self._connection_source.check_connection()
         except Exception:
@@ -250,9 +266,13 @@ class DashboardScreen(Screen):
                     symbol = row[1] if row[1] else pos.asset_id
                     asset_name = row[2] if row[2] else symbol
 
-                    # Fetch current price from yfinance
+                    # Fetch current price from yfinance (only when enabled)
                     current_price = None
-                    if symbol and symbol not in ("N/A", "UNKNOWN"):
+                    if (
+                        self._yfinance_enabled
+                        and symbol
+                        and symbol not in ("N/A", "UNKNOWN")
+                    ):
                         try:
                             fetched = source.get_price(symbol)
                             if fetched:
@@ -508,7 +528,11 @@ class DashboardScreen(Screen):
                     asset_name = row[2] if row[2] else symbol
 
                     current_price = None
-                    if symbol and symbol not in ("N/A", "UNKNOWN"):
+                    if (
+                        self._yfinance_enabled
+                        and symbol
+                        and symbol not in ("N/A", "UNKNOWN")
+                    ):
                         try:
                             fetched = source.get_price(symbol)
                             if fetched:
@@ -701,7 +725,11 @@ class DashboardScreen(Screen):
                     asset_name = row[2] if row[2] else symbol
 
                     current_price = None
-                    if symbol and symbol not in ("N/A", "UNKNOWN"):
+                    if (
+                        self._yfinance_enabled
+                        and symbol
+                        and symbol not in ("N/A", "UNKNOWN")
+                    ):
                         try:
                             fetched = source.get_price(symbol)
                             if fetched:
