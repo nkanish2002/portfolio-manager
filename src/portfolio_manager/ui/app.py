@@ -7,6 +7,8 @@ Provides dashboard, analytics, trades, and settings screens.
 from __future__ import annotations
 
 import asyncio
+import logging
+from contextlib import suppress
 from typing import Any
 
 from sqlalchemy.ext.asyncio import async_sessionmaker
@@ -20,9 +22,19 @@ from portfolio_manager.database import init_db
 from portfolio_manager.services.settings_service import load_settings
 from portfolio_manager.ui.screens.analytics import AnalyticsScreen
 from portfolio_manager.ui.screens.dashboard import DashboardScreen
+from portfolio_manager.ui.screens.help import HelpScreen
 from portfolio_manager.ui.screens.settings import SettingsScreen
 from portfolio_manager.ui.screens.trades import TradesScreen
 
+# ---------------------------------------------------------------------------
+# Logging
+# ---------------------------------------------------------------------------
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(message)s",
+)
+logger = logging.getLogger("portfolio_manager")
 
 # ---------------------------------------------------------------------------
 # Theme CSS fragments
@@ -62,6 +74,16 @@ _THEME_CSS = {
         "#save-status": {"background": "transparent"},
     },
 }
+
+
+# ---------------------------------------------------------------------------
+# Error notification helper
+# ---------------------------------------------------------------------------
+
+def _notify_error(app: App, message: str, *, title: str = "Error") -> None:
+    """Show an error notification on the app, logging the exception."""
+    logger.error("[%s] %s", title, message)
+    app.notify(message, title=title, severity="error")
 
 
 class PortfolioManagerApp(App):
@@ -233,6 +255,7 @@ class PortfolioManagerApp(App):
             "default_portfolio_id", ""
         )
         self._theme: str = self._settings.get("theme", "dark")
+        self._background_tasks: list[asyncio.Task] = []
 
     @property
     def session_factory(self) -> async_sessionmaker:
@@ -246,8 +269,17 @@ class PortfolioManagerApp(App):
 
     async def _initialize_database(self) -> None:
         """Initialize the database and prepare the session factory."""
-        await init_db()
-        self._db_initialized = True
+        try:
+            await init_db()
+            self._db_initialized = True
+            logger.info("Database initialized successfully.")
+        except Exception as e:
+            logger.error("Database initialization failed: %s", e)
+            self.notify(
+                f"Database error: {e}. Some features may be limited.",
+                title="Database",
+                severity="error",
+            )
 
     def _apply_theme(self, theme: str) -> None:
         """Apply a theme by injecting CSS rules."""
@@ -272,28 +304,56 @@ class PortfolioManagerApp(App):
 
     async def on_mount(self) -> None:
         """Initialize app on mount."""
-        # Initialize database connection (async)
-        await self._initialize_database()
+        try:
+            # Initialize database connection (async)
+            await self._initialize_database()
 
-        # Fetch initial portfolio list
-        await self._load_portfolios()
+            # Fetch initial portfolio list
+            await self._load_portfolios()
 
-        # If a default portfolio is set, switch to it
-        if self._default_portfolio_id and self._portfolio_ids:
-            try:
-                idx = self._portfolio_ids.index(self._default_portfolio_id)
-                self._current_portfolio_index = idx
+            # If a default portfolio is set, switch to it
+            if self._default_portfolio_id and self._portfolio_ids:
                 try:
-                    dashboard = self.query_one(DashboardScreen)
-                    dashboard.portfolio_id = self._default_portfolio_id
-                    dashboard.current_portfolio_index = idx
-                    dashboard.refresh_positions()
-                except Exception:
-                    pass
-            except ValueError:
-                # Default portfolio no longer exists — fall back to first
-                self._default_portfolio_id = ""
-                self._settings["default_portfolio_id"] = ""
+                    idx = self._portfolio_ids.index(self._default_portfolio_id)
+                    self._current_portfolio_index = idx
+                    try:
+                        dashboard = self.query_one(DashboardScreen)
+                        dashboard.portfolio_id = self._default_portfolio_id
+                        dashboard.current_portfolio_index = idx
+                        dashboard.refresh_positions()
+                    except Exception:
+                        pass
+                except ValueError:
+                    # Default portfolio no longer exists -- fall back to first
+                    self._default_portfolio_id = ""
+                    self._settings["default_portfolio_id"] = ""
+        except Exception as e:
+            logger.error("Startup error: %s", e)
+            self.notify(f"Startup error: {e}", title="Error", severity="error")
+
+    async def on_close(self) -> None:
+        """Graceful shutdown -- cancel background tasks, close DB session."""
+        logger.info("Shutting down...")
+
+        # Cancel any outstanding background tasks
+        for task in self._background_tasks:
+            task.cancel()
+            with suppress(asyncio.CancelledError):
+                await task
+
+        self._background_tasks.clear()
+
+        # Stop background price refresh on the dashboard
+        with suppress(Exception):
+            dashboard = self.query_one(DashboardScreen)
+            dashboard._stop_background_refresh()
+
+        # Close the DB session via engine disposal
+        with suppress(Exception):
+            engine = self._session_factory.kw["bind"]
+            await engine.dispose()
+
+        logger.info("Shutdown complete.")
 
     async def _load_portfolios(self) -> None:
         """Load portfolio list from the database."""
@@ -305,7 +365,9 @@ class PortfolioManagerApp(App):
             async with self.session_factory() as session:
                 portfolios = await _list_portfolios(session)
                 self._portfolio_ids = [p["id"] for p in portfolios]
-        except Exception:
+                logger.info("Loaded %d portfolio(s).", len(self._portfolio_ids))
+        except Exception as e:
+            logger.error("Failed to load portfolios: %s", e)
             self._portfolio_ids = []
 
     def action_quit(self) -> None:
@@ -313,78 +375,106 @@ class PortfolioManagerApp(App):
         self.exit()
 
     def action_show_help(self) -> None:
-        """Show help dialog."""
-        self.notify(
-            "Shortcuts: [R] Refresh | [C] Create Portfolio | "
-            "[A] Analytics | [T] Trades | [S] Settings | "
-            "[1-9] Switch Portfolio | [Q] Quit",
-            title="Help",
-        )
+        """Show help dialog (auto-generated from BINDINGS)."""
+        self.push_screen(HelpScreen())
 
     def action_refresh(self) -> None:
         """Refresh all prices."""
-        self.notify("Refreshing prices... (bypassing cache)", title="Refresh")
         try:
             dashboard = self.query_one(DashboardScreen)
             dashboard.action_refresh()
-        except Exception:
-            pass
+        except Exception as e:
+            _notify_error(self, str(e), title="Refresh")
 
     def action_analytics(self) -> None:
         """Navigate to analytics."""
-        self.push_screen(AnalyticsScreen(session_factory=self._session_factory))
+        try:
+            self.push_screen(AnalyticsScreen(session_factory=self._session_factory))
+        except Exception as e:
+            _notify_error(self, str(e), title="Analytics")
 
     def action_trades(self) -> None:
         """Navigate to trades."""
-        portfolio_id = None
-        if self._portfolio_ids:
-            idx = self._current_portfolio_index % len(self._portfolio_ids)
-            portfolio_id = self._portfolio_ids[idx]
-        self.push_screen(TradesScreen(portfolio_id=portfolio_id))
+        try:
+            portfolio_id = None
+            if self._portfolio_ids:
+                idx = self._current_portfolio_index % len(self._portfolio_ids)
+                portfolio_id = self._portfolio_ids[idx]
+            self.push_screen(TradesScreen(portfolio_id=portfolio_id))
+        except Exception as e:
+            _notify_error(self, str(e), title="Trades")
 
     def action_create_portfolio(self) -> None:
         """Show create portfolio modal."""
-        from portfolio_manager.ui.widgets.portfolio_modal import CreatePortfolioModal
+        try:
+            from portfolio_manager.ui.widgets.portfolio_modal import (
+                CreatePortfolioModal,
+            )
 
-        def on_created(result) -> None:
-            if result:
-                self._portfolio_ids.append(result["id"])
-                self._current_portfolio_index = len(self._portfolio_ids) - 1
+            def on_created(result: Any) -> None:
+                if result:
+                    self._portfolio_ids.append(result["id"])
+                    self._current_portfolio_index = len(self._portfolio_ids) - 1
+                    try:
+                        dashboard = self.query_one(DashboardScreen)
+                        dashboard.call_from_thread(dashboard._update_portfolio_selector)
+                        dashboard.call_from_thread(dashboard._update_status_bar)
+                        dashboard.call_later(dashboard._load_positions_and_allocation)
+                    except Exception:
+                        pass
 
-        self.push_screen(
-            CreatePortfolioModal(session_factory=self._session_factory),
-            on_created,
-        )
+            self.push_screen(
+                CreatePortfolioModal(session_factory=self._session_factory),
+                on_created,
+            )
+        except Exception as e:
+            _notify_error(self, str(e), title="Create Portfolio")
 
     def action_settings(self) -> None:
         """Show settings screen."""
-        # Build portfolio list for the selector
-        portfolio_list = []
-        if self._portfolio_ids:
-            try:
+        try:
+            # Build portfolio list for the selector
+            portfolio_list = []
+            if self._portfolio_ids:
                 from portfolio_manager.services.portfolios import _list_portfolios
 
-                async def _fetch():
+                async def _fetch() -> list[dict]:
                     async with self.session_factory() as session:
                         return await _list_portfolios(session)
 
                 portfolio_list = asyncio.run(_fetch())
-            except Exception:
-                portfolio_list = []
 
-        # Pass current settings so the screen shows live values
-        settings_screen = SettingsScreen(
-            session_factory=self._session_factory,
-            portfolio_list=portfolio_list,
-        )
+            settings_screen = SettingsScreen(
+                session_factory=self._session_factory,
+                portfolio_list=portfolio_list,
+            )
 
-        def on_saved(_result=None) -> None:
-            """Called after the user saves settings."""
-            # Apply the new theme immediately
-            theme = settings_screen._settings.get("theme", "dark")
-            self._apply_theme(theme)
+            def on_saved(_result: Any = None) -> None:
+                """Called after the user saves settings."""
+                try:
+                    theme = settings_screen._settings.get("theme", "dark")
+                    self._apply_theme(theme)
+                    self._refresh_interval = settings_screen._settings.get(
+                        "price_refresh_interval", 30
+                    )
+                    self._yfinance_enabled = settings_screen._settings.get(
+                        "yfinance_enabled", True
+                    )
+                    self._default_portfolio_id = settings_screen._settings.get(
+                        "default_portfolio_id", ""
+                    )
+                    # Restart background refresh with new settings
+                    dashboard = self.query_one(DashboardScreen)
+                    dashboard._refresh_interval = self._refresh_interval
+                    dashboard._stop_background_refresh()
+                    dashboard._yfinance_enabled = self._yfinance_enabled
+                    dashboard._start_background_refresh()
+                except Exception:
+                    pass
 
-        self.push_screen(settings_screen, on_saved)
+            self.push_screen(settings_screen, on_saved)
+        except Exception as e:
+            _notify_error(self, str(e), title="Settings")
 
     def _switch_portfolio(self, index: int) -> None:
         """Switch to a portfolio by index (1-based key, 0-based internally)."""
@@ -402,6 +492,17 @@ class PortfolioManagerApp(App):
             dashboard.refresh_positions()
         except Exception:
             pass
+
+
+# ---------------------------------------------------------------------------
+# Register all screens for the help screen
+# ---------------------------------------------------------------------------
+
+HelpScreen.register_screen("Dashboard", DashboardScreen)
+HelpScreen.register_screen("Analytics", AnalyticsScreen)
+HelpScreen.register_screen("Trades", TradesScreen)
+HelpScreen.register_screen("Settings", SettingsScreen)
+HelpScreen.register_screen("Global", PortfolioManagerApp)
 
 
 def run() -> None:

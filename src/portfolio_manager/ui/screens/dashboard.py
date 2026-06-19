@@ -96,6 +96,10 @@ class DashboardScreen(Screen):
         # Start background price refresh
         self._start_background_refresh()
 
+    def on_close(self) -> None:
+        """Cleanup background tasks when screen is dismissed."""
+        self._stop_background_refresh()
+
     async def _load_portfolios(self) -> None:
         """Load portfolio list from the database, then load initial positions."""
         from portfolio_manager.services.portfolios import _list_portfolios

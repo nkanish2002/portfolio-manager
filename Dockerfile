@@ -1,4 +1,4 @@
-# Multi-stage build for portfolio-manager
+# Multi-stage build for portfolio-manager TUI
 # Stage 1: Build Python dependencies
 FROM ghcr.io/astral-sh/uv:python3.11-bookworm-slim AS builder
 WORKDIR /app
@@ -12,6 +12,7 @@ FROM ghcr.io/astral-sh/uv:python3.11-bookworm-slim
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     libsqlite3-0 \
+    ncurses-term \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
@@ -28,9 +29,9 @@ ENV PATH="/app/.venv/bin:$PATH"
 ENV PYTHONUNBUFFERED=1
 ENV PYTHONPATH="/app/src"
 ENV DATABASE_URL="sqlite+aiosqlite:///data/portfolio.db"
+ENV TERM="xterm-256color"
 
 # Create data directory for persistent storage
 RUN mkdir -p /app/data && chmod 777 /app/data
 
-# Note: Textual UI runs in terminal — no server needed.
-# To run locally: uv run textual portfolio_manager
+ENTRYPOINT ["uv", "run", "textual", "portfolio_manager"]
