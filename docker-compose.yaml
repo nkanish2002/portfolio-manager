@@ -15,6 +15,19 @@ services:
             - DEBUG=false
             - TERM=xterm-256color
 
+    portfolio-manager-web:
+        build:
+            context: .
+            dockerfile: Dockerfile
+        container_name: portfolio-manager-web
+        ports:
+            - "8080:8080"
+        volumes:
+            - portfolio-data:/app/data
+        environment:
+            - DATABASE_URL=sqlite+aiosqlite:///data/portfolio.db
+            - DEBUG=false
+
 volumes:
     portfolio-data:
         driver: local

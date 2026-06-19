@@ -1,0 +1,19 @@
+# Textual-Web configuration for portfolio-manager.
+#
+# Usage:
+#   1. Install textual-web: pip install textual-web
+#   2. Run: textual-web --config textual-web.toml --environment local
+#   3. Open the displayed URL in your browser
+#
+# Note: textual-web is NOT installed via uv sync because it depends on
+# textual<0.44.0 which conflicts with our textual>=0.86.0. It must be
+# installed separately.
+
+[account]
+# Optional: add your textual-web API key here for permanent URLs.
+# Get one with: textual-web --signup
+# api_key = "your-api-key-here"
+
+[app.Portfolio-Manager]
+command = "portfolio-manager"
+slug = "portfolio-manager"

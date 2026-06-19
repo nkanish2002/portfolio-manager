@@ -6,17 +6,20 @@ Provides dashboard, analytics, trades, and settings screens.
 
 from __future__ import annotations
 
+import argparse
 import asyncio
 import logging
+import os
+import subprocess
+import sys
 from contextlib import suppress
+from pathlib import Path
 from typing import Any
 
 from sqlalchemy.ext.asyncio import async_sessionmaker
 from textual.app import App, ComposeResult
 from textual.binding import Binding
-from textual.widgets import Label
 
-from portfolio_manager.config import settings
 from portfolio_manager.database import async_session as _default_session
 from portfolio_manager.database import init_db
 from portfolio_manager.services.settings_service import load_settings
@@ -511,5 +514,110 @@ def run() -> None:
     app.run()
 
 
+def run_web() -> None:
+    """Launch the Portfolio Manager app via textual-web in a browser.
+
+    This function starts textual-web (if installed) with a TOML config
+    that serves the portfolio-manager app. The app becomes accessible
+    in a web browser at the displayed URL.
+
+    Requirements:
+        - textual-web must be installed separately (pip install textual-web)
+        - It cannot be in the same virtual environment due to textual version
+          conflicts (textual-web needs textual<0.44.0, we need textual>=0.86.0)
+        - Use the system python or a separate venv where textual-web is installed
+
+    Usage:
+        # Install textual-web separately
+        pip install textual-web
+
+        # Launch in browser mode
+        portfolio-manager --web
+
+        # Or run textual-web directly with our config
+        textual-web --config textual-web.toml --environment local
+    """
+    config_path = Path(__file__).resolve().parents[3] / "textual-web.toml"
+
+    if not config_path.exists():
+        logger.error(
+            "textual-web.toml config not found at %s. "
+            "Please ensure the config file is in the project root.",
+            config_path,
+        )
+        sys.exit(1)
+
+    # Find textual-web in PATH or known locations
+    textual_web_cmd = "textual-web"
+    if not _find_command(textual_web_cmd):
+        logger.error(
+            "textual-web command not found. "
+            "Install it separately with: pip install textual-web",
+        )
+        sys.exit(1)
+
+    # Build the command to launch textual-web
+    cmd = [
+        textual_web_cmd,
+        "--config",
+        str(config_path),
+        "--environment",
+        "local",
+        "--web-interface",
+        "--exit-on-idle",
+        "0",
+    ]
+
+    logger.info("Starting textual-web server...")
+    logger.info("Config: %s", config_path)
+    logger.info("Command: %s", " ".join(cmd))
+
+    try:
+        # Launch textual-web as a subprocess and wait for it to exit
+        project_root = str(Path(__file__).resolve().parents[3])
+        env = {**os.environ, "PYTHONPATH": project_root}
+        process = subprocess.run(cmd, env=env)
+        if process.returncode != 0:
+            logger.error("textual-web exited with code %d", process.returncode)
+            sys.exit(process.returncode)
+    except FileNotFoundError:
+        logger.error(
+            "textual-web not found. Install with: pip install textual-web",
+        )
+        sys.exit(1)
+
+
+def _find_command(cmd: str) -> bool:
+    """Check if a command is available in PATH."""
+    return subprocess.run(
+        ["which", cmd],
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+    ).returncode == 0
+
+
+def main() -> None:
+    """CLI entry point with --web flag support.
+
+    Usage:
+        portfolio-manager              # Run as terminal TUI
+        portfolio-manager --web        # Run in browser via textual-web
+    """
+    parser = argparse.ArgumentParser(
+        description="Portfolio Manager -- Professional portfolio management tool",
+    )
+    parser.add_argument(
+        "--web",
+        action="store_true",
+        help="Launch the app in a web browser via textual-web",
+    )
+    args = parser.parse_args()
+
+    if args.web:
+        run_web()
+    else:
+        run()
+
+
 if __name__ == "__main__":
-    run()
+    main()
