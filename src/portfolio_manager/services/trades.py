@@ -1,18 +1,13 @@
-"""Trade service — business logic for trade operations.
-
-This service is called directly by Solara components. No FastAPI routes.
-"""
+"""Trade service — business logic for trade operations."""
 
 import structlog
 from datetime import date
-from typing import Literal
+from decimal import Decimal
 
-import pandas as pd
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from portfolio_manager.database import async_session
-from portfolio_manager.models.asset import Asset
 from portfolio_manager.models.portfolio import Portfolio
 from portfolio_manager.models.position import Position
 from portfolio_manager.models.transaction import Transaction, TransactionType
@@ -75,7 +70,7 @@ async def _add_transaction(
     fees: float = 0,
     notes: str | None = None,
 ) -> dict:
-    """Record a trade transaction."""
+    """Record a trade transaction. BUYs also update Position avg-cost basis."""
     transaction = Transaction(
         portfolio_id=portfolio_id,
         asset_id=asset_id,
@@ -87,10 +82,66 @@ async def _add_transaction(
         notes=notes,
     )
     db.add(transaction)
+
+    if transaction_type == TransactionType.BUY:
+        await _apply_buy_to_position(db, portfolio_id, asset_id, quantity, price, fees)
+
     await db.commit()
     await db.refresh(transaction)
 
     return {"id": str(transaction.id), "status": "recorded"}
+
+
+async def _apply_buy_to_position(
+    db: AsyncSession,
+    portfolio_id: str,
+    asset_id: str,
+    quantity: float,
+    price: float,
+    fees: float,
+) -> None:
+    """Update the Position row with a running weighted-average cost basis.
+
+    new_avg = (old_qty * old_avg + buy_qty * buy_price + fees) / (old_qty + buy_qty)
+    Fees roll into cost basis (matches the symmetric treatment in `_sell_position`,
+    which subtracts fees from sale proceeds).
+    """
+    qty = Decimal(str(quantity))
+    px = Decimal(str(price))
+    fee = Decimal(str(fees))
+    if qty <= 0:
+        raise ValueError("Quantity must be positive")
+
+    buy_cost = qty * px + fee
+
+    result = await db.execute(
+        select(Position).where(
+            Position.portfolio_id == portfolio_id,
+            Position.asset_id == asset_id,
+        )
+    )
+    position = result.scalar_one_or_none()
+
+    if position is None:
+        db.add(
+            Position(
+                portfolio_id=portfolio_id,
+                asset_id=asset_id,
+                quantity=qty,
+                avg_cost_basis=buy_cost / qty,
+                current_price=px,
+                last_price_date=date.today(),
+            )
+        )
+        return
+
+    old_qty = position.quantity or Decimal(0)
+    old_avg = position.avg_cost_basis or Decimal(0)
+    total_qty = old_qty + qty
+    position.avg_cost_basis = (old_qty * old_avg + buy_cost) / total_qty
+    position.quantity = total_qty
+    position.current_price = px
+    position.last_price_date = date.today()
 
 
 async def _sell_position(

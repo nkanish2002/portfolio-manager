@@ -73,18 +73,20 @@ def generate_returns_distribution(position_history: pd.DataFrame) -> dict:
 
 def generate_monthly_returns_heatmap(position_history: pd.DataFrame) -> dict:
     """Generate monthly returns heatmap data."""
-    if "nav" not in position_history.columns or len(position_history) < 60:
-        return {"years": [], "months": [], "values": [], "labels": []}
+    if "nav" not in position_history.columns or len(position_history) < 5:
+        return {
+            "years": [],
+            "months": [],
+            "values": [],
+            "labels": [],
+            "insufficient_data": True,
+        }
 
     nav = position_history["nav"]
     nav.index = pd.to_datetime(nav.index)
 
-    # Group by year and month
-    nav["year"] = nav.index.year
-    nav["month"] = nav.index.month
-    nav["month_name"] = nav.index.strftime("%b")
-
-    monthly_returns = nav["nav"].pct_change().groupby([nav["year"], nav["month"]]).last()
+    monthly_returns = nav.pct_change().groupby([nav.index.year, nav.index.month]).last()
+    monthly_returns.index.names = ["year", "month"]
     monthly_returns = monthly_returns.unstack("month")
 
     # Filter to last 36 months
@@ -119,6 +121,7 @@ def generate_monthly_returns_heatmap(position_history: pd.DataFrame) -> dict:
         "months": present_month_names,
         "values": values_pct,
         "labels": [f"{year} {month}" for year in years for month in present_month_names],
+        "insufficient_data": False,
     }
 
 
