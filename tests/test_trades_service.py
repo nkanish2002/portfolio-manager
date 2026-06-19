@@ -52,10 +52,14 @@ class TestTradeServiceIntegration:
         from portfolio_manager.services.trades import TradeService
 
         service = TradeService()
-        trades = await service.list_trades("nonexistent_portfolio")
+        result = await service.list_trades("nonexistent_portfolio")
 
-        # Should return empty list when no trades
-        assert isinstance(trades, list)
+        # Should return dict with trades list when no trades
+        assert isinstance(result, dict)
+        assert "trades" in result
+        assert isinstance(result["trades"], list)
+        assert len(result["trades"]) == 0
+        assert result["total"] == 0
 
 
 class TestBuyUpdatesPosition:
@@ -180,3 +184,299 @@ class TestBuyUpdatesPosition:
                 select(Position).where(Position.portfolio_id == pf_id)
             )
             assert result.scalar_one_or_none() is None
+
+
+class TestListTradesFiltered:
+    """Tests for filtered and paginated trade listing."""
+
+    async def _make_portfolio_and_asset(self, isolated_db):
+        from portfolio_manager.models.asset import Asset, AssetClass
+        from portfolio_manager.models.portfolio import Portfolio
+
+        async with isolated_db() as session:
+            pf = Portfolio(name="test", description=None, currency="USD")
+            asset = Asset(symbol="AAPL", name="Apple Inc.", asset_class=AssetClass.EQUITY)
+            session.add_all([pf, asset])
+            await session.commit()
+            await session.refresh(pf)
+            await session.refresh(asset)
+            return str(pf.id), str(asset.id)
+
+    @pytest.mark.asyncio
+    async def test_list_trades_returns_dict_with_paging(self, isolated_db):
+        """list_trades returns a dict with pagination info."""
+        from portfolio_manager.services.trades import TradeService
+
+        service = TradeService()
+        result = await service.list_trades("nonexistent")
+
+        assert isinstance(result, dict)
+        assert "trades" in result
+        assert "total" in result
+        assert "page" in result
+        assert "page_size" in result
+        assert "total_pages" in result
+
+    @pytest.mark.asyncio
+    async def test_list_trades_filter_by_type(self, isolated_db):
+        """Filter by BUY type returns only buys."""
+        from portfolio_manager.models.transaction import TransactionType
+        from portfolio_manager.services.trades import TradeService
+
+        pf_id, asset_id = await self._make_portfolio_and_asset(isolated_db)
+        service = TradeService()
+
+        # Add a buy
+        await service.add_transaction(
+            portfolio_id=pf_id, asset_id=asset_id,
+            transaction_type=TransactionType.BUY,
+            quantity=10, price=100, fees=0,
+        )
+        # Add a dividend
+        await service.add_transaction(
+            portfolio_id=pf_id, asset_id=asset_id,
+            transaction_type=TransactionType.DIVIDEND,
+            quantity=1, price=2.50, fees=0,
+        )
+
+        # Filter for BUY only
+        result = await service.list_trades(pf_id, trade_type="BUY")
+        assert result["total"] == 1
+        assert result["trades"][0]["type"] == "buy"
+
+        # Filter for DIVIDEND only
+        result = await service.list_trades(pf_id, trade_type="DIVIDEND")
+        assert result["total"] == 1
+        assert result["trades"][0]["type"] == "dividend"
+
+    @pytest.mark.asyncio
+    async def test_list_trades_pagination(self, isolated_db):
+        """Pagination returns correct page of results."""
+        from portfolio_manager.models.transaction import TransactionType
+        from portfolio_manager.services.trades import TradeService
+
+        pf_id, asset_id = await self._make_portfolio_and_asset(isolated_db)
+        service = TradeService()
+
+        # Add 5 buys
+        for i in range(5):
+            await service.add_transaction(
+                portfolio_id=pf_id, asset_id=asset_id,
+                transaction_type=TransactionType.BUY,
+                quantity=1, price=100 + i, fees=0,
+            )
+
+        # Page 1 with page_size=2
+        result = await service.list_trades(pf_id, page=1, page_size=2)
+        assert result["total"] == 5
+        assert result["page"] == 1
+        assert result["page_size"] == 2
+        assert result["total_pages"] == 3
+        assert len(result["trades"]) == 2
+
+        # Page 2
+        result = await service.list_trades(pf_id, page=2, page_size=2)
+        assert result["page"] == 2
+        assert len(result["trades"]) == 2
+
+        # Page 3 (last page)
+        result = await service.list_trades(pf_id, page=3, page_size=2)
+        assert len(result["trades"]) == 1
+
+
+class TestGetPositionForAsset:
+    """Tests for position lookup for sell modals."""
+
+    async def _make_portfolio_and_asset(self, isolated_db):
+        from portfolio_manager.models.asset import Asset, AssetClass
+        from portfolio_manager.models.portfolio import Portfolio
+
+        async with isolated_db() as session:
+            pf = Portfolio(name="test", description=None, currency="USD")
+            asset = Asset(symbol="MSFT", name="Microsoft", asset_class=AssetClass.EQUITY)
+            session.add_all([pf, asset])
+            await session.commit()
+            await session.refresh(pf)
+            await session.refresh(asset)
+            return str(pf.id), str(asset.id)
+
+    @pytest.mark.asyncio
+    async def test_get_position_returns_data(self, isolated_db):
+        """get_position_for_asset returns position data after a buy."""
+        from portfolio_manager.models.transaction import TransactionType
+        from portfolio_manager.services.trades import TradeService
+
+        pf_id, asset_id = await self._make_portfolio_and_asset(isolated_db)
+        service = TradeService()
+
+        await service.add_transaction(
+            portfolio_id=pf_id, asset_id=asset_id,
+            transaction_type=TransactionType.BUY,
+            quantity=20, price=300, fees=5,
+        )
+
+        pos = await service.get_position_for_asset(pf_id, asset_id)
+        assert pos is not None
+        assert pos["quantity"] == 20
+        assert pos["avg_cost_basis"] > 0  # includes fees
+        assert pos["cost_basis"] > 0
+
+    @pytest.mark.asyncio
+    async def test_get_position_returns_none_for_unknown(self, isolated_db):
+        """get_position_for_asset returns None for unknown asset."""
+        from portfolio_manager.services.trades import TradeService
+
+        service = TradeService()
+        pos = await service.get_position_for_asset("fake-portfolio", "fake-asset")
+        assert pos is None
+
+
+class TestSellPreview:
+    """Tests for sell P&L preview."""
+
+    async def _make_portfolio_and_asset(self, isolated_db):
+        from portfolio_manager.models.asset import Asset, AssetClass
+        from portfolio_manager.models.portfolio import Portfolio
+
+        async with isolated_db() as session:
+            pf = Portfolio(name="test", description=None, currency="USD")
+            asset = Asset(symbol="GOOGL", name="Alphabet", asset_class=AssetClass.EQUITY)
+            session.add_all([pf, asset])
+            await session.commit()
+            await session.refresh(pf)
+            await session.refresh(asset)
+            return str(pf.id), str(asset.id)
+
+    @pytest.mark.asyncio
+    async def test_sell_preview_valid(self, isolated_db):
+        """Sell preview returns valid result with correct P&L."""
+        from portfolio_manager.models.transaction import TransactionType
+        from portfolio_manager.services.trades import TradeService
+
+        pf_id, asset_id = await self._make_portfolio_and_asset(isolated_db)
+        service = TradeService()
+
+        # Buy at 100
+        await service.add_transaction(
+            portfolio_id=pf_id, asset_id=asset_id,
+            transaction_type=TransactionType.BUY,
+            quantity=10, price=100, fees=0,
+        )
+
+        # Preview sell at 150
+        preview = await service.calculate_sell_preview(
+            portfolio_id=pf_id, asset_id=asset_id,
+            quantity=5, price=150, fees=0,
+        )
+
+        assert preview["valid"] is True
+        assert preview["projected_pnl"] == 250.0  # (150 - 100) * 5
+        assert preview["proceeds"] == 750.0
+        assert preview["cost_of_sold"] == 500.0
+        assert preview["remaining_quantity"] == 5.0
+
+    @pytest.mark.asyncio
+    async def test_sell_preview_insufficient_shares(self, isolated_db):
+        """Sell preview rejects quantity > available."""
+        from portfolio_manager.models.transaction import TransactionType
+        from portfolio_manager.services.trades import TradeService
+
+        pf_id, asset_id = await self._make_portfolio_and_asset(isolated_db)
+        service = TradeService()
+
+        await service.add_transaction(
+            portfolio_id=pf_id, asset_id=asset_id,
+            transaction_type=TransactionType.BUY,
+            quantity=10, price=100, fees=0,
+        )
+
+        preview = await service.calculate_sell_preview(
+            portfolio_id=pf_id, asset_id=asset_id,
+            quantity=15, price=150, fees=0,
+        )
+
+        assert preview["valid"] is False
+        assert len(preview["errors"]) > 0
+
+    @pytest.mark.asyncio
+    async def test_sell_preview_no_position(self, isolated_db):
+        """Sell preview rejects unknown asset."""
+        from portfolio_manager.services.trades import TradeService
+
+        service = TradeService()
+        preview = await service.calculate_sell_preview(
+            portfolio_id="fake", asset_id="fake",
+            quantity=1, price=100, fees=0,
+        )
+
+        assert preview["valid"] is False
+        assert "No position found" in preview["errors"][0]
+
+
+class TestBuyCostCalculation:
+    """Tests for buy cost calculation."""
+
+    @pytest.mark.asyncio
+    async def test_buy_cost_basic(self, isolated_db):
+        """calculate_buy_cost returns correct total."""
+        from portfolio_manager.services.trades import TradeService
+
+        service = TradeService()
+        result = await service.calculate_buy_cost(
+            portfolio_id="fake", asset_id="fake",
+            quantity=10, price=100, fees=5,
+        )
+
+        assert result["total_cost"] == 1005.0
+        assert result["quantity"] == 10
+        assert result["price"] == 100
+        assert result["fees"] == 5
+
+
+class TestCSVExport:
+    """Tests for CSV export functionality."""
+
+    @pytest.mark.asyncio
+    async def test_csv_export_format(self, isolated_db):
+        """CSV export produces correctly formatted data."""
+        from portfolio_manager.models.asset import Asset, AssetClass
+        from portfolio_manager.models.portfolio import Portfolio
+        from portfolio_manager.models.transaction import TransactionType
+        from portfolio_manager.services.trades import TradeService
+        import pandas as pd
+
+        async with isolated_db() as session:
+            pf = Portfolio(name="test", description=None, currency="USD")
+            asset = Asset(symbol="TSLA", name="Tesla", asset_class=AssetClass.EQUITY)
+            session.add_all([pf, asset])
+            await session.commit()
+            await session.refresh(pf)
+            await session.refresh(asset)
+            pf_id = str(pf.id)
+            asset_id = str(asset.id)
+
+        service = TradeService()
+
+        # Add some trades
+        await service.add_transaction(
+            portfolio_id=pf_id, asset_id=asset_id,
+            transaction_type=TransactionType.BUY,
+            quantity=50, price=200, fees=0,
+        )
+        await service.add_transaction(
+            portfolio_id=pf_id, asset_id=asset_id,
+            transaction_type=TransactionType.DIVIDEND,
+            quantity=1, price=0.50, fees=0,
+        )
+
+        # Get trades
+        result = await service.list_trades(pf_id)
+        trades = result["trades"]
+
+        # Convert to DataFrame (what the export does)
+        df = pd.DataFrame(trades)
+
+        assert len(df) == 2
+        assert "type" in df.columns
+        assert "quantity" in df.columns
+        assert "price" in df.columns

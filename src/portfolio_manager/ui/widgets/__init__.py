@@ -5,5 +5,15 @@ from portfolio_manager.ui.widgets.portfolio_modal import (
     DeletePortfolioModal,
 )
 from portfolio_manager.ui.widgets.position_table import PositionTable
+from portfolio_manager.ui.widgets.trade_modal import (
+    BuyTradeModal,
+    SellTradeModal,
+)
 
-__all__ = ["CreatePortfolioModal", "DeletePortfolioModal", "PositionTable"]
+__all__ = [
+    "CreatePortfolioModal",
+    "DeletePortfolioModal",
+    "PositionTable",
+    "BuyTradeModal",
+    "SellTradeModal",
+]
