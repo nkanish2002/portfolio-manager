@@ -1,0 +1,104 @@
+# AGENTS.md — Coding Agent Reference
+
+> **Project:** Portfolio Manager
+> **Status:** Phase 1 — Backend Foundation
+> **Location:** `~/Work/portfolio-manager`
+> **Full spec:** `PLAN.md`
+
+---
+
+## Quick Start
+
+```bash
+# Install deps
+uv sync
+
+# Start Postgres (podman — no Docker on this machine)
+podman-compose up -d postgres
+
+# Verify
+uv run python -c "from portfolio_manager.config import settings; print(settings.DATABASE_URL)"
+```
+
+## Container Tool
+
+- **podman + podman-compose** — Docker is NOT available. Always use `podman-compose` for containers.
+- Use fully-qualified image names (e.g., `docker.io/library/postgres:16-alpine`) to avoid short-name resolution prompts.
+
+## Tech Stack
+
+| Layer | Choice |
+|---|---|
+| Backend | FastAPI (async), Python 3.14 |
+| ORM | SQLModel (model + schema in one class) |
+| DB | PostgreSQL 16 (local), Supabase (prod) |
+| Driver | asyncpg |
+| Config | Dynaconf (`settings.yaml` + `.env`, prefix `PORTFOLIO_MANAGER_`) |
+| Auth | fastapi-users (JWT + OAuth2) |
+| Data | yfinance (dev), Polars for analytics |
+| Migrations | Alembic |
+| Frontend | React 19 + TS + Vite + Tailwind v4 |
+
+## Conventions
+
+### SQLModel
+- One class = both ORM model AND Pydantic schema (`table=True`)
+- Separate `XCreate` / `XUpdate` classes for CRUD operations (no `table`)
+- `UUID` PKs, `TIMESTAMPTZ` timestamps, `NUMERIC` for financial values
+- Every user-scoped table has `user_id: UUID` FK to `users`
+- `created_at` + `updated_at` on all mutable tables
+
+### Auth
+- All API routes require auth via fastapi-users dependency injection
+- `current_active_user` for active users, `current_user` for any logged-in user
+- Multi-tenant: all queries filter by `current_user.id`
+
+### Config
+- `settings.yaml`: committed, has `[default]`, `[development]`, `[production]` sections
+- `.env`: gitignored, dev overrides
+- Switch env: `ENV_FOR_DYNACONF=production`
+- Access via `from portfolio_manager.config import settings`
+
+### Database
+- `database.py` exports: `engine`, `async_session_factory`, `get_session()`
+- All DB operations are async (asyncpg)
+
+### Code Style
+- Ruff: line-length 120, py312 target
+- Type hints everywhere
+- `structlog` for structured logging
+
+## Segment Progress
+
+| Segment | Status | Description |
+|---|---|---|
+| **1.1** | ✅ Done | Project init, deps, config, Docker Compose |
+| **1.2** | ✅ Done | SQLModel models: User, Asset, Account, Basket, Portfolio |
+| 1.3 | 🔄 Next | SQLModel models: Position, Transaction, Benchmark |
+| 1.4 | ⏳ Pending | Auth setup (fastapi-users) |
+| 1.5 | ⏳ Pending | Main app + health check |
+| 1.6 | ⏳ Pending | Alembic migration + apply |
+| 1.7 | ⏳ Pending | Test fixtures + model/auth tests |
+| 2.1-2.6 | ⏳ Pending | Services & API routes |
+| 3.1-3.3 | ⏳ Pending | React frontend foundation |
+| 4.1-4.2 | ⏳ Pending | WebSocket real-time prices |
+| 5.1-5.2 | ⏳ Pending | Trade operations UI |
+
+## File Map (Created So Far)
+
+```
+portfolio-manager/
+├── pyproject.toml                    # Python deps (uv)
+├── settings.yaml                     # Dynaconf: default/dev/prod
+├── .env                              # Dev overrides (gitignored)
+├── .gitignore
+├── docker-compose.yaml               # Postgres 16 (podman)
+├── PLAN.md                           # Full project spec
+├── AGENTS.md                         # This file
+├── src/portfolio_manager/
+│   ├── __init__.py
+│   ├── config.py                     # Dynaconf instance
+│   ├── database.py                   # async engine + session factory
+│   └── models/                       # ← Segment 1.2 target
+└── tests/                            # ← Segment 1.7 target
+```

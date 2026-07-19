@@ -1,0 +1,39 @@
+# Dynaconf settings for portfolio-manager
+# Priority (highest wins): env vars (PORTFOLIO_MANAGER_*) → .env file → YAML [production] → YAML [default]
+# Switch environment: export ENV_FOR_DYNACONF=production
+
+default:
+  # Database (local Postgres via Docker Compose)
+  database_url: "postgresql+asyncpg://portfolio:portfolio@localhost:5432/portfolio_manager"
+
+  # JWT Auth
+  jwt_secret: "change-me-in-production"
+  jwt_algorithm: "HS256"
+  jwt_lifetime_seconds: 3600
+
+  # CORS
+  cors_origins: ["http://localhost:5173"]
+
+  # Data feed
+  yfinance_enabled: true
+  price_cache_ttl_seconds: 30
+
+  # WebSocket
+  ws_poll_interval_seconds: 5
+
+  # Application
+  app_name: "Portfolio Manager"
+  debug: false
+  log_level: "INFO"
+
+development:
+  database_url: "postgresql+asyncpg://portfolio:portfolio@localhost:5432/portfolio_manager"
+  cors_origins: ["http://localhost:5173", "http://localhost:8000"]
+  debug: true
+  log_level: "DEBUG"
+
+production:
+  database_url: "postgresql+asyncpg://postgres.ref:CHANGE_ME@host:6543/postgres"
+  cors_origins: []
+  debug: false
+  log_level: "INFO"
