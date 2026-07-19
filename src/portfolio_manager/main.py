@@ -1,0 +1,104 @@
+"""FastAPI application factory.
+
+Wires lifespan (DB connectivity check), CORS middleware, auth routers,
+user management routes, and health-check endpoints.
+"""
+
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
+
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+from sqlalchemy import text
+
+from portfolio_manager.auth import (
+    UserCreate,
+    UserRead,
+    UserUpdate,
+    auth_backend,
+    fastapi_users,
+)
+from portfolio_manager.config import settings
+from portfolio_manager.database import engine
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI) -> AsyncIterator[None]:
+    """Startup: verify DB connectivity. Shutdown: dispose engine pool."""
+    # Import all models so they register with the shared metadata
+    import portfolio_manager.models  # noqa: F401
+
+    # Verify DB connectivity on startup
+    try:
+        async with engine.connect() as conn:
+            await conn.execute(text("SELECT 1"))
+    except Exception as e:  # noqa: BLE001
+        import structlog
+
+        log = structlog.get_logger()
+        log.warning("DB connectivity check failed on startup", error=str(e))
+
+    yield
+
+    # Shutdown: dispose engine connections
+    await engine.dispose()
+
+
+def create_app() -> FastAPI:
+    """Create and configure the FastAPI application."""
+    app = FastAPI(
+        title=settings.APP_NAME,
+        debug=settings.DEBUG,
+        lifespan=lifespan,
+    )
+
+    # ── CORS ──────────────────────────────────────────────────────────
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=settings.CORS_ORIGINS,
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
+
+    # ── Health check ──────────────────────────────────────────────────
+    @app.get("/health", tags=["health"])
+    async def health() -> dict[str, str]:
+        """Liveness probe — does not hit the DB."""
+        return {"status": "healthy"}
+
+    @app.get("/health/db", tags=["health"])
+    async def health_db() -> dict[str, str]:
+        """Readiness probe — verifies DB connectivity."""
+        async with engine.connect() as conn:
+            await conn.execute(text("SELECT 1"))
+        return {"status": "healthy", "database": "connected"}
+
+    # ── Auth routers (fastapi-users) ──────────────────────────────────
+    # All auth routes under /auth/jwt to match the API spec.
+    app.include_router(
+        fastapi_users.get_auth_router(auth_backend),
+        prefix="/auth/jwt",
+        tags=["auth"],
+    )
+    app.include_router(
+        fastapi_users.get_register_router(UserRead, UserCreate),
+        prefix="/auth/jwt",
+        tags=["auth"],
+    )
+    app.include_router(
+        fastapi_users.get_reset_password_router(),
+        prefix="/auth/jwt",
+        tags=["auth"],
+    )
+    app.include_router(
+        fastapi_users.get_users_router(UserRead, UserUpdate),
+        prefix="/users",
+        tags=["users"],
+    )
+
+    return app
+
+
+# Module-level instance for `uvicorn portfolio_manager.main:app`
+app = create_app()
