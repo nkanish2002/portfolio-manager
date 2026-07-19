@@ -79,8 +79,9 @@ uv run python -c "from portfolio_manager.config import settings; print(settings.
 | **1.5** | ✅ Done | Main app + health check + route registration |
 | **1.6** | ✅ Done | Alembic migration + apply to local Postgres |
 | **1.7** | ✅ Done | Test fixtures + model/auth tests (26 tests passing) |
-| **2.1** | 🔄 Next | Data feed + price cache services |
-| 2.2-2.6 | ⏳ Pending | Services & API routes |
+| **2.1** | ✅ Done | Data feed + price cache services (yfinance, TTL cache) |
+| **2.2** | 🔄 Next | Portfolio calc + risk services |
+| 2.3-2.6 | ⏳ Pending | API routes (baskets, portfolios, positions, transactions, analytics) |
 | 3.1-3.3 | ⏳ Pending | React frontend foundation |
 | 4.1-4.2 | ⏳ Pending | WebSocket real-time prices |
 | 5.1-5.2 | ⏳ Pending | Trade operations UI |
@@ -108,6 +109,10 @@ portfolio-manager/
 │   ├── database.py                   # async engine + session factory + shared Base + association tables
 │   ├── auth.py                       # fastapi-users setup (JWT, user manager)
 │   ├── main.py                       # FastAPI app factory + lifespan + CORS + auth/health routers
+│   ├── services/                     # Service layer (business logic)
+│   │   ├── __init__.py               # Service exports
+│   │   ├── data_feed.py              # Async yfinance wrapper + DTOs + cache integration
+│   │   └── price_cache.py            # In-memory TTL cache (monotonic clock, thread-safe)
 │   └── models/                       # All 9 models + 1 association table
 │       ├── __init__.py               # Single entry point for model imports
 │       ├── user.py                   # User (fastapi-users base)
@@ -121,5 +126,7 @@ portfolio-manager/
 └── tests/
     ├── conftest.py                   # Async Postgres test DB, client + auth fixtures
     ├── test_auth.py                  # Registration, login, JWT, protected routes
-    └── test_models.py                # Model registry, types, relationships, DB round-trip
+    ├── test_models.py                # Model registry, types, relationships, DB round-trip
+    ├── test_data_feed.py             # DataFeed: get_price/get_historical/search (fake + live)
+    └── test_price_cache.py           # PriceCache: get/set/invalidate, TTL expiry, batch
 ```
