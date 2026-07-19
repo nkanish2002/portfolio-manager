@@ -62,6 +62,20 @@ async def _drop_test_db() -> None:
         await admin_conn.close()
 
 
+async def _dispose_module_engines() -> None:
+    """Dispose module-level engines bound to the test DB so DROP DATABASE works."""
+    import contextlib
+
+    import portfolio_manager.database as db
+    import portfolio_manager.main as main_mod
+
+    for engine in (getattr(db, "engine", None), getattr(main_mod, "engine", None)):
+        if engine is None:
+            continue
+        with contextlib.suppress(Exception):
+            await engine.dispose()
+
+
 @pytest.fixture(scope="session")
 def test_db() -> Iterator[None]:
     """Create the test database + apply migrations for the whole session."""
@@ -77,6 +91,8 @@ def test_db() -> Iterator[None]:
 
     yield
 
+    # free any module-level connections to the test DB before dropping it
+    asyncio.run(_dispose_module_engines())
     asyncio.run(_drop_test_db())
 
 
@@ -125,10 +141,12 @@ async def db_session(test_engine, test_session_factory) -> AsyncIterator[AsyncSe
         from portfolio_manager import main as main_mod
 
         original_auth_factory = auth_mod.async_session_factory
+        original_db_factory = database.async_session_factory
         original_db_engine = database.engine
         original_main_engine = main_mod.engine
 
         auth_mod.async_session_factory = test_session_factory
+        database.async_session_factory = test_session_factory
         database.engine = test_engine
         main_mod.engine = test_engine
 
@@ -150,6 +168,7 @@ async def db_session(test_engine, test_session_factory) -> AsyncIterator[AsyncSe
         finally:
             app.dependency_overrides.pop(get_user_db, None)
             auth_mod.async_session_factory = original_auth_factory
+            database.async_session_factory = original_db_factory
             database.engine = original_db_engine
             main_mod.engine = original_main_engine
 
@@ -214,3 +233,142 @@ async def make_user(client):
         return {"email": email, "password": password, "token": login.json()["access_token"]}
 
     return _make
+
+
+# ── Domain helpers for route tests ───────────────────────────────────────
+# These create entities via the API (accounts, baskets) or directly via the
+# DB session (assets — there's no asset CRUD endpoint), returning the row.
+
+
+@pytest_asyncio.fixture
+async def make_account(client):
+    """POST an account via the API; returns the created AccountRead dict."""
+
+    async def _make(name: str = "Wacky", institution: str = "Schwab"):
+        r = await client.post(
+            "/api/v1/accounts/",
+            json={"name": name, "institution": institution, "account_number": "1234"},
+        )
+        assert r.status_code == 201, r.text
+        return r.json()
+
+    return _make
+
+
+@pytest_asyncio.fixture
+async def make_basket(client):
+    """POST a basket via the API; returns the created BasketRead dict."""
+
+    async def _make(name: str = "High Beta", color: str = "#ff7b00", target_allocation: float = 40.0):
+        r = await client.post(
+            "/api/v1/baskets/",
+            json={
+                "name": name,
+                "color": color,
+                "target_allocation": target_allocation,
+                "description": f"{name} basket",
+                "sort_order": 0,
+            },
+        )
+        assert r.status_code == 201, r.text
+        return r.json()
+
+    return _make
+
+
+@pytest_asyncio.fixture
+async def make_portfolio(client, make_account):
+    """POST a portfolio via the API; returns the created PortfolioRead dict."""
+
+    async def _make(account: dict | None = None, basket_id: str | None = None, name: str = "Main"):
+        account = account or await make_account()
+        payload = {"name": name, "account_id": account["id"], "currency": "USD"}
+        if basket_id is not None:
+            payload["basket_id"] = basket_id
+        r = await client.post("/api/v1/portfolios/", json=payload)
+        assert r.status_code == 201, r.text
+        return r.json()
+
+    return _make
+
+
+@pytest_asyncio.fixture
+async def make_asset(db_session):
+    """Insert an Asset row directly (no asset CRUD endpoint); returns the Asset."""
+
+    async def _make(symbol: str = "AAPL", name: str = "Apple Inc", asset_class: str = "equity",
+                    sector: str = "Technology", region: str = "United States"):
+        from portfolio_manager.models import Asset
+
+        asset = Asset(symbol=symbol, name=name, asset_class=asset_class, sector=sector, region=region)
+        db_session.add(asset)
+        await db_session.commit()
+        await db_session.refresh(asset)
+        return asset
+
+    return _make
+
+
+# ── Fake data feed for route tests (positions refresh / analytics) ──────
+# Patches the module-level data_feed used by routes so tests are network-free.
+
+
+@pytest_asyncio.fixture
+async def fake_data_feed(monkeypatch):
+    """Install a deterministic in-memory DataFeed for routes that use it.
+
+    Returns a small helper to register price/quote/history data per symbol.
+    """
+    import sys
+    from datetime import date
+    df_mod = sys.modules["portfolio_manager.services.data_feed"]  # real submodule (not the shadowed singleton)
+    from portfolio_manager.services.data_feed import DataFeed, PriceBar, PriceQuote
+    from portfolio_manager.services.price_cache import PriceCache
+
+    cache: PriceCache[PriceQuote] = PriceCache(default_ttl=60)
+    feed = DataFeed(cache, enabled=True)
+
+    class _FakeFetcher:
+        def __init__(self):
+            self._quotes: dict[str, PriceQuote] = {}
+            self._history: dict[str, list[PriceBar]] = {}
+
+        def quote(self, symbol):
+            return self._quotes.get(symbol.upper())
+
+        def history(self, symbol, period):
+            return self._history.get(symbol.upper(), [])
+
+        def search(self, query, max_results=10):
+            return []
+
+    fetcher = _FakeFetcher()
+    feed._fetcher = fetcher  # type: ignore[attr-defined]
+    # point the module singleton (used by routes) at our feed
+    monkeypatch.setattr(df_mod, "data_feed", feed)
+    # also patch the import inside the routes modules
+    from portfolio_manager.routes import analytics, positions
+
+    monkeypatch.setattr(positions, "data_feed", feed)
+    monkeypatch.setattr(analytics, "data_feed", feed)
+
+    feed.fetcher = fetcher  # expose for tests
+
+    def add_quote(symbol, price, prev_close=None):
+        fetcher._quotes[symbol.upper()] = PriceQuote(
+            symbol=symbol.upper(), price=price, prev_close=prev_close, currency="USD"
+        )
+
+    def add_history(symbol, prices):
+        from datetime import timedelta
+
+        start = date(2026, 1, 1)
+        bars = [
+            PriceBar(date=start + timedelta(days=i), open=p, high=p, low=p, close=p, volume=0)
+            for i, p in enumerate(prices)
+        ]
+        fetcher._history[symbol.upper()] = bars
+
+    feed.add_quote = add_quote  # type: ignore[attr-defined]
+    feed.add_history = add_history  # type: ignore[attr-defined]
+    return feed

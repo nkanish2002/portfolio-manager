@@ -97,6 +97,11 @@ def create_app() -> FastAPI:
         tags=["users"],
     )
 
+    # ── API v1 routes (auth-gated) ─────────────────────────────────────
+    from portfolio_manager.routes import api_router
+
+    app.include_router(api_router)
+
     return app
 
 
