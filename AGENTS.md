@@ -1,7 +1,7 @@
 # AGENTS.md — Coding Agent Reference
 
 > **Project:** Portfolio Manager
-> **Status:** Phase 1 — Backend Foundation
+> **Status:** Phase 3 — React Frontend Foundation
 > **Location:** `~/Work/portfolio-manager`
 > **Full spec:** `PLAN.md`
 
@@ -85,7 +85,8 @@ uv run python -c "from portfolio_manager.config import settings; print(settings.
 | **2.4** | ✅ Done | Basket + portfolio + account CRUD routes (user-scoped) |
 | **2.5** | ✅ Done | Position + transaction routes (refresh, move, FIFO P&L) |
 | **2.6** | ✅ Done | Analytics routes (risk, allocations, charts, basket analytics) |
-| **3.1** | 🔄 Next | React + Vite + Tailwind frontend foundation |
+| **3.1** | ✅ Done | Vite scaffold + Tailwind v4 + Axios API client + TS interfaces |
+| 3.2-3.3 | ⏳ Pending | Auth store, pages, layout, dashboard
 | 4.1-4.2 | ⏳ Pending | WebSocket real-time prices |
 | 5.1-5.2 | ⏳ Pending | Trade operations UI |
 
@@ -155,4 +156,16 @@ portfolio-manager/
     ├── test_positions.py             # Position add/refresh/move routes
     ├── test_transactions.py          # Transaction record + FIFO realized P&L + history
     └── test_analytics.py             # Risk, allocations, charts, basket analytics routes
+└── frontend/                          # React 19 + TS + Vite + Tailwind v4
+    ├── package.json                   # React 19, TS, Vite 6, Tailwind v4, Zustand 5, React Router 7
+    ├── vite.config.ts                 # Vite + @tailwindcss/vite plugin + API proxy to :8000
+    ├── tsconfig.json                  # Strict TS + @ path alias
+    ├── index.html                     # Vite entry point
+    └── src/
+        ├── main.tsx                   # React root + HashRouter
+        ├── App.tsx                    # Placeholder (replaced in 3.2)
+        ├── vite-env.d.ts              # Vite client types
+        ├── index.css                  # Tailwind v4 @import + @theme tokens + flash animations
+        └── services/
+            └── api.ts                 # Axios instance (JWT interceptor, 401 redirect) + TS interfaces
 ```
