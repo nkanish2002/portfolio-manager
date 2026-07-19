@@ -74,8 +74,8 @@ uv run python -c "from portfolio_manager.config import settings; print(settings.
 |---|---|---|
 | **1.1** | ✅ Done | Project init, deps, config, Docker Compose |
 | **1.2** | ✅ Done | SQLModel models: User, Asset, Account, Basket, Portfolio |
-| 1.3 | 🔄 Next | SQLModel models: Position, Transaction, Benchmark |
-| 1.4 | ⏳ Pending | Auth setup (fastapi-users) |
+| **1.3** | ✅ Done | SQLModel models: Position, Transaction, Benchmark |
+| 1.4 | 🔄 Next | Auth setup (fastapi-users) |
 | 1.5 | ⏳ Pending | Main app + health check |
 | 1.6 | ⏳ Pending | Alembic migration + apply |
 | 1.7 | ⏳ Pending | Test fixtures + model/auth tests |
@@ -91,14 +91,23 @@ portfolio-manager/
 ├── pyproject.toml                    # Python deps (uv)
 ├── settings.yaml                     # Dynaconf: default/dev/prod
 ├── .env                              # Dev overrides (gitignored)
-├── .gitignore
+├── .gitignore                        # toptal Python + Node patterns
 ├── docker-compose.yaml               # Postgres 16 (podman)
 ├── PLAN.md                           # Full project spec
 ├── AGENTS.md                         # This file
 ├── src/portfolio_manager/
 │   ├── __init__.py
 │   ├── config.py                     # Dynaconf instance
-│   ├── database.py                   # async engine + session factory
-│   └── models/                       # ← Segment 1.2 target
+│   ├── database.py                   # async engine + session factory + shared Base + association tables
+│   └── models/                       # All 9 models + 1 association table
+│       ├── __init__.py               # Single entry point for model imports
+│       ├── user.py                   # User (fastapi-users base)
+│       ├── asset.py                  # Asset (shared lookup)
+│       ├── account.py                # Account (user-scoped)
+│       ├── basket.py                 # Basket (user-scoped)
+│       ├── portfolio.py              # Portfolio (user-scoped)
+│       ├── position.py               # Position (user-scoped via portfolio)
+│       ├── transaction.py            # Transaction (user-scoped via portfolio)
+│       └── benchmark.py              # Benchmark + BenchmarkData (shared)
 └── tests/                            # ← Segment 1.7 target
 ```
