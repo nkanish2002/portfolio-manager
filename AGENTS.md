@@ -75,8 +75,8 @@ uv run python -c "from portfolio_manager.config import settings; print(settings.
 | **1.1** | ✅ Done | Project init, deps, config, Docker Compose |
 | **1.2** | ✅ Done | SQLModel models: User, Asset, Account, Basket, Portfolio |
 | **1.3** | ✅ Done | SQLModel models: Position, Transaction, Benchmark |
-| 1.4 | 🔄 Next | Auth setup (fastapi-users) |
-| 1.5 | ⏳ Pending | Main app + health check |
+| | **1.4** | ✅ Done | Auth setup (fastapi-users, JWT, user manager) |
+| **1.5** | 🔄 Next | Main app + health check |
 | 1.6 | ⏳ Pending | Alembic migration + apply |
 | 1.7 | ⏳ Pending | Test fixtures + model/auth tests |
 | 2.1-2.6 | ⏳ Pending | Services & API routes |
@@ -99,6 +99,7 @@ portfolio-manager/
 │   ├── __init__.py
 │   ├── config.py                     # Dynaconf instance
 │   ├── database.py                   # async engine + session factory + shared Base + association tables
+│   ├── auth.py                       # fastapi-users setup (JWT, user manager)
 │   └── models/                       # All 9 models + 1 association table
 │       ├── __init__.py               # Single entry point for model imports
 │       ├── user.py                   # User (fastapi-users base)
