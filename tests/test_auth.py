@@ -26,13 +26,13 @@ class TestRegistration:
         assert r.status_code == 201
         assert r.json()["display_name"] == "Alice"
 
-    async def test_register_duplicate_email_rejected(self, client, make_user):
-        await make_user()
+    async def test_register_duplicate_email_rejected(self, client):
+        # first registration ok
         r = await client.post(
             "/auth/jwt/register",
             json={"email": "dup@example.com", "password": "supersecret123"},
         )
-        # first registration ok; a second with the same email must fail
+        # a second registration with the same email must fail
         r2 = await client.post(
             "/auth/jwt/register",
             json={"email": "dup@example.com", "password": "anothersecret456"},
@@ -40,15 +40,16 @@ class TestRegistration:
         assert r.status_code == 201
         assert r2.status_code == 400
 
-    async def test_register_short_password_rejected(self, client):
+    async def test_register_short_password_accepted_by_default(self, client):
+        # fastapi-users' default PasswordHelper does NOT enforce length, so a
+        # short password is accepted at registration time. We assert this
+        # explicitly so a future password-validation rule surfaces as a test
+        # change rather than a silent pass.
         r = await client.post(
             "/auth/jwt/register",
             json={"email": "short@example.com", "password": "123"},
         )
-        # fastapi-users default PasswordHelper doesn't enforce length, but
-        # pydantic_email + the route may; just ensure it's not 201 with bad data
-        # — we accept either 201 (no length rule) or 422 here as long as it's sane
-        assert r.status_code in (201, 400, 422)
+        assert r.status_code == 201
 
     async def test_register_invalid_email_rejected(self, client):
         r = await client.post(

@@ -63,11 +63,8 @@ class UserManager(UUIDIDMixin, BaseUserManager[User, UUID]):
 
 async def get_user_db():
     """Yield a SQLAlchemy user database adapter with a scoped session."""
-    session = await async_session_factory().__aenter__()
-    try:
+    async with async_session_factory() as session:
         yield SQLAlchemyUserDatabase(session, User)
-    finally:
-        await session.close()
 
 
 # ── User manager factory ──────────────────────────────────────────────────
