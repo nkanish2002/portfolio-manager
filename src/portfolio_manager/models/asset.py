@@ -9,7 +9,7 @@ from uuid import UUID, uuid4
 
 from sqlalchemy import Column
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID
-from sqlmodel import Field, SQLModel
+from sqlmodel import Field, Relationship, SQLModel
 
 
 class Asset(SQLModel, table=True):
@@ -33,7 +33,9 @@ class Asset(SQLModel, table=True):
         sa_column_kwargs={"server_default": "now()"},
     )
 
-    # Note: positions and transactions relationships added in Segment 1.3
+    # Relationships
+    positions: list["Position"] = Relationship(back_populates="asset")
+    transactions: list["Transaction"] = Relationship(back_populates="asset")
 
 
 # ── Pydantic schemas (no table) ─────────────────────────────────────────

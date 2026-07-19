@@ -2,15 +2,35 @@
 
 All table models are imported here so SQLAlchemy's declarative system
 can discover them. This module is the single entry point for model imports.
+
+Import order matters:
+  1. User (SQLAlchemy, depends on nothing)
+  2. Asset (shared lookup, no user_id)
+  3. Account, Basket (user-scoped)
+  4. Portfolio (depends on Account + Basket)
+  5. Position, Transaction (depend on Portfolio + Asset)
+  6. Benchmark, BenchmarkData (shared, with m2m to Portfolio)
 """
 
 from portfolio_manager.models.user import User
 
-# SQLModel table models (import order matters for relationship resolution)
+# Core SQLModel table models
 from portfolio_manager.models.asset import Asset, AssetCreate, AssetRead, AssetUpdate
 from portfolio_manager.models.account import Account, AccountCreate, AccountRead, AccountUpdate
 from portfolio_manager.models.basket import Basket, BasketCreate, BasketRead, BasketUpdate
 from portfolio_manager.models.portfolio import Portfolio, PortfolioCreate, PortfolioRead, PortfolioUpdate
+
+# Holdings + benchmarks
+from portfolio_manager.models.position import Position, PositionCreate, PositionRead, PositionUpdate
+from portfolio_manager.models.transaction import Transaction, TransactionCreate, TransactionRead
+from portfolio_manager.models.benchmark import (
+    Benchmark,
+    BenchmarkCreate,
+    BenchmarkData,
+    BenchmarkDataRead,
+    BenchmarkRead,
+    portfolio_benchmarks,
+)
 
 __all__ = [
     # Core ORM models
@@ -19,6 +39,11 @@ __all__ = [
     "Account",
     "Basket",
     "Portfolio",
+    "Position",
+    "Transaction",
+    "Benchmark",
+    "BenchmarkData",
+    "portfolio_benchmarks",
     # Asset schemas
     "AssetCreate",
     "AssetRead",
@@ -35,4 +60,15 @@ __all__ = [
     "PortfolioCreate",
     "PortfolioRead",
     "PortfolioUpdate",
+    # Position schemas
+    "PositionCreate",
+    "PositionRead",
+    "PositionUpdate",
+    # Transaction schemas
+    "TransactionCreate",
+    "TransactionRead",
+    # Benchmark schemas
+    "BenchmarkCreate",
+    "BenchmarkRead",
+    "BenchmarkDataRead",
 ]

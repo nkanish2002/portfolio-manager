@@ -10,6 +10,8 @@ from sqlalchemy import Column, ForeignKey
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 from sqlmodel import Field, Relationship, SQLModel
 
+from portfolio_manager.database import portfolio_benchmarks
+
 
 class Portfolio(SQLModel, table=True):
     __tablename__ = "portfolios"
@@ -36,8 +38,13 @@ class Portfolio(SQLModel, table=True):
     # Relationships
     user: "User" = Relationship(back_populates="portfolios")
     account: "Account" = Relationship(back_populates="portfolios")
-    basket: "Basket | None" = Relationship(back_populates="portfolios")
-    # Note: positions and transactions relationships added in Segment 1.3
+    basket: "Basket" = Relationship(back_populates="portfolios")
+    positions: list["Position"] = Relationship(back_populates="portfolio")
+    transactions: list["Transaction"] = Relationship(back_populates="portfolio")
+    benchmarks: list["Benchmark"] = Relationship(
+        back_populates="portfolios",
+        sa_relationship_kwargs={"secondary": portfolio_benchmarks},
+    )
 
     class Config:
         from_attributes = True
