@@ -39,8 +39,8 @@ class Asset(SQLModel, table=True):
     )
 
     # Relationships
-    positions: Mapped[list['Position']] = Relationship(back_populates="asset")
-    transactions: Mapped[list['Transaction']] = Relationship(back_populates="asset")
+    positions: Mapped[list[Position]] = Relationship(back_populates="asset")
+    transactions: Mapped[list[Transaction]] = Relationship(back_populates="asset")
 
 
 # ── Pydantic schemas (no table) ─────────────────────────────────────────

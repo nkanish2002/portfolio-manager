@@ -29,7 +29,7 @@ uv run python -c "from portfolio_manager.config import settings; print(settings.
 
 | Layer | Choice |
 |---|---|
-| Backend | FastAPI (async), Python 3.12+ |
+| Backend | FastAPI (async), Python 3.14+ |
 | ORM | SQLModel (model + schema in one class) |
 | DB | PostgreSQL 16 (local), Supabase (prod) |
 | Driver | asyncpg |
@@ -64,7 +64,7 @@ uv run python -c "from portfolio_manager.config import settings; print(settings.
 - All DB operations are async (asyncpg)
 
 ### Code Style
-- Ruff: line-length 120, py312 target
+- Ruff: line-length 120, py314 target
 - Type hints everywhere
 - `structlog` for structured logging
 

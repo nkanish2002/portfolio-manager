@@ -46,7 +46,7 @@ class Basket(SQLModel, table=True):
 
     # Relationships
     user: User = Relationship(back_populates="baskets")
-    portfolios: Mapped[list['Portfolio']] = Relationship(back_populates="basket")
+    portfolios: Mapped[list[Portfolio]] = Relationship(back_populates="basket")
 
 
 # ── Pydantic schemas (no table) ─────────────────────────────────────────

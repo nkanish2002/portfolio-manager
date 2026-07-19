@@ -30,8 +30,8 @@ class Benchmark(SQLModel, table=True):
     )
 
     # Relationships
-    data: Mapped[list['BenchmarkData']] = Relationship(back_populates="benchmark")
-    portfolios: Mapped[list['Portfolio']] = Relationship(
+    data: Mapped[list[BenchmarkData]] = Relationship(back_populates="benchmark")
+    portfolios: Mapped[list[Portfolio]] = Relationship(
         back_populates="benchmarks",
         sa_relationship_kwargs={"secondary": portfolio_benchmarks},
     )

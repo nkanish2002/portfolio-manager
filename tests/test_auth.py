@@ -40,14 +40,28 @@ class TestRegistration:
         assert r.status_code == 201
         assert r2.status_code == 400
 
-    async def test_register_short_password_accepted_by_default(self, client):
-        # fastapi-users' default PasswordHelper does NOT enforce length, so a
-        # short password is accepted at registration time. We assert this
-        # explicitly so a future password-validation rule surfaces as a test
-        # change rather than a silent pass.
+    async def test_register_short_password_rejected(self, client):
+        # UserManager.validate_password enforces a minimum length of 8 chars.
         r = await client.post(
             "/auth/jwt/register",
             json={"email": "short@example.com", "password": "123"},
+        )
+        assert r.status_code == 400
+
+    async def test_register_password_equals_email_rejected(self, client):
+        # validate_password forbids passwords equal to the email.
+        email = "same@example.com"
+        r = await client.post(
+            "/auth/jwt/register",
+            json={"email": email, "password": email},
+        )
+        assert r.status_code == 400
+
+    async def test_register_valid_long_password_accepted(self, client):
+        # A password meeting the policy (>= 8 chars, not the email) succeeds.
+        r = await client.post(
+            "/auth/jwt/register",
+            json={"email": "goodpass@example.com", "password": "securepass123"},
         )
         assert r.status_code == 201
 

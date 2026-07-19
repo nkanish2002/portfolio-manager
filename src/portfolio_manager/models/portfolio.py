@@ -44,9 +44,9 @@ class Portfolio(SQLModel, table=True):
     user: User = Relationship(back_populates="portfolios")
     account: Account = Relationship(back_populates="portfolios")
     basket: Basket = Relationship(back_populates="portfolios")
-    positions: Mapped[list['Position']] = Relationship(back_populates="portfolio")
-    transactions: Mapped[list['Transaction']] = Relationship(back_populates="portfolio")
-    benchmarks: Mapped[list['Benchmark']] = Relationship(
+    positions: Mapped[list[Position]] = Relationship(back_populates="portfolio")
+    transactions: Mapped[list[Transaction]] = Relationship(back_populates="portfolio")
+    benchmarks: Mapped[list[Benchmark]] = Relationship(
         back_populates="portfolios",
         sa_relationship_kwargs={"secondary": portfolio_benchmarks},
     )

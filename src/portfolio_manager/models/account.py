@@ -30,7 +30,7 @@ class Account(SQLModel, table=True):
 
     # Relationships
     user: User = Relationship(back_populates="accounts")
-    portfolios: Mapped[list['Portfolio']] = Relationship(back_populates="account")
+    portfolios: Mapped[list[Portfolio]] = Relationship(back_populates="account")
 
 
 # ── Pydantic schemas (no table) ─────────────────────────────────────────

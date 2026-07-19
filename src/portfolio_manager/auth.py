@@ -11,6 +11,7 @@ from fastapi import Depends
 from fastapi_users import BaseUserManager, FastAPIUsers, UUIDIDMixin
 from fastapi_users.authentication import AuthenticationBackend, BearerTransport, JWTStrategy
 from fastapi_users.db import SQLAlchemyUserDatabase
+from fastapi_users.exceptions import InvalidPasswordException
 from fastapi_users.schemas import BaseUser, BaseUserCreate, BaseUserUpdate
 
 from portfolio_manager.config import settings
@@ -57,6 +58,19 @@ class UserManager(UUIDIDMixin, BaseUserManager[User, UUID]):
     async def on_after_forgot_password(self, user: User, token: str, request=None) -> None:
         """Hook after password reset request (would send email in prod)."""
         pass  # TODO: send reset email with token
+
+    async def validate_password(self, password: str, user) -> None:
+        """Enforce a minimum password policy.
+
+        Called by fastapi-users on registration, password reset, and user
+        update. Raises ``InvalidPasswordException`` (HTTP 400) on failure.
+        """
+        if len(password) < 8:
+            raise InvalidPasswordException(reason="Password must be at least 8 characters")
+        if password.strip() != password:
+            raise InvalidPasswordException(reason="Password must not have leading/trailing whitespace")
+        if user.email.casefold() == password.casefold():
+            raise InvalidPasswordException(reason="Password must not equal the email")
 
 
 # ── Database adapter factory ──────────────────────────────────────────────
