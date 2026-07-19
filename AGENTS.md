@@ -80,9 +80,12 @@ uv run python -c "from portfolio_manager.config import settings; print(settings.
 | **1.6** | ✅ Done | Alembic migration + apply to local Postgres |
 | **1.7** | ✅ Done | Test fixtures + model/auth tests (26 tests passing) |
 | **2.1** | ✅ Done | Data feed + price cache services (yfinance, TTL cache) |
-| **2.2** | 🔄 Next | Portfolio calc + risk services |
-| 2.3-2.6 | ⏳ Pending | API routes (baskets, portfolios, positions, transactions, analytics) |
-| 3.1-3.3 | ⏳ Pending | React frontend foundation |
+| **2.2** | ✅ Done | Portfolio calc + risk services (NAV, 9 risk metrics) |
+| **2.3** | ✅ Done | Trades (FIFO) + nav history + benchmark + classification services |
+| **2.4** | ✅ Done | Basket + portfolio + account CRUD routes (user-scoped) |
+| **2.5** | ✅ Done | Position + transaction routes (refresh, move, FIFO P&L) |
+| **2.6** | ✅ Done | Analytics routes (risk, allocations, charts, basket analytics) |
+| **3.1** | 🔄 Next | React + Vite + Tailwind frontend foundation |
 | 4.1-4.2 | ⏳ Pending | WebSocket real-time prices |
 | 5.1-5.2 | ⏳ Pending | Trade operations UI |
 
@@ -112,7 +115,21 @@ portfolio-manager/
 │   ├── services/                     # Service layer (business logic)
 │   │   ├── __init__.py               # Service exports
 │   │   ├── data_feed.py              # Async yfinance wrapper + DTOs + cache integration
-│   │   └── price_cache.py            # In-memory TTL cache (monotonic clock, thread-safe)
+│   │   ├── price_cache.py            # In-memory TTL cache (monotonic clock, thread-safe)
+│   │   ├── portfolio_calc.py         # NAV, P&L, allocation, returns
+│   │   ├── risk.py                    # Sharpe, Sortino, Max DD, VaR, Beta, Alpha, Treynor, Calmar, Ulcer
+│   │   ├── trades.py                 # FIFO trade ledger + realized P&L
+│   │   ├── nav_history.py            # NAV series from transactions
+│   │   ├── benchmark.py             # Excess returns, tracking error, information ratio
+│   │   └── classification.py         # Sector/region classification
+│   ├── routes/                       # API v1 routers (all auth-gated, user-scoped)
+│   │   ├── __init__.py               # api_router aggregator
+│   │   ├── accounts.py               # Account CRUD
+│   │   ├── baskets.py                # Basket CRUD + basket analytics
+│   │   ├── portfolios.py             # Portfolio CRUD (ownership-validated)
+│   │   ├── positions.py              # Positions: add/refresh/move
+│   │   ├── transactions.py           # Record buy/sell w/ FIFO realized P&L + history
+│   │   └── analytics.py             # Risk, allocations, charts, benchmark comparison
 │   └── models/                       # All 9 models + 1 association table
 │       ├── __init__.py               # Single entry point for model imports
 │       ├── user.py                   # User (fastapi-users base)
@@ -128,5 +145,14 @@ portfolio-manager/
     ├── test_auth.py                  # Registration, login, JWT, protected routes
     ├── test_models.py                # Model registry, types, relationships, DB round-trip
     ├── test_data_feed.py             # DataFeed: get_price/get_historical/search (fake + live)
-    └── test_price_cache.py           # PriceCache: get/set/invalidate, TTL expiry, batch
+    ├── test_price_cache.py           # PriceCache: get/set/invalidate, TTL expiry, batch
+    ├── test_risk_metrics.py          # 9 risk metrics (Sharpe, Sortino, VaR, Max DD, ...)
+    ├── test_portfolio_calc.py        # NAV, P&L, allocation, returns
+    ├── test_trades.py                # FIFO ledger: realized P&L, lots, splits
+    ├── test_benchmark.py             # Tracking error, information ratio, classification
+    ├── test_baskets.py               # Basket CRUD routes (user-scoping, color/target)
+    ├── test_portfolios.py            # Account + Portfolio CRUD routes
+    ├── test_positions.py             # Position add/refresh/move routes
+    ├── test_transactions.py          # Transaction record + FIFO realized P&L + history
+    └── test_analytics.py             # Risk, allocations, charts, basket analytics routes
 ```

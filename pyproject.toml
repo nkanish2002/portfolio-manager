@@ -49,6 +49,10 @@ src = ["src", "tests"]
 select = ["E", "F", "I", "N", "W", "UP", "B", "SIM"]
 ignore = ["E501", "F821"]  # F821: undefined names in string annotations (SQLAlchemy forward refs)
 
+[tool.ruff.lint.per-file-ignores]
+# FastAPI's idiomatic `Depends(...)` default-argument pattern triggers B008.
+"src/portfolio_manager/routes/**/*.py" = ["B008"]
+
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 testpaths = ["tests"]
