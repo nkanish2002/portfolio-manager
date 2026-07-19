@@ -12,17 +12,11 @@ Import order matters:
   6. Benchmark, BenchmarkData (shared, with m2m to Portfolio)
 """
 
-from portfolio_manager.models.user import User
+from portfolio_manager.models.account import Account, AccountCreate, AccountRead, AccountUpdate
 
 # Core SQLModel table models
 from portfolio_manager.models.asset import Asset, AssetCreate, AssetRead, AssetUpdate
-from portfolio_manager.models.account import Account, AccountCreate, AccountRead, AccountUpdate
 from portfolio_manager.models.basket import Basket, BasketCreate, BasketRead, BasketUpdate
-from portfolio_manager.models.portfolio import Portfolio, PortfolioCreate, PortfolioRead, PortfolioUpdate
-
-# Holdings + benchmarks
-from portfolio_manager.models.position import Position, PositionCreate, PositionRead, PositionUpdate
-from portfolio_manager.models.transaction import Transaction, TransactionCreate, TransactionRead
 from portfolio_manager.models.benchmark import (
     Benchmark,
     BenchmarkCreate,
@@ -31,6 +25,12 @@ from portfolio_manager.models.benchmark import (
     BenchmarkRead,
     portfolio_benchmarks,
 )
+from portfolio_manager.models.portfolio import Portfolio, PortfolioCreate, PortfolioRead, PortfolioUpdate
+
+# Holdings + benchmarks
+from portfolio_manager.models.position import Position, PositionCreate, PositionRead, PositionUpdate
+from portfolio_manager.models.transaction import Transaction, TransactionCreate, TransactionRead
+from portfolio_manager.models.user import User
 
 __all__ = [
     # Core ORM models

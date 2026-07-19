@@ -3,11 +3,13 @@
 Represents a brokerage account (e.g., "Wacky", "Long-term Stable") at an institution.
 """
 
+
 from datetime import UTC, datetime
 from uuid import UUID, uuid4
 
-from sqlalchemy import Column, ForeignKey
+from sqlalchemy import Column, DateTime, ForeignKey, func
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID
+from sqlalchemy.orm import Mapped
 from sqlmodel import Field, Relationship, SQLModel
 
 
@@ -21,14 +23,14 @@ class Account(SQLModel, table=True):
     name: str = Field(max_length=100)
     institution: str | None = Field(default=None, max_length=100)
     account_number: str | None = Field(default=None, max_length=50)
-    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    created_at: datetime = Field(
+        default_factory=lambda: datetime.now(UTC),
+        sa_column=Column(DateTime(timezone=True), nullable=False, server_default=func.now()),
+    )
 
     # Relationships
-    user: "User" = Relationship(back_populates="accounts")
-    portfolios: list["Portfolio"] = Relationship(back_populates="account")
-
-    class Config:
-        from_attributes = True
+    user: User = Relationship(back_populates="accounts")
+    portfolios: Mapped[list['Portfolio']] = Relationship(back_populates="account")
 
 
 # ── Pydantic schemas (no table) ─────────────────────────────────────────

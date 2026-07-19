@@ -25,7 +25,7 @@ dependencies = [
     "python-multipart>=0.0.9",
 ]
 
-[project.optional-dependencies]
+[dependency-groups]
 dev = [
     "pytest>=8.3.0",
     "pytest-asyncio>=0.24.0",
@@ -47,7 +47,7 @@ src = ["src", "tests"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "N", "W", "UP", "B", "SIM"]
-ignore = ["E501"]
+ignore = ["E501", "F821"]  # F821: undefined names in string annotations (SQLAlchemy forward refs)
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"

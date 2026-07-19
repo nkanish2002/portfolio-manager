@@ -4,11 +4,13 @@ Maps ticker symbols to metadata (asset class, exchange, sector, etc.).
 Populated via yfinance lookups and statement imports.
 """
 
+
 from datetime import UTC, datetime
 from uuid import UUID, uuid4
 
-from sqlalchemy import Column
+from sqlalchemy import Column, DateTime, func
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID
+from sqlalchemy.orm import Mapped
 from sqlmodel import Field, Relationship, SQLModel
 
 
@@ -27,15 +29,18 @@ class Asset(SQLModel, table=True):
     sector: str | None = Field(default=None, max_length=100)
     industry: str | None = Field(default=None, max_length=100)
     region: str | None = Field(default=None, max_length=50)
-    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    created_at: datetime = Field(
+        default_factory=lambda: datetime.now(UTC),
+        sa_column=Column(DateTime(timezone=True), nullable=False, server_default=func.now()),
+    )
     updated_at: datetime = Field(
         default_factory=lambda: datetime.now(UTC),
-        sa_column_kwargs={"server_default": "now()"},
+        sa_column=Column(DateTime(timezone=True), nullable=False, server_default=func.now()),
     )
 
     # Relationships
-    positions: list["Position"] = Relationship(back_populates="asset")
-    transactions: list["Transaction"] = Relationship(back_populates="asset")
+    positions: Mapped[list['Position']] = Relationship(back_populates="asset")
+    transactions: Mapped[list['Transaction']] = Relationship(back_populates="asset")
 
 
 # ── Pydantic schemas (no table) ─────────────────────────────────────────

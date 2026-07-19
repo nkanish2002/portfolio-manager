@@ -1,6 +1,6 @@
 from sqlalchemy import Column, ForeignKey, Table
-from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlmodel import SQLModel
 
 from portfolio_manager.config import settings

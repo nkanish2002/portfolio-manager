@@ -4,10 +4,12 @@ Records every trade event (buy, sell, dividend, split, etc.) for audit trail
 and FIFO P&L calculation.
 """
 
+
 from datetime import UTC, datetime
+from decimal import Decimal
 from uuid import UUID, uuid4
 
-from sqlalchemy import Column, ForeignKey, Numeric
+from sqlalchemy import Column, DateTime, ForeignKey, Numeric, func
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 from sqlmodel import Field, Relationship, SQLModel
 
@@ -26,24 +28,24 @@ class Transaction(SQLModel, table=True):
         max_length=20,
         description="buy, sell, dividend, split, interest, fee, deposit, withdrawal",
     )
-    quantity: float = Field(sa_column=Column(Numeric(18, 6)))
-    price: float = Field(sa_column=Column(Numeric(18, 6)))
-    fees: float = Field(default=0, sa_column=Column(Numeric(18, 6)))
-    trade_date: datetime = Field(sa_column=Column("trade_date"))
+    quantity: Decimal = Field(sa_column=Column(Numeric(18, 6)))
+    price: Decimal = Field(sa_column=Column(Numeric(18, 6)))
+    fees: Decimal = Field(default=Decimal("0"), sa_column=Column(Numeric(18, 6)))
+    trade_date: datetime = Field(sa_column=Column(DateTime(timezone=True), nullable=False))
     notes: str | None = Field(default=None, max_length=1000)
-    realized_gain: float | None = Field(
+    realized_gain: Decimal | None = Field(
         default=None,
         sa_column=Column(Numeric(18, 6)),
         description="computed via FIFO for sells",
     )
-    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    created_at: datetime = Field(
+        default_factory=lambda: datetime.now(UTC),
+        sa_column=Column(DateTime(timezone=True), nullable=False, server_default=func.now()),
+    )
 
     # Relationships
-    portfolio: "Portfolio" = Relationship(back_populates="transactions")
-    asset: "Asset" = Relationship(back_populates="transactions")
-
-    class Config:
-        from_attributes = True
+    portfolio: Portfolio = Relationship(back_populates="transactions")
+    asset: Asset = Relationship(back_populates="transactions")
 
 
 # ── Pydantic schemas (no table) ─────────────────────────────────────────
@@ -55,9 +57,9 @@ class TransactionCreate(SQLModel):
     portfolio_id: UUID
     asset_id: UUID
     type: str = Field(max_length=20)
-    quantity: float
-    price: float
-    fees: float = Field(default=0)
+    quantity: Decimal
+    price: Decimal
+    fees: Decimal = Field(default=Decimal("0"))
     trade_date: datetime
     notes: str | None = None
 
@@ -69,10 +71,10 @@ class TransactionRead(SQLModel, table=False):
     portfolio_id: UUID
     asset_id: UUID
     type: str
-    quantity: float
-    price: float
-    fees: float
+    quantity: Decimal
+    price: Decimal
+    fees: Decimal
     trade_date: datetime
     notes: str | None = None
-    realized_gain: float | None = None
+    realized_gain: Decimal | None = None
     created_at: datetime

@@ -5,12 +5,14 @@ Examples: 3 baskets (Super Stable / Stable Alpha / High Beta) at 40/40/20,
 or 4 baskets (Core / Growth / Speculative / Cash) at 30/30/20/20.
 """
 
+
 from datetime import UTC, datetime
 from decimal import Decimal
 from uuid import UUID, uuid4
 
-from sqlalchemy import Column, ForeignKey, Numeric
+from sqlalchemy import Column, DateTime, ForeignKey, Numeric, func
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID
+from sqlalchemy.orm import Mapped
 from sqlmodel import Field, Relationship, SQLModel
 
 
@@ -33,18 +35,18 @@ class Basket(SQLModel, table=True):
     )
     sort_order: int = Field(default=0, ge=0)
     is_preset: bool = Field(default=False)
-    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    created_at: datetime = Field(
+        default_factory=lambda: datetime.now(UTC),
+        sa_column=Column(DateTime(timezone=True), nullable=False, server_default=func.now()),
+    )
     updated_at: datetime = Field(
         default_factory=lambda: datetime.now(UTC),
-        sa_column_kwargs={"server_default": "now()"},
+        sa_column=Column(DateTime(timezone=True), nullable=False, server_default=func.now()),
     )
 
     # Relationships
-    user: "User" = Relationship(back_populates="baskets")
-    portfolios: list["Portfolio"] = Relationship(back_populates="basket")
-
-    class Config:
-        from_attributes = True
+    user: User = Relationship(back_populates="baskets")
+    portfolios: Mapped[list['Portfolio']] = Relationship(back_populates="basket")
 
 
 # ── Pydantic schemas (no table) ─────────────────────────────────────────

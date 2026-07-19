@@ -5,10 +5,12 @@ Computed fields (market_value, unrealized_gain, unrealized_gain_pct) are updated
 on price refresh.
 """
 
+
 from datetime import UTC, datetime
+from decimal import Decimal
 from uuid import UUID, uuid4
 
-from sqlalchemy import Column, ForeignKey, Numeric, UniqueConstraint
+from sqlalchemy import Column, DateTime, ForeignKey, Numeric, UniqueConstraint, func
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 from sqlmodel import Field, Relationship, SQLModel
 
@@ -26,24 +28,24 @@ class Position(SQLModel, table=True):
     asset_id: UUID = Field(
         sa_column=Column(PG_UUID(as_uuid=True), ForeignKey("assets.id", ondelete="RESTRICT"), nullable=False),
     )
-    quantity: float = Field(sa_column=Column(Numeric(18, 6)), ge=0)
-    avg_cost_basis: float = Field(sa_column=Column(Numeric(18, 6)), ge=0)
-    current_price: float = Field(sa_column=Column(Numeric(18, 6)), ge=0)
-    market_value: float = Field(sa_column=Column(Numeric(18, 6)), description="computed: quantity * current_price")
-    unrealized_gain: float = Field(sa_column=Column(Numeric(18, 6)))
-    unrealized_gain_pct: float = Field(sa_column=Column(Numeric(10, 4)))
-    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    quantity: Decimal = Field(sa_column=Column(Numeric(18, 6)), ge=0)
+    avg_cost_basis: Decimal = Field(sa_column=Column(Numeric(18, 6)), ge=0)
+    current_price: Decimal = Field(sa_column=Column(Numeric(18, 6)), ge=0)
+    market_value: Decimal = Field(sa_column=Column(Numeric(18, 6)), description="computed: quantity * current_price")
+    unrealized_gain: Decimal = Field(sa_column=Column(Numeric(18, 6)))
+    unrealized_gain_pct: Decimal = Field(sa_column=Column(Numeric(10, 4)))
+    created_at: datetime = Field(
+        default_factory=lambda: datetime.now(UTC),
+        sa_column=Column(DateTime(timezone=True), nullable=False, server_default=func.now()),
+    )
     updated_at: datetime = Field(
         default_factory=lambda: datetime.now(UTC),
-        sa_column_kwargs={"server_default": "now()"},
+        sa_column=Column(DateTime(timezone=True), nullable=False, server_default=func.now()),
     )
 
     # Relationships
-    portfolio: "Portfolio" = Relationship(back_populates="positions")
-    asset: "Asset" = Relationship(back_populates="positions")
-
-    class Config:
-        from_attributes = True
+    portfolio: Portfolio = Relationship(back_populates="positions")
+    asset: Asset = Relationship(back_populates="positions")
 
 
 # ── Pydantic schemas (no table) ─────────────────────────────────────────
@@ -54,17 +56,17 @@ class PositionCreate(SQLModel):
 
     portfolio_id: UUID
     asset_id: UUID
-    quantity: float = Field(ge=0)
-    avg_cost_basis: float = Field(ge=0)
-    current_price: float = Field(ge=0)
+    quantity: Decimal = Field(ge=0)
+    avg_cost_basis: Decimal = Field(ge=0)
+    current_price: Decimal = Field(ge=0)
 
 
 class PositionUpdate(SQLModel):
     """Schema for updating a position (e.g., price refresh)."""
 
-    quantity: float | None = Field(default=None, ge=0)
-    avg_cost_basis: float | None = Field(default=None, ge=0)
-    current_price: float | None = Field(default=None, ge=0)
+    quantity: Decimal | None = Field(default=None, ge=0)
+    avg_cost_basis: Decimal | None = Field(default=None, ge=0)
+    current_price: Decimal | None = Field(default=None, ge=0)
 
 
 class PositionRead(SQLModel, table=False):
@@ -73,11 +75,11 @@ class PositionRead(SQLModel, table=False):
     id: UUID
     portfolio_id: UUID
     asset_id: UUID
-    quantity: float
-    avg_cost_basis: float
-    current_price: float
-    market_value: float
-    unrealized_gain: float
-    unrealized_gain_pct: float
+    quantity: Decimal
+    avg_cost_basis: Decimal
+    current_price: Decimal
+    market_value: Decimal
+    unrealized_gain: Decimal
+    unrealized_gain_pct: Decimal
     created_at: datetime
     updated_at: datetime

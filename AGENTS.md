@@ -29,7 +29,7 @@ uv run python -c "from portfolio_manager.config import settings; print(settings.
 
 | Layer | Choice |
 |---|---|
-| Backend | FastAPI (async), Python 3.14 |
+| Backend | FastAPI (async), Python 3.12+ |
 | ORM | SQLModel (model + schema in one class) |
 | DB | PostgreSQL 16 (local), Supabase (prod) |
 | Driver | asyncpg |
