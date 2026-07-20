@@ -36,6 +36,7 @@ from portfolio_manager.services.trades import (
     build_ledger,
     fifo_realized_gain,
 )
+from portfolio_manager.services.ws_service import WebSocketManager, ws_manager
 
 __all__ = [
     # data feed + cache
@@ -76,4 +77,7 @@ __all__ = [
     # classification
     "classify_asset",
     "infer_region",
+    # websocket
+    "WebSocketManager",
+    "ws_manager",
 ]

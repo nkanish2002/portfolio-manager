@@ -1,7 +1,7 @@
 # AGENTS.md — Coding Agent Reference
 
 > **Project:** Portfolio Manager
-> **Status:** Phase 3 — React Frontend Foundation
+> **Status:** Phase 4 — WebSocket Backend (4.1 complete, 4.2 pending)
 > **Location:** `~/Work/portfolio-manager`
 > **Full spec:** `PLAN.md`
 
@@ -88,7 +88,8 @@ uv run python -c "from portfolio_manager.config import settings; print(settings.
 | **3.1** | ✅ Done | Vite scaffold + Tailwind v4 + Axios API client + TS interfaces |
 | **3.2** | ✅ Done | Auth store (Zustand), login/register pages, route guards |
 | **3.3** | ✅ Done | Layout + Dashboard + KPI cards, Settings, Positions |
-| 4.1-4.2 | ⏳ Pending | WebSocket real-time prices |
+| **4.1** | ✅ Done | WebSocket backend: ws_service, ws route, auth via JWT query param |
+| 4.2 | ⏳ Pending | Frontend WebSocket hook + live price updates |
 | 5.1-5.2 | ⏳ Pending | Trade operations UI |
 
 ## File Map (Created So Far)
@@ -123,15 +124,17 @@ portfolio-manager/
 │   │   ├── trades.py                 # FIFO trade ledger + realized P&L
 │   │   ├── nav_history.py            # NAV series from transactions
 │   │   ├── benchmark.py             # Excess returns, tracking error, information ratio
-│   │   └── classification.py         # Sector/region classification
+│   │   ├── classification.py         # Sector/region classification
+│   │   └── ws_service.py            # WebSocket manager: clients, subscriptions, poll loop
 │   ├── routes/                       # API v1 routers (all auth-gated, user-scoped)
-│   │   ├── __init__.py               # api_router aggregator
+│   │   ├── __init__.py               # api_router aggregator + ws export
 │   │   ├── accounts.py               # Account CRUD
 │   │   ├── baskets.py                # Basket CRUD + basket analytics
 │   │   ├── portfolios.py             # Portfolio CRUD (ownership-validated)
 │   │   ├── positions.py              # Positions: add/refresh/move
 │   │   ├── transactions.py           # Record buy/sell w/ FIFO realized P&L + history
-│   │   └── analytics.py             # Risk, allocations, charts, benchmark comparison
+│   │   ├── analytics.py             # Risk, allocations, charts, benchmark comparison
+│   │   └── ws.py                     # WebSocket endpoint: /ws/quotes (JWT auth via query param)
 │   └── models/                       # All 9 models + 1 association table
 │       ├── __init__.py               # Single entry point for model imports
 │       ├── user.py                   # User (fastapi-users base)
@@ -156,7 +159,8 @@ portfolio-manager/
     ├── test_portfolios.py            # Account + Portfolio CRUD routes
     ├── test_positions.py             # Position add/refresh/move routes
     ├── test_transactions.py          # Transaction record + FIFO realized P&L + history
-    └── test_analytics.py             # Risk, allocations, charts, basket analytics routes
+    ├── test_analytics.py             # Risk, allocations, charts, basket analytics routes
+    └── test_ws.py                    # WebSocket: manager, auth, subscriptions, broadcast
 └── frontend/                          # React 19 + TS + Vite + Tailwind v4
     ├── package.json                   # React 19, TS, Vite 6, Tailwind v4, Zustand 5, React Router 7
     ├── vite.config.ts                 # Vite + @tailwindcss/vite plugin + API proxy to :8000
