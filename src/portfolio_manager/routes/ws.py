@@ -17,10 +17,15 @@ Disconnect: Server sends nothing special — client detects close.
 
 from __future__ import annotations
 
+import json
+import uuid
+
+import jwt as pyjwt
 from fastapi import APIRouter, Query, WebSocket, WebSocketDisconnect
 from starlette.status import HTTP_401_UNAUTHORIZED
 
 from portfolio_manager.auth import get_jwt_strategy
+from portfolio_manager.services.data_feed import price_cache
 from portfolio_manager.services.ws_service import ws_manager
 
 router = APIRouter(tags=["websocket"])
@@ -39,8 +44,6 @@ async def _authenticate_ws(websocket: WebSocket, token: str | None) -> bool:
         return False
 
     try:
-        import jwt as pyjwt
-
         strategy = get_jwt_strategy()
         payload = pyjwt.decode(
             token,
@@ -77,7 +80,7 @@ async def websocket_quotes(
 
     # ── Accept and register ───────────────────────────────────────────
     await websocket.accept()
-    client_id = str(__import__("uuid").uuid4())
+    client_id = str(uuid.uuid4())
     await ws_manager.add_client(client_id, websocket)
 
     # Send connected acknowledgement
@@ -89,9 +92,6 @@ async def websocket_quotes(
     try:
         while True:
             raw = await websocket.receive_text()
-            # Parse JSON message
-            import json
-
             try:
                 message = json.loads(raw)
             except json.JSONDecodeError:
@@ -114,9 +114,7 @@ async def websocket_quotes(
 
                 normalized = ws_manager.subscribe(client_id, symbols)
 
-                # Optionally, push an immediate snapshot of current cached prices
-                from portfolio_manager.services.price_cache import price_cache
-
+                # Push an immediate snapshot of current cached prices
                 snapshot = []
                 for sym in normalized:
                     cached = price_cache.get(sym)
@@ -137,14 +135,13 @@ async def websocket_quotes(
 
             elif msg_type == "unsubscribe":
                 symbols = message.get("symbols", [])
-                for sym in symbols:
-                    sym_norm = sym.strip().upper()
-                    ws_manager._subscriptions.get(client_id, set()).discard(sym_norm)
-                    subs = ws_manager._symbol_subscribers.get(sym_norm)
-                    if subs is not None:
-                        subs.discard(client_id)
-                        if not subs:
-                            ws_manager._symbol_subscribers.pop(sym_norm, None)
+                if not isinstance(symbols, list):
+                    await ws_manager.send_json(client_id, {
+                        "type": "error",
+                        "message": "\"symbols\" must be a list",
+                    })
+                    continue
+                ws_manager.unsubscribe(client_id, symbols)
 
             elif msg_type == "ping":
                 await ws_manager.send_json(client_id, {"type": "pong"})

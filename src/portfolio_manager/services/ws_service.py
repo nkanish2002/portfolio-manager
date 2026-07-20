@@ -25,7 +25,7 @@ from typing import Any
 import structlog
 
 from portfolio_manager.config import settings
-from portfolio_manager.services.data_feed import data_feed, price_cache
+from portfolio_manager.services.data_feed import data_feed
 
 log = structlog.get_logger()
 
@@ -50,6 +50,8 @@ class WebSocketManager:
         self._subscriptions: dict[str, set[str]] = {}
         # global symbol → set of client_ids (reverse index)
         self._symbol_subscribers: dict[str, set[str]] = {}
+        # symbol → last price we broadcast (for change detection)
+        self._last_sent: dict[str, float] = {}
         self._poll_task: asyncio.Task | None = None
         self._running = False
 
@@ -87,6 +89,7 @@ class WebSocketManager:
         self._clients.clear()
         self._subscriptions.clear()
         self._symbol_subscribers.clear()
+        self._last_sent.clear()
         log.info("WebSocket price poller stopped")
 
     # ── connection management ──────────────────────────────────────────
@@ -105,11 +108,7 @@ class WebSocketManager:
 
         symbols = self._subscriptions.pop(client_id, set())
         for sym in symbols:
-            subscribers = self._symbol_subscribers.get(sym)
-            if subscribers is not None:
-                subscribers.discard(client_id)
-                if not subscribers:
-                    self._symbol_subscribers.pop(sym, None)
+            self._forget_if_orphaned(sym, client_id)
 
     @property
     def client_count(self) -> int:
@@ -139,6 +138,35 @@ class WebSocketManager:
             self._symbol_subscribers[sym_norm].add(client_id)
             normalized.append(sym_norm)
         return normalized
+
+    def unsubscribe(self, client_id: str, symbols: list[str]) -> list[str]:
+        """Unsubscribe a client from one or more symbols.
+
+        Returns the normalized (upper-cased) list of symbols that were removed.
+        Symbols with no remaining subscribers are dropped from the reverse
+        index and from the change-detection cache.
+        """
+        normalized: list[str] = []
+        client_subs = self._subscriptions.get(client_id)
+        for sym in symbols:
+            sym_norm = sym.strip().upper()
+            if not sym_norm:
+                continue
+            if client_subs is not None:
+                client_subs.discard(sym_norm)
+            self._forget_if_orphaned(sym_norm, client_id)
+            normalized.append(sym_norm)
+        return normalized
+
+    def _forget_if_orphaned(self, symbol: str, client_id: str) -> None:
+        """Remove ``symbol`` from the reverse index if no clients remain."""
+        subscribers = self._symbol_subscribers.get(symbol)
+        if subscribers is None:
+            return
+        subscribers.discard(client_id)
+        if not subscribers:
+            self._symbol_subscribers.pop(symbol, None)
+            self._last_sent.pop(symbol, None)
 
     # ── message sending ────────────────────────────────────────────────
 
@@ -198,7 +226,17 @@ class WebSocketManager:
                 await asyncio.sleep(step)
 
     async def _poll_once(self) -> None:
-        """Fetch prices for all subscribed symbols and push changes."""
+        """Fetch prices for all subscribed symbols and push changes.
+
+        Change detection compares the freshly-fetched price against the last
+        price we broadcast for that symbol (``_last_sent``), *not* against the
+        shared ``price_cache``. ``data_feed.get_price`` is cache-aware: on a hit
+        it returns the cached quote, and on a miss it writes the new quote back
+        into the cache — so reading the cache right after ``get_price`` would
+        always yield the same ``.price`` and suppress every update. The
+        per-symbol ``_last_sent`` map is the correct reference for "what did the
+        client already see".
+        """
         if not self._symbol_subscribers:
             return
 
@@ -206,27 +244,27 @@ class WebSocketManager:
         if not symbols:
             return
 
-        # Fetch fresh quotes via data_feed (cache-aware)
         updates: list[dict[str, Any]] = []
         for sym in symbols:
             quote = await data_feed.get_price(sym)
             if quote is None:
                 continue
 
-            # Check if the price actually changed (from cache)
-            cached = price_cache.get(sym)
-            if cached is not None and cached.price == quote.price:
-                continue
+            last = self._last_sent.get(sym)
+            if last is not None and last == quote.price:
+                continue  # no change since last broadcast
 
-            # Build update payload
-            update: dict[str, Any] = {
+            # "prev" is the last price the client saw, falling back to the
+            # instrument's previous close on the very first broadcast.
+            prev_price = last if last is not None else quote.prev_close
+            updates.append({
                 "symbol": quote.symbol,
                 "price": quote.price,
-                "prev": cached.price if cached else None,
+                "prev": prev_price,
                 "change": quote.change,
                 "change_pct": quote.change_pct,
-            }
-            updates.append(update)
+            })
+            self._last_sent[sym] = quote.price
 
         if updates:
             await self.broadcast_batch(updates)

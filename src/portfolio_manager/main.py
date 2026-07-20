@@ -103,7 +103,8 @@ def create_app() -> FastAPI:
     )
 
     # ── API v1 routes (auth-gated) ─────────────────────────────────────
-    from portfolio_manager.routes import api_router, ws as ws_routes
+    from portfolio_manager.routes import api_router
+    from portfolio_manager.routes import ws as ws_routes
 
     app.include_router(api_router)
 

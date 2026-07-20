@@ -223,6 +223,66 @@ class TestWebSocketManager:
 
         assert poll_count >= 2  # at least 2-3 polls in 0.35s
 
+    @pytest.mark.asyncio
+    async def test_poll_once_broadcasts_initial_and_changes(self, manager: WebSocketManager, monkeypatch):
+        """_poll_once broadcasts the first quote, then only on price changes.
+
+        Regression: the original implementation read ``price_cache`` *after*
+        ``data_feed.get_price`` (which writes the cache), so the change check
+        always compared a quote against itself and never broadcast anything.
+        """
+        prices = iter([100.0, 100.0, 105.0])
+
+        class FakeFeed:
+            async def get_price(self, symbol: str) -> PriceQuote | None:
+                try:
+                    return PriceQuote(symbol=symbol, price=next(prices), prev_close=99.0)
+                except StopIteration:
+                    return None
+
+        monkeypatch.setattr("portfolio_manager.services.ws_service.data_feed", FakeFeed())
+
+        ws = await _make_mock_ws()
+        cid = "client-1"
+        await manager.add_client(cid, ws)
+        manager.subscribe(cid, ["AAPL"])
+
+        # 1st poll: first quote (100.0) → broadcast (prev falls back to prev_close)
+        await manager._poll_once()
+        assert ws.send_json.call_count == 1
+        batch = ws.send_json.call_args.args[0]
+        assert batch["type"] == "batch"
+        assert batch["updates"][0]["symbol"] == "AAPL"
+        assert batch["updates"][0]["price"] == 100.0
+        assert batch["updates"][0]["prev"] == 99.0  # prev_close on first broadcast
+
+        # 2nd poll: same price (100.0) → no broadcast (change detection)
+        await manager._poll_once()
+        assert ws.send_json.call_count == 1
+
+        # 3rd poll: price changed (105.0) → broadcast, prev = last seen (100.0)
+        await manager._poll_once()
+        assert ws.send_json.call_count == 2
+        batch = ws.send_json.call_args.args[0]
+        assert batch["updates"][0]["price"] == 105.0
+        assert batch["updates"][0]["prev"] == 100.0  # last broadcast price
+
+    @pytest.mark.asyncio
+    async def test_unsubscribe_drops_orphaned_symbol_state(self, manager: WebSocketManager):
+        """Unsubscribing the last subscriber clears the reverse + last-sent state."""
+        ws = await _make_mock_ws()
+        cid = "client-1"
+        await manager.add_client(cid, ws)
+        manager.subscribe(cid, ["AAPL", "TSLA"])
+        manager._last_sent["AAPL"] = 100.0
+
+        removed = manager.unsubscribe(cid, ["aapl"])
+        assert removed == ["AAPL"]
+        assert "AAPL" not in manager._subscriptions[cid]
+        assert "AAPL" not in manager._symbol_subscribers
+        assert "AAPL" not in manager._last_sent
+        assert "TSLA" in manager._symbol_subscribers  # still subscribed
+
 
 # ═══════════════════════════════════════════════════════════════════════════════
 #  Auth tests — WS route _authenticate_ws helper
