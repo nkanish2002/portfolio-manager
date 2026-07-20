@@ -1,7 +1,7 @@
 # AGENTS.md — Coding Agent Reference
 
 > **Project:** Portfolio Manager
-> **Status:** Phase 4 — WebSocket Backend (4.1 complete, 4.2 pending)
+> **Status:** Phase 4 — WebSocket Backend (4.1 complete, 4.2 complete)
 > **Location:** `~/Work/portfolio-manager`
 > **Full spec:** `PLAN.md`
 
@@ -89,7 +89,7 @@ uv run python -c "from portfolio_manager.config import settings; print(settings.
 | **3.2** | ✅ Done | Auth store (Zustand), login/register pages, route guards |
 | **3.3** | ✅ Done | Layout + Dashboard + KPI cards, Settings, Positions |
 | **4.1** | ✅ Done | WebSocket backend: ws_service, ws route, auth via JWT query param |
-| 4.2 | ⏳ Pending | Frontend WebSocket hook + live price updates |
+| 4.2 | ✅ Done | Frontend WebSocket hook + live price updates |
 | 5.1-5.2 | ⏳ Pending | Trade operations UI |
 
 ## File Map (Created So Far)

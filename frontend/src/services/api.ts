@@ -103,6 +103,7 @@ export interface Position {
   id: string
   portfolio_id: string
   asset_id: string
+  symbol: string
   quantity: string
   avg_cost_basis: string
   current_price: string

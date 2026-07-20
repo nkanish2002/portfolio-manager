@@ -27,6 +27,9 @@ class TestPositions:
         listing = await auth_client.get(f"/api/v1/portfolios/{pf['id']}/positions")
         assert listing.status_code == 200
         assert len(listing.json()) == 1
+        # The list endpoint joins the asset and exposes its ticker symbol so the
+        # frontend WebSocket client can subscribe by symbol (not the asset UUID).
+        assert listing.json()[0]["symbol"] == "AAPL"
 
     async def test_upsert_existing_position_updates_quantity(self, auth_client, make_account, make_portfolio, make_asset):
         asset = await make_asset(symbol="MSFT")

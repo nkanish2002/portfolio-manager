@@ -7,6 +7,7 @@
 
 import type React from 'react'
 import { Link, NavLink, useLocation } from 'react-router-dom'
+import { useWebSocket } from '@/hooks/useWebSocket'
 import { useAuthStore } from '@/store/authStore'
 import { usePortfolioStore } from '@/store/portfolioStore'
 
@@ -60,13 +61,22 @@ function PortfolioSelector() {
 
 function UserMenu() {
   const { user, logout } = useAuthStore()
+  const { status } = useWebSocket()
+
+  const statusConfig = {
+    idle: { color: 'bg-text-dim', label: 'Offline', pulse: false },
+    connecting: { color: 'bg-warning', label: 'Connecting…', pulse: true },
+    connected: { color: 'bg-positive', label: 'Live', pulse: true },
+    error: { color: 'bg-negative', label: 'Disconnected', pulse: false },
+  }
+  const { color, label, pulse } = statusConfig[status]
 
   return (
     <div className="flex items-center gap-3">
-      {/* Live indicator placeholder (wired in 4.2) */}
-      <span className="flex items-center gap-1.5 text-text-dim text-xs">
-        <span className="h-2 w-2 rounded-full bg-text-dim" />
-        <span className="hidden sm:inline">Offline</span>
+      {/* Live connection indicator */}
+      <span className="flex items-center gap-1.5 text-xs">
+        <span className={`h-2 w-2 rounded-full ${color} ${pulse ? 'live-indicator' : ''}`} />
+        <span className="hidden text-text-dim sm:inline">{label}</span>
       </span>
 
       <span className="text-sm text-text-dim">{user?.display_name || user?.email || 'User'}</span>

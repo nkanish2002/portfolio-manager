@@ -6,6 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from portfolio_manager.auth import current_active_user
 from portfolio_manager.database import get_session
@@ -41,9 +42,16 @@ async def list_positions(
 ):
     portfolio = await get_owned_portfolio(session, portfolio_id, user.id)
     result = await session.execute(
-        select(Position).where(Position.portfolio_id == portfolio.id).order_by(Position.created_at)
+        select(Position)
+        .options(selectinload(Position.asset))
+        .where(Position.portfolio_id == portfolio.id)
+        .order_by(Position.created_at)
     )
-    return result.scalars().all()
+    positions = result.scalars().all()
+    reads = [PositionRead.model_validate(p) for p in positions]
+    for p, r in zip(positions, reads, strict=True):
+        r.symbol = p.asset.symbol if p.asset else None
+    return reads
 
 
 @router.post("/{portfolio_id}/positions", response_model=PositionRead, status_code=status.HTTP_201_CREATED)
