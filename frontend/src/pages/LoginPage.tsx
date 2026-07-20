@@ -22,7 +22,8 @@ export default function LoginPage() {
     e.preventDefault()
     try {
       await login({ email, password })
-      navigate(decodeURIComponent(returnTo), { replace: true })
+      // searchParams.get already decodes; navigate to the return URL or dashboard.
+      navigate(returnTo, { replace: true })
     } catch {
       // error set by store
     }

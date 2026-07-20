@@ -15,7 +15,7 @@ import { useAuthStore } from '@/store/authStore'
  */
 export function useAuth() {
   const navigate = useNavigate()
-  const { user, isLoading, error, init, login, register, logout, clearError } = useAuthStore()
+  const { user, isLoading, error, init, login, register, logout, updateProfile, clearError } = useAuthStore()
 
   useEffect(() => {
     init()
@@ -29,6 +29,7 @@ export function useAuth() {
     login,
     register,
     logout,
+    updateProfile,
     clearError,
     navigate,
   }

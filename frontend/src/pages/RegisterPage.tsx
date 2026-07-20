@@ -28,7 +28,7 @@ export default function RegisterPage() {
     }
 
     try {
-      await register({ email, password, name: name || undefined })
+      await register({ email, password, display_name: name || null })
       navigate('/login', { replace: true, state: { registered: true } })
     } catch {
       // error set by store

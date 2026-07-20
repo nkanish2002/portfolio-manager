@@ -51,6 +51,13 @@ function Loading() {
 
 function App() {
   const { user, isLoading } = useAuthStore()
+  const init = useAuthStore((s) => s.init)
+
+  // Hydrate the session from any stored JWT exactly once on app mount so
+  // deep-linking/reloading a protected route doesn't bounce through /login.
+  React.useEffect(() => {
+    init()
+  }, [init])
 
   return (
     <>

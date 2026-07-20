@@ -111,10 +111,13 @@ export default function DashboardPage() {
   useEffect(() => {
     if (!selectedId) {
       setPositions(null)
+      setPosError(null)
       return
     }
 
     let cancelled = false
+    setPositions(null)
+    setPosError(null)
     positionsApi.list(selectedId).then(
       (data) => {
         if (!cancelled) setPositions(data)

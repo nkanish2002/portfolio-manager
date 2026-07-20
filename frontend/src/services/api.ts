@@ -146,12 +146,22 @@ export interface BenchmarkData {
 export interface CreateUser {
   email: string
   password: string
-  name?: string
+  display_name?: string | null
 }
 
 export interface LoginCredentials {
   email: string
   password: string
+}
+
+/** Patch shape for /users/me — only mutable fields allowed. */
+export interface UserUpdate {
+  email?: string
+  password?: string
+  display_name?: string | null
+  is_active?: boolean
+  is_superuser?: boolean
+  is_verified?: boolean
 }
 
 export interface BasketCreate {
@@ -229,14 +239,25 @@ export interface HealthResponse {
 export const authApi = {
   register: (data: CreateUser) => api.post<User>('/auth/jwt/register', data).then((r) => r.data),
 
+  // fastapi-users /auth/jwt/login is an OAuth2 password-flow endpoint: it
+  // expects application/x-www-form-urlencoded with `username` + `password`.
   login: (data: LoginCredentials) =>
-    api.post<{ access_token: string; token_type: string }>('/auth/jwt/login', data).then((r) => r.data),
+    api
+      .post<{ access_token: string; token_type: string }>(
+        '/auth/jwt/login',
+        new URLSearchParams({
+          username: data.email,
+          password: data.password,
+        }),
+        { headers: { 'Content-Type': 'application/x-www-form-urlencoded' } },
+      )
+      .then((r) => r.data),
 
   logout: () => api.post('/auth/jwt/logout').then((r) => r.data),
 
   me: () => api.get<User>('/users/me').then((r) => r.data),
 
-  updateMe: (patch: Partial<User>) => api.patch<User>('/users/me', patch).then((r) => r.data),
+  updateMe: (patch: UserUpdate) => api.patch<User>('/users/me', patch).then((r) => r.data),
 }
 
 /* ── Typed API helpers (resources) ──────────────────────────────────── */

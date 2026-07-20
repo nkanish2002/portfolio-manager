@@ -18,10 +18,13 @@ export default function PositionsPage() {
   useEffect(() => {
     if (!selectedId) {
       setPositions(null)
+      setError(null)
       return
     }
 
     let cancelled = false
+    setPositions(null)
+    setError(null)
     positionsApi.list(selectedId).then(
       (data) => {
         if (!cancelled) setPositions(data)

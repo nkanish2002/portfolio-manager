@@ -6,7 +6,7 @@
  */
 
 import { create } from 'zustand'
-import { authApi, type CreateUser, type LoginCredentials, type User } from '@/services/api'
+import { authApi, type CreateUser, type LoginCredentials, type User, type UserUpdate } from '@/services/api'
 
 interface AuthState {
   user: User | null
@@ -19,6 +19,7 @@ interface AuthState {
   login: (credentials: LoginCredentials) => Promise<void>
   register: (data: CreateUser) => Promise<void>
   logout: () => void
+  updateProfile: (patch: UserUpdate) => Promise<void>
   clearError: () => void
 }
 
@@ -79,6 +80,17 @@ export const useAuthStore = create<AuthState>((set) => ({
     localStorage.removeItem(TOKEN_KEY)
     set({ user: null, token: null })
     window.location.hash = '#/login'
+  },
+
+  updateProfile: async (patch) => {
+    try {
+      const updated = await authApi.updateMe(patch)
+      set({ user: updated })
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Profile update failed'
+      set({ error: message })
+      throw err
+    }
   },
 
   clearError: () => set({ error: null }),

@@ -3,13 +3,13 @@
  */
 
 import { type FormEvent, useEffect, useState } from 'react'
-import { authApi, type Basket, type BasketCreate, basketsApi } from '@/services/api'
-import { useAuthStore } from '@/store/authStore'
+import { type Basket, type BasketCreate, basketsApi } from '@/services/api'
+import { useAuth } from '@/hooks/useAuth'
 
 /* ── Profile settings ───────────────────────────────────────────────── */
 
 function ProfileSettings() {
-  const { user } = useAuthStore()
+  const { user, updateProfile } = useAuth()
   const [name, setName] = useState(user?.display_name || '')
   const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState('')
@@ -19,7 +19,7 @@ function ProfileSettings() {
     setSaving(true)
     setMessage('')
     try {
-      await authApi.updateMe({ display_name: name || null })
+      await updateProfile({ display_name: name || null })
       setMessage('Profile updated')
     } catch {
       setMessage('Failed to update profile')
