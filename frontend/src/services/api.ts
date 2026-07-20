@@ -6,7 +6,7 @@
  * string here so numeric precision is preserved through the full round-trip.
  */
 
-import axios, { AxiosError, InternalAxiosRequestConfig } from 'axios'
+import axios, { type AxiosError, type InternalAxiosRequestConfig } from 'axios'
 
 /* ── Axios instance ─────────────────────────────────────────────────── */
 
@@ -81,7 +81,7 @@ export interface Basket {
   name: string
   description: string | null
   color: string
-  target_allocation: string   // Decimal → string from Pydantic
+  target_allocation: string // Decimal → string from Pydantic
   sort_order: number
   is_preset: boolean
   created_at: string
@@ -232,84 +232,67 @@ export interface HealthResponse {
 /* ── Typed API helpers (auth) ───────────────────────────────────────── */
 
 export const authApi = {
-  register: (data: CreateUser) =>
-    api.post<User>('/auth/jwt/register', data).then((r) => r.data),
+  register: (data: CreateUser) => api.post<User>('/auth/jwt/register', data).then((r) => r.data),
 
   login: (data: LoginCredentials) =>
     api.post<{ access_token: string; token_type: string }>('/auth/jwt/login', data).then((r) => r.data),
 
-  logout: () =>
-    api.post('/auth/jwt/logout').then((r) => r.data),
+  logout: () => api.post('/auth/jwt/logout').then((r) => r.data),
 
-  me: () =>
-    api.get<User>('/users/me').then((r) => r.data),
+  me: () => api.get<User>('/users/me').then((r) => r.data),
 
-  updateMe: (patch: Partial<User>) =>
-    api.patch<User>('/users/me', patch).then((r) => r.data),
+  updateMe: (patch: Partial<User>) => api.patch<User>('/users/me', patch).then((r) => r.data),
 }
 
 /* ── Typed API helpers (resources) ──────────────────────────────────── */
 
 export const basketsApi = {
-  list: () =>
-    api.get<Basket[]>('/api/v1/baskets/').then((r) => r.data),
+  list: () => api.get<Basket[]>('/api/v1/baskets/').then((r) => r.data),
 
-  create: (data: BasketCreate) =>
-    api.post<Basket>('/api/v1/baskets/', data).then((r) => r.data),
+  create: (data: BasketCreate) => api.post<Basket>('/api/v1/baskets/', data).then((r) => r.data),
 
-  update: (id: string, data: BasketUpdate) =>
-    api.put<Basket>(`/api/v1/baskets/${id}`, data).then((r) => r.data),
+  update: (id: string, data: BasketUpdate) => api.put<Basket>(`/api/v1/baskets/${id}`, data).then((r) => r.data),
 
-  remove: (id: string) =>
-    api.delete(`/api/v1/baskets/${id}`).then((r) => r.data),
+  remove: (id: string) => api.delete(`/api/v1/baskets/${id}`).then((r) => r.data),
 
-  analytics: (id: string) =>
-    api.get<Record<string, unknown>>(`/api/v1/baskets/${id}/analytics`).then((r) => r.data),
+  analytics: (id: string) => api.get<Record<string, unknown>>(`/api/v1/baskets/${id}/analytics`).then((r) => r.data),
 }
 
 export const accountsApi = {
-  list: () =>
-    api.get<Account[]>('/api/v1/accounts/').then((r) => r.data),
+  list: () => api.get<Account[]>('/api/v1/accounts/').then((r) => r.data),
 
-  create: (data: AccountCreate) =>
-    api.post<Account>('/api/v1/accounts/', data).then((r) => r.data),
+  create: (data: AccountCreate) => api.post<Account>('/api/v1/accounts/', data).then((r) => r.data),
 
-  update: (id: string, data: AccountUpdate) =>
-    api.put<Account>(`/api/v1/accounts/${id}`, data).then((r) => r.data),
+  update: (id: string, data: AccountUpdate) => api.put<Account>(`/api/v1/accounts/${id}`, data).then((r) => r.data),
 
-  remove: (id: string) =>
-    api.delete(`/api/v1/accounts/${id}`).then((r) => r.data),
+  remove: (id: string) => api.delete(`/api/v1/accounts/${id}`).then((r) => r.data),
 }
 
 export const portfoliosApi = {
-  list: () =>
-    api.get<Portfolio[]>('/api/v1/portfolios/').then((r) => r.data),
+  list: () => api.get<Portfolio[]>('/api/v1/portfolios/').then((r) => r.data),
 
-  create: (data: PortfolioCreate) =>
-    api.post<Portfolio>('/api/v1/portfolios/', data).then((r) => r.data),
+  create: (data: PortfolioCreate) => api.post<Portfolio>('/api/v1/portfolios/', data).then((r) => r.data),
 
-  get: (id: string) =>
-    api.get<Portfolio>(`/api/v1/portfolios/${id}`).then((r) => r.data),
+  get: (id: string) => api.get<Portfolio>(`/api/v1/portfolios/${id}`).then((r) => r.data),
 
   update: (id: string, data: PortfolioUpdate) =>
     api.put<Portfolio>(`/api/v1/portfolios/${id}`, data).then((r) => r.data),
 
-  remove: (id: string) =>
-    api.delete(`/api/v1/portfolios/${id}`).then((r) => r.data),
+  remove: (id: string) => api.delete(`/api/v1/portfolios/${id}`).then((r) => r.data),
 }
 
 export const positionsApi = {
-  list: (portfolioId: string) =>
-    api.get<Position[]>(`/api/v1/portfolios/${portfolioId}/positions`).then((r) => r.data),
+  list: (portfolioId: string) => api.get<Position[]>(`/api/v1/portfolios/${portfolioId}/positions`).then((r) => r.data),
 
   create: (portfolioId: string, data: PositionCreate) =>
     api.post<Position>(`/api/v1/portfolios/${portfolioId}/positions`, data).then((r) => r.data),
 
-  refresh: (portfolioId: string) =>
-    api.post(`/api/v1/portfolios/${portfolioId}/positions/refresh`).then((r) => r.data),
+  refresh: (portfolioId: string) => api.post(`/api/v1/portfolios/${portfolioId}/positions/refresh`).then((r) => r.data),
 
   move: (portfolioId: string, positionId: string, basketId: string) =>
-    api.post(`/api/v1/portfolios/${portfolioId}/positions/${positionId}/move`, { basket_id: basketId }).then((r) => r.data),
+    api
+      .post(`/api/v1/portfolios/${portfolioId}/positions/${positionId}/move`, { basket_id: basketId })
+      .then((r) => r.data),
 }
 
 export const transactionsApi = {
@@ -340,12 +323,13 @@ export const analyticsApi = {
     api.get<Record<string, unknown>>(`/api/v1/portfolios/${portfolioId}/charts/monthly-returns`).then((r) => r.data),
 
   benchmarkComparison: (portfolioId: string) =>
-    api.get<Record<string, unknown>>(`/api/v1/portfolios/${portfolioId}/charts/benchmark-comparison`).then((r) => r.data),
+    api
+      .get<Record<string, unknown>>(`/api/v1/portfolios/${portfolioId}/charts/benchmark-comparison`)
+      .then((r) => r.data),
 }
 
 /* ── Health check ───────────────────────────────────────────────────── */
 
 export const healthApi = {
-  check: () =>
-    api.get<HealthResponse>('/health').then((r) => r.data),
+  check: () => api.get<HealthResponse>('/health').then((r) => r.data),
 }
