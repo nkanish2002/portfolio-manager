@@ -7,9 +7,9 @@
 
 import type React from 'react'
 import { Link, NavLink, useLocation } from 'react-router-dom'
+import { useWebSocket } from '@/hooks/useWebSocket'
 import { useAuthStore } from '@/store/authStore'
 import { usePortfolioStore } from '@/store/portfolioStore'
-import { useWebSocket } from '@/hooks/useWebSocket'
 
 /* ── Nav link (active state) ────────────────────────────────────────── */
 

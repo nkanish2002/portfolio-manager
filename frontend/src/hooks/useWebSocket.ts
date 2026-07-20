@@ -47,7 +47,9 @@ export function useWebSocket() {
   const pendingRef = useRef<Record<string, unknown>[]>([])
 
   // Mirror status into ref so timer callbacks see latest
-  useEffect(() => { statusRef.current = status }, [status])
+  useEffect(() => {
+    statusRef.current = status
+  }, [status])
 
   /* ── Internal helpers ────────────────────────────────────────────── */
 
@@ -60,8 +62,14 @@ export function useWebSocket() {
   }, [])
 
   const clearTimers = useCallback(() => {
-    if (reconnectTimerRef.current) { clearTimeout(reconnectTimerRef.current); reconnectTimerRef.current = null }
-    if (pingTimerRef.current) { clearInterval(pingTimerRef.current); pingTimerRef.current = null }
+    if (reconnectTimerRef.current) {
+      clearTimeout(reconnectTimerRef.current)
+      reconnectTimerRef.current = null
+    }
+    if (pingTimerRef.current) {
+      clearInterval(pingTimerRef.current)
+      pingTimerRef.current = null
+    }
   }, [])
 
   const teardown = useCallback(() => {
@@ -125,13 +133,19 @@ export function useWebSocket() {
 
   /* ── Public API ──────────────────────────────────────────────────── */
 
-  const subscribe = useCallback((symbols: string[]) => {
-    send({ type: 'subscribe', symbols })
-  }, [send])
+  const subscribe = useCallback(
+    (symbols: string[]) => {
+      send({ type: 'subscribe', symbols })
+    },
+    [send],
+  )
 
-  const unsubscribe = useCallback((symbols: string[]) => {
-    send({ type: 'unsubscribe', symbols })
-  }, [send])
+  const unsubscribe = useCallback(
+    (symbols: string[]) => {
+      send({ type: 'unsubscribe', symbols })
+    },
+    [send],
+  )
 
   const reconnect = useCallback(() => {
     teardown()

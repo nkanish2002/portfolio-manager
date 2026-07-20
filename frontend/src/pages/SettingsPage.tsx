@@ -3,8 +3,8 @@
  */
 
 import { type FormEvent, useEffect, useState } from 'react'
-import { type Basket, type BasketCreate, basketsApi } from '@/services/api'
 import { useAuth } from '@/hooks/useAuth'
+import { type Basket, type BasketCreate, basketsApi } from '@/services/api'
 
 /* ── Profile settings ───────────────────────────────────────────────── */
 

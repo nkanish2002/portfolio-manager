@@ -7,9 +7,9 @@
 
 import { useEffect } from 'react'
 import { Link } from 'react-router-dom'
-import { usePositionStore, type FlashEntry } from '@/store/positionStore'
-import { usePortfolioStore } from '@/store/portfolioStore'
 import { useWebSocket } from '@/hooks/useWebSocket'
+import { usePortfolioStore } from '@/store/portfolioStore'
+import { type FlashEntry, usePositionStore } from '@/store/positionStore'
 
 /** Drop flash entries that have passed their animation window. */
 function activeFlashes(flashes: Record<string, FlashEntry>): Record<string, FlashEntry> {
@@ -48,7 +48,10 @@ export default function PositionsPage() {
   // Listen for live price updates from WebSocket
   useEffect(() => {
     const handler = (e: Event) => {
-      const detail = (e as CustomEvent).detail as { type: string; updates?: { symbol: string; price: number; prev: number | null }[] }
+      const detail = (e as CustomEvent).detail as {
+        type: string
+        updates?: { symbol: string; price: number; prev: number | null }[]
+      }
       if (detail.type !== 'batch' || !detail.updates) return
       for (const update of detail.updates) {
         applyPriceUpdate(update.symbol, update.price, update.prev)
@@ -90,15 +93,11 @@ export default function PositionsPage() {
 
   /* ── Position row renderer ───────────────────────────────────────── */
 
-  const renderRow = (pos: typeof positions[0]) => {
+  const renderRow = (pos: (typeof positions)[0]) => {
     const gain = parseFloat(pos.unrealized_gain)
     const gainPct = parseFloat(pos.unrealized_gain_pct)
-    const flash = activeFlashMap[pos.asset_id]
-    const flashClass = flash
-      ? flash.direction === 'up'
-        ? 'flash-green'
-        : 'flash-red'
-      : ''
+    const flash = activeFlashMap[pos.symbol]
+    const flashClass = flash ? (flash.direction === 'up' ? 'flash-green' : 'flash-red') : ''
 
     return (
       <tr key={pos.id} className={`border-border/50 border-b ${flashClass}`}>
@@ -115,9 +114,7 @@ export default function PositionsPage() {
         <td className="py-2 pr-4 text-right font-mono-financial text-text">
           ${parseFloat(pos.market_value).toLocaleString(undefined, { minimumFractionDigits: 2 })}
         </td>
-        <td
-          className={`py-2 text-right font-mono-financial ${gain >= 0 ? 'text-positive' : 'text-negative'}`}
-        >
+        <td className={`py-2 text-right font-mono-financial ${gain >= 0 ? 'text-positive' : 'text-negative'}`}>
           {gain >= 0 ? '+' : ''}${Math.abs(gain).toLocaleString(undefined, { minimumFractionDigits: 2 })}
           <span className="ml-1 text-xs">
             ({gainPct >= 0 ? '+' : ''}

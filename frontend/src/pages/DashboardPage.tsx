@@ -6,11 +6,11 @@
  */
 
 import { useEffect, useMemo } from 'react'
-import { type Position } from '@/services/api'
+import { useWebSocket } from '@/hooks/useWebSocket'
+import type { Position } from '@/services/api'
 import { useBasketStore } from '@/store/basketStore'
 import { usePortfolioStore } from '@/store/portfolioStore'
 import { usePositionStore } from '@/store/positionStore'
-import { useWebSocket } from '@/hooks/useWebSocket'
 
 /* ── KPI card ───────────────────────────────────────────────────────── */
 
@@ -53,7 +53,13 @@ function BasketRow({ name, color, target, actual }: { name: string; color: strin
 
 /* ── Position table (simplified for dashboard) ──────────────────────── */
 
-function PositionTable({ positions, flashes }: { positions: Position[]; flashes: Record<string, { direction: 'up' | 'down'; expiresAt: number }> }) {
+function PositionTable({
+  positions,
+  flashes,
+}: {
+  positions: Position[]
+  flashes: Record<string, { direction: 'up' | 'down'; expiresAt: number }>
+}) {
   if (positions.length === 0) return <p className="text-sm text-text-dim">No positions yet</p>
 
   return (
@@ -137,7 +143,10 @@ export default function DashboardPage() {
   // Listen for live price updates from WebSocket
   useEffect(() => {
     const handler = (e: Event) => {
-      const detail = (e as CustomEvent).detail as { type: string; updates?: { symbol: string; price: number; prev: number | null }[] }
+      const detail = (e as CustomEvent).detail as {
+        type: string
+        updates?: { symbol: string; price: number; prev: number | null }[]
+      }
       if (detail.type !== 'batch' || !detail.updates) return
       for (const update of detail.updates) {
         applyPriceUpdate(update.symbol, update.price, update.prev)
