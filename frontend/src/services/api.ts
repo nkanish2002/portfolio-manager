@@ -19,8 +19,8 @@ const api = axios.create({
 /** Attach stored JWT to every outgoing request */
 api.interceptors.request.use((config: InternalAxiosRequestConfig) => {
   const token = localStorage.getItem('jwt_token')
-  if (token && config.headers) {
-    config.headers.Authorization = `Bearer ${token}`
+  if (token) {
+    config.headers.set('Authorization', `Bearer ${token}`)
   }
   return config
 })
@@ -214,16 +214,11 @@ export interface TransactionCreate {
   quantity: number
   price: number
   fees?: number
-  trade_date: string
+  trade_date: string | Date
   notes?: string | null
 }
 
 /* ── Common response wrappers ───────────────────────────────────────── */
-
-export interface PaginatedResponse<T> {
-  items: T[]
-  total: number
-}
 
 export interface HealthResponse {
   status: string
@@ -253,7 +248,7 @@ export const basketsApi = {
 
   update: (id: string, data: BasketUpdate) => api.put<Basket>(`/api/v1/baskets/${id}`, data).then((r) => r.data),
 
-  remove: (id: string) => api.delete(`/api/v1/baskets/${id}`).then((r) => r.data),
+  remove: (id: string) => api.delete<void>(`/api/v1/baskets/${id}`).then((r) => r.data),
 
   analytics: (id: string) => api.get<Record<string, unknown>>(`/api/v1/baskets/${id}/analytics`).then((r) => r.data),
 }
@@ -265,7 +260,7 @@ export const accountsApi = {
 
   update: (id: string, data: AccountUpdate) => api.put<Account>(`/api/v1/accounts/${id}`, data).then((r) => r.data),
 
-  remove: (id: string) => api.delete(`/api/v1/accounts/${id}`).then((r) => r.data),
+  remove: (id: string) => api.delete<void>(`/api/v1/accounts/${id}`).then((r) => r.data),
 }
 
 export const portfoliosApi = {
@@ -278,7 +273,7 @@ export const portfoliosApi = {
   update: (id: string, data: PortfolioUpdate) =>
     api.put<Portfolio>(`/api/v1/portfolios/${id}`, data).then((r) => r.data),
 
-  remove: (id: string) => api.delete(`/api/v1/portfolios/${id}`).then((r) => r.data),
+  remove: (id: string) => api.delete<void>(`/api/v1/portfolios/${id}`).then((r) => r.data),
 }
 
 export const positionsApi = {
