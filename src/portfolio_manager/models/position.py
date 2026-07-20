@@ -70,11 +70,18 @@ class PositionUpdate(SQLModel):
 
 
 class PositionRead(SQLModel, table=False):
-    """Schema for reading a position."""
+    """Schema for reading a position.
+
+    ``symbol`` is the joined ``Asset.symbol`` (ticker). It is populated by the
+    read routes that eagerly load the asset relationship; routes that return a
+    freshly created/updated position without the join will leave it as ``None``.
+    The frontend WebSocket client keys live price updates off this ticker.
+    """
 
     id: UUID
     portfolio_id: UUID
     asset_id: UUID
+    symbol: str | None = None
     quantity: Decimal
     avg_cost_basis: Decimal
     current_price: Decimal

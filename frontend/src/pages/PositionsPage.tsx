@@ -11,8 +11,8 @@ import { usePositionStore, type FlashEntry } from '@/store/positionStore'
 import { usePortfolioStore } from '@/store/portfolioStore'
 import { useWebSocket } from '@/hooks/useWebSocket'
 
-/** Clean up expired flashes periodically */
-function useFlashCleanup(flashes: Record<string, FlashEntry>): Record<string, FlashEntry> {
+/** Drop flash entries that have passed their animation window. */
+function activeFlashes(flashes: Record<string, FlashEntry>): Record<string, FlashEntry> {
   const now = Date.now()
   const cleaned: Record<string, FlashEntry> = {}
   for (const [sym, entry] of Object.entries(flashes)) {
@@ -24,7 +24,7 @@ function useFlashCleanup(flashes: Record<string, FlashEntry>): Record<string, Fl
 export default function PositionsPage() {
   const { selectedId } = usePortfolioStore()
   const { positions, isLoading, error, flashes, fetchPositions, applyPriceUpdate, getSymbols } = usePositionStore()
-  const { subscribe } = useWebSocket()
+  const { subscribe, unsubscribe } = useWebSocket()
 
   // Fetch positions when portfolio changes
   useEffect(() => {
@@ -32,11 +32,18 @@ export default function PositionsPage() {
     fetchPositions(selectedId)
   }, [selectedId, fetchPositions])
 
-  // Subscribe to WS tickers when positions load
+  // (Re)subscribe to the current holdings' tickers. Re-runs whenever the set
+  // of symbols actually changes (not just the row count), and unsubscribes the
+  // previous set on cleanup so switching portfolios doesn't accumulate stale
+  // subscriptions on the backend.
+  const symbolsKey = getSymbols().join(',')
   useEffect(() => {
-    const symbols = getSymbols()
+    const symbols = symbolsKey ? symbolsKey.split(',') : []
     if (symbols.length > 0) subscribe(symbols)
-  }, [positions.length, subscribe, getSymbols]) // re-subscribe when position count changes
+    return () => {
+      if (symbols.length > 0) unsubscribe(symbols)
+    }
+  }, [symbolsKey, subscribe, unsubscribe])
 
   // Listen for live price updates from WebSocket
   useEffect(() => {
@@ -52,7 +59,7 @@ export default function PositionsPage() {
   }, [applyPriceUpdate])
 
   // Derive clean flashes (drop expired)
-  const activeFlashes = useFlashCleanup(flashes)
+  const activeFlashMap = activeFlashes(flashes)
 
   /* ── Empty / loading states ──────────────────────────────────────── */
 
@@ -86,7 +93,7 @@ export default function PositionsPage() {
   const renderRow = (pos: typeof positions[0]) => {
     const gain = parseFloat(pos.unrealized_gain)
     const gainPct = parseFloat(pos.unrealized_gain_pct)
-    const flash = activeFlashes[pos.asset_id]
+    const flash = activeFlashMap[pos.asset_id]
     const flashClass = flash
       ? flash.direction === 'up'
         ? 'flash-green'
@@ -95,7 +102,7 @@ export default function PositionsPage() {
 
     return (
       <tr key={pos.id} className={`border-border/50 border-b ${flashClass}`}>
-        <td className="py-2 pr-4 font-medium text-text">{pos.asset_id}</td>
+        <td className="py-2 pr-4 font-medium text-text">{pos.symbol}</td>
         <td className="py-2 pr-4 text-right font-mono-financial text-text">
           {parseFloat(pos.quantity).toLocaleString()}
         </td>

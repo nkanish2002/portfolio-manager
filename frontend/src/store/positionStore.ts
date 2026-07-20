@@ -55,10 +55,12 @@ export const usePositionStore = create<PositionState>((set, get) => ({
   applyPriceUpdate: (symbol: string, newPrice: number, prevPrice: number | null) => {
     const { positions, flashes } = get()
     const now = Date.now()
-    const priceUp = prevPrice == null || newPrice > prevPrice
+    const priceUp = prevPrice == null ? newPrice >= 0 : newPrice > prevPrice
 
+    let matched = false
     const updated = positions.map((pos) => {
-      if (pos.asset_id !== symbol) return pos
+      if (pos.symbol !== symbol) return pos
+      matched = true
 
       const qty = parseFloat(pos.quantity)
       const avgCost = parseFloat(pos.avg_cost_basis)
@@ -75,14 +77,28 @@ export const usePositionStore = create<PositionState>((set, get) => ({
       }
     })
 
-    // Skip if nothing matched
-    if (updated === positions) return
+    // Ignore updates for symbols we don't hold — avoids spurious re-renders
+    // and polluting the flash map.
+    if (!matched) return
 
+    const expiresAt = now + 1000
     set({
       positions: updated,
-      flashes: { ...flashes, [symbol]: { direction: priceUp ? 'up' : 'down', expiresAt: now + 1000 } },
+      flashes: { ...flashes, [symbol]: { direction: priceUp ? 'up' : 'down', expiresAt } },
     })
+
+    // Clear the flash after the animation window so a subsequent update can
+    // re-apply the class and re-trigger the CSS animation. Guarded by
+    // ``expiresAt`` so a newer flash within the window isn't wiped.
+    setTimeout(() => {
+      const current = get().flashes[symbol]
+      if (current && current.expiresAt === expiresAt) {
+        const next = { ...get().flashes }
+        delete next[symbol]
+        set({ flashes: next })
+      }
+    }, 1050)
   },
 
-  getSymbols: () => get().positions.map((p) => p.asset_id),
+  getSymbols: () => get().positions.map((p) => p.symbol),
 }))

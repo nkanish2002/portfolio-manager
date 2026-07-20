@@ -42,6 +42,9 @@ export function useWebSocket() {
   const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const pingTimerRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const statusRef = useRef<WSStatus>('idle')
+  // Messages sent before the socket is OPEN are buffered and flushed on open,
+  // so a `subscribe` fired during the connecting phase isn't silently dropped.
+  const pendingRef = useRef<Record<string, unknown>[]>([])
 
   // Mirror status into ref so timer callbacks see latest
   useEffect(() => { statusRef.current = status }, [status])
@@ -51,6 +54,8 @@ export function useWebSocket() {
   const send = useCallback((data: Record<string, unknown>) => {
     if (wsRef.current?.readyState === WebSocket.OPEN) {
       wsRef.current.send(JSON.stringify(data))
+    } else {
+      pendingRef.current.push(data)
     }
   }, [])
 
@@ -61,6 +66,7 @@ export function useWebSocket() {
 
   const teardown = useCallback(() => {
     clearTimers()
+    pendingRef.current = []
     wsRef.current?.close(1000, 'client cleanup')
     wsRef.current = null
     setStatus('idle')
@@ -79,6 +85,12 @@ export function useWebSocket() {
       setStatus('connected')
       statusRef.current = 'connected'
       reconnectDelayRef.current = RECONNECT_MIN_MS
+
+      // Flush anything sent while we were still connecting (e.g. subscribes).
+      for (const msg of pendingRef.current) {
+        ws.send(JSON.stringify(msg))
+      }
+      pendingRef.current = []
 
       // Start ping/pong keepalive
       pingTimerRef.current = setInterval(() => send({ type: 'ping' }), PING_INTERVAL_MS)

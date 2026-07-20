@@ -72,7 +72,7 @@ function PositionTable({ positions, flashes }: { positions: Position[]; flashes:
           {positions.map((pos) => {
             const gain = parseFloat(pos.unrealized_gain)
             const gainPct = parseFloat(pos.unrealized_gain_pct)
-            const flash = flashes[pos.asset_id]
+            const flash = flashes[pos.symbol]
             const flashClass = flash
               ? flash.expiresAt > Date.now()
                 ? flash.direction === 'up'
@@ -83,7 +83,7 @@ function PositionTable({ positions, flashes }: { positions: Position[]; flashes:
 
             return (
               <tr key={pos.id} className={`border-border/50 border-b ${flashClass}`}>
-                <td className="py-2 pr-4 font-medium text-text">{pos.asset_id}</td>
+                <td className="py-2 pr-4 font-medium text-text">{pos.symbol}</td>
                 <td className="py-2 pr-4 text-right font-mono-financial text-text">
                   {parseFloat(pos.quantity).toLocaleString()}
                 </td>
@@ -115,7 +115,7 @@ export default function DashboardPage() {
   const { portfolios, selectedId } = usePortfolioStore()
   const { baskets } = useBasketStore()
   const { positions, isLoading, flashes, fetchPositions, applyPriceUpdate, getSymbols } = usePositionStore()
-  const { subscribe } = useWebSocket()
+  const { subscribe, unsubscribe } = useWebSocket()
 
   // Fetch positions when portfolio changes
   useEffect(() => {
@@ -123,11 +123,16 @@ export default function DashboardPage() {
     fetchPositions(selectedId)
   }, [selectedId, fetchPositions])
 
-  // Subscribe to WS tickers when positions load
+  // (Re)subscribe to the current holdings' tickers; unsubscribe the previous
+  // set on cleanup so switching portfolios doesn't leak backend subscriptions.
+  const symbolsKey = getSymbols().join(',')
   useEffect(() => {
-    const symbols = getSymbols()
+    const symbols = symbolsKey ? symbolsKey.split(',') : []
     if (symbols.length > 0) subscribe(symbols)
-  }, [positions.length, subscribe, getSymbols])
+    return () => {
+      if (symbols.length > 0) unsubscribe(symbols)
+    }
+  }, [symbolsKey, subscribe, unsubscribe])
 
   // Listen for live price updates from WebSocket
   useEffect(() => {
