@@ -1,13 +1,16 @@
 /**
  * Dashboard page — KPI cards, basket allocation, position summary.
  *
+ * Uses positionStore for live WebSocket price updates.
  * Shows empty state when no portfolios/positions exist.
  */
 
-import { useEffect, useState } from 'react'
-import { type Position, positionsApi } from '@/services/api'
+import { useEffect, useMemo } from 'react'
+import { type Position } from '@/services/api'
 import { useBasketStore } from '@/store/basketStore'
 import { usePortfolioStore } from '@/store/portfolioStore'
+import { usePositionStore } from '@/store/positionStore'
+import { useWebSocket } from '@/hooks/useWebSocket'
 
 /* ── KPI card ───────────────────────────────────────────────────────── */
 
@@ -50,8 +53,7 @@ function BasketRow({ name, color, target, actual }: { name: string; color: strin
 
 /* ── Position table (simplified for dashboard) ──────────────────────── */
 
-function PositionTable({ positions }: { positions: Position[] | null }) {
-  if (!positions) return <p className="text-sm text-text-dim">Loading positions…</p>
+function PositionTable({ positions, flashes }: { positions: Position[]; flashes: Record<string, { direction: 'up' | 'down'; expiresAt: number }> }) {
   if (positions.length === 0) return <p className="text-sm text-text-dim">No positions yet</p>
 
   return (
@@ -70,8 +72,17 @@ function PositionTable({ positions }: { positions: Position[] | null }) {
           {positions.map((pos) => {
             const gain = parseFloat(pos.unrealized_gain)
             const gainPct = parseFloat(pos.unrealized_gain_pct)
+            const flash = flashes[pos.asset_id]
+            const flashClass = flash
+              ? flash.expiresAt > Date.now()
+                ? flash.direction === 'up'
+                  ? 'flash-green'
+                  : 'flash-red'
+                : ''
+              : ''
+
             return (
-              <tr key={pos.id} className="border-border/50 border-b">
+              <tr key={pos.id} className={`border-border/50 border-b ${flashClass}`}>
                 <td className="py-2 pr-4 font-medium text-text">{pos.asset_id}</td>
                 <td className="py-2 pr-4 text-right font-mono-financial text-text">
                   {parseFloat(pos.quantity).toLocaleString()}
@@ -103,38 +114,49 @@ function PositionTable({ positions }: { positions: Position[] | null }) {
 export default function DashboardPage() {
   const { portfolios, selectedId } = usePortfolioStore()
   const { baskets } = useBasketStore()
+  const { positions, isLoading, flashes, fetchPositions, applyPriceUpdate, getSymbols } = usePositionStore()
+  const { subscribe } = useWebSocket()
 
-  // Fetched on demand (positions require a portfolio)
-  const [positions, setPositions] = useState<Position[] | null>(null)
-  const [posError, setPosError] = useState<string | null>(null)
-
+  // Fetch positions when portfolio changes
   useEffect(() => {
-    if (!selectedId) {
-      setPositions(null)
-      setPosError(null)
-      return
-    }
+    if (!selectedId) return
+    fetchPositions(selectedId)
+  }, [selectedId, fetchPositions])
 
-    let cancelled = false
-    setPositions(null)
-    setPosError(null)
-    positionsApi.list(selectedId).then(
-      (data) => {
-        if (!cancelled) setPositions(data)
-      },
-      (err) => {
-        if (!cancelled) setPosError(err instanceof Error ? err.message : 'Failed to load')
-      },
-    )
-    return () => {
-      cancelled = true
+  // Subscribe to WS tickers when positions load
+  useEffect(() => {
+    const symbols = getSymbols()
+    if (symbols.length > 0) subscribe(symbols)
+  }, [positions.length, subscribe, getSymbols])
+
+  // Listen for live price updates from WebSocket
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const detail = (e as CustomEvent).detail as { type: string; updates?: { symbol: string; price: number; prev: number | null }[] }
+      if (detail.type !== 'batch' || !detail.updates) return
+      for (const update of detail.updates) {
+        applyPriceUpdate(update.symbol, update.price, update.prev)
+      }
     }
-  }, [selectedId])
+    window.addEventListener('ws-message', handler)
+    return () => window.removeEventListener('ws-message', handler)
+  }, [applyPriceUpdate])
 
   /* ── Compute KPIs from positions ──────────────────────────────────── */
-  const totalValue = positions?.reduce((sum, p) => sum + parseFloat(p.market_value), 0) ?? 0
-  const totalGain = positions?.reduce((sum, p) => sum + parseFloat(p.unrealized_gain), 0) ?? 0
-  const totalGainPct = totalValue > 0 ? (totalGain / totalValue) * 100 : 0
+  const kpis = useMemo(() => {
+    const totalValue = positions.reduce((sum, p) => sum + parseFloat(p.market_value), 0)
+    const totalGain = positions.reduce((sum, p) => sum + parseFloat(p.unrealized_gain), 0)
+    const totalGainPct = totalValue > 0 ? (totalGain / totalValue) * 100 : 0
+    return { totalValue, totalGain, totalGainPct }
+  }, [positions])
+
+  if (isLoading) {
+    return (
+      <div className="flex flex-1 items-center justify-center text-text-dim">
+        <p>Loading…</p>
+      </div>
+    )
+  }
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-6">
@@ -142,17 +164,17 @@ export default function DashboardPage() {
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <KpiCard
           label="Total Value"
-          value={`$${totalValue.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`}
+          value={`$${kpis.totalValue.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`}
         />
         <KpiCard
           label="Total P&L"
-          value={`${totalGain >= 0 ? '+' : ''}$${Math.abs(totalGain).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`}
-          sub={`${totalGainPct >= 0 ? '+' : ''}${totalGainPct.toFixed(2)}%`}
-          positive={totalGain >= 0}
+          value={`${kpis.totalGain >= 0 ? '+' : ''}$${Math.abs(kpis.totalGain).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`}
+          sub={`${kpis.totalGainPct >= 0 ? '+' : ''}${kpis.totalGainPct.toFixed(2)}%`}
+          positive={kpis.totalGain >= 0}
         />
         <KpiCard
           label="Positions"
-          value={String(positions?.length ?? 0)}
+          value={String(positions.length)}
           sub={selectedId ? portfolios.find((p) => p.id === selectedId)?.name : 'No portfolio selected'}
         />
         <KpiCard label="Baskets" value={String(baskets.length)} />
@@ -180,9 +202,8 @@ export default function DashboardPage() {
       <div className="mt-6 rounded border border-border bg-surface p-4">
         <div className="mb-3 flex items-center justify-between">
           <h2 className="font-semibold text-sm text-text">Positions</h2>
-          {posError && <p className="text-negative text-xs">{posError}</p>}
         </div>
-        <PositionTable positions={positions} />
+        <PositionTable positions={positions} flashes={flashes} />
       </div>
     </div>
   )

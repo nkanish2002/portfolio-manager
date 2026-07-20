@@ -1,42 +1,60 @@
 /**
- * Positions page — detailed position table with empty state.
+ * Positions page — detailed position table with live WebSocket updates.
  *
- * Full version of the position table shown on the dashboard.
- * Buy/Sell modals and live WebSocket updates come in later segments.
+ * Uses positionStore for state. Flash animations on price change.
+ * Subscribes to position tickers via the WebSocket hook.
  */
 
-import { useEffect, useState } from 'react'
+import { useEffect } from 'react'
 import { Link } from 'react-router-dom'
-import { type Position, positionsApi } from '@/services/api'
+import { usePositionStore, type FlashEntry } from '@/store/positionStore'
 import { usePortfolioStore } from '@/store/portfolioStore'
+import { useWebSocket } from '@/hooks/useWebSocket'
+
+/** Clean up expired flashes periodically */
+function useFlashCleanup(flashes: Record<string, FlashEntry>): Record<string, FlashEntry> {
+  const now = Date.now()
+  const cleaned: Record<string, FlashEntry> = {}
+  for (const [sym, entry] of Object.entries(flashes)) {
+    if (entry.expiresAt > now) cleaned[sym] = entry
+  }
+  return cleaned
+}
 
 export default function PositionsPage() {
   const { selectedId } = usePortfolioStore()
-  const [positions, setPositions] = useState<Position[] | null>(null)
-  const [error, setError] = useState<string | null>(null)
+  const { positions, isLoading, error, flashes, fetchPositions, applyPriceUpdate, getSymbols } = usePositionStore()
+  const { subscribe } = useWebSocket()
 
+  // Fetch positions when portfolio changes
   useEffect(() => {
-    if (!selectedId) {
-      setPositions(null)
-      setError(null)
-      return
-    }
+    if (!selectedId) return
+    fetchPositions(selectedId)
+  }, [selectedId, fetchPositions])
 
-    let cancelled = false
-    setPositions(null)
-    setError(null)
-    positionsApi.list(selectedId).then(
-      (data) => {
-        if (!cancelled) setPositions(data)
-      },
-      (err) => {
-        if (!cancelled) setError(err instanceof Error ? err.message : 'Failed to load')
-      },
-    )
-    return () => {
-      cancelled = true
+  // Subscribe to WS tickers when positions load
+  useEffect(() => {
+    const symbols = getSymbols()
+    if (symbols.length > 0) subscribe(symbols)
+  }, [positions.length, subscribe, getSymbols]) // re-subscribe when position count changes
+
+  // Listen for live price updates from WebSocket
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const detail = (e as CustomEvent).detail as { type: string; updates?: { symbol: string; price: number; prev: number | null }[] }
+      if (detail.type !== 'batch' || !detail.updates) return
+      for (const update of detail.updates) {
+        applyPriceUpdate(update.symbol, update.price, update.prev)
+      }
     }
-  }, [selectedId])
+    window.addEventListener('ws-message', handler)
+    return () => window.removeEventListener('ws-message', handler)
+  }, [applyPriceUpdate])
+
+  // Derive clean flashes (drop expired)
+  const activeFlashes = useFlashCleanup(flashes)
+
+  /* ── Empty / loading states ──────────────────────────────────────── */
 
   if (!selectedId) {
     return (
@@ -46,7 +64,7 @@ export default function PositionsPage() {
     )
   }
 
-  if (!positions) {
+  if (isLoading) {
     return (
       <div className="flex flex-1 items-center justify-center text-text-dim">
         <p>Loading positions…</p>
@@ -62,6 +80,48 @@ export default function PositionsPage() {
       </div>
     )
   }
+
+  /* ── Position row renderer ───────────────────────────────────────── */
+
+  const renderRow = (pos: typeof positions[0]) => {
+    const gain = parseFloat(pos.unrealized_gain)
+    const gainPct = parseFloat(pos.unrealized_gain_pct)
+    const flash = activeFlashes[pos.asset_id]
+    const flashClass = flash
+      ? flash.direction === 'up'
+        ? 'flash-green'
+        : 'flash-red'
+      : ''
+
+    return (
+      <tr key={pos.id} className={`border-border/50 border-b ${flashClass}`}>
+        <td className="py-2 pr-4 font-medium text-text">{pos.asset_id}</td>
+        <td className="py-2 pr-4 text-right font-mono-financial text-text">
+          {parseFloat(pos.quantity).toLocaleString()}
+        </td>
+        <td className="py-2 pr-4 text-right font-mono-financial text-text">
+          ${parseFloat(pos.avg_cost_basis).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+        </td>
+        <td className="py-2 pr-4 text-right font-mono-financial text-text">
+          ${parseFloat(pos.current_price).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+        </td>
+        <td className="py-2 pr-4 text-right font-mono-financial text-text">
+          ${parseFloat(pos.market_value).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+        </td>
+        <td
+          className={`py-2 text-right font-mono-financial ${gain >= 0 ? 'text-positive' : 'text-negative'}`}
+        >
+          {gain >= 0 ? '+' : ''}${Math.abs(gain).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+          <span className="ml-1 text-xs">
+            ({gainPct >= 0 ? '+' : ''}
+            {gainPct.toFixed(2)}%)
+          </span>
+        </td>
+      </tr>
+    )
+  }
+
+  /* ── Render ──────────────────────────────────────────────────────── */
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-6">
@@ -104,38 +164,7 @@ export default function PositionsPage() {
                 <th className="pb-2 text-right">Unrealized P&L</th>
               </tr>
             </thead>
-            <tbody>
-              {positions.map((pos) => {
-                const gain = parseFloat(pos.unrealized_gain)
-                const gainPct = parseFloat(pos.unrealized_gain_pct)
-                return (
-                  <tr key={pos.id} className="border-border/50 border-b">
-                    <td className="py-2 pr-4 font-medium text-text">{pos.asset_id}</td>
-                    <td className="py-2 pr-4 text-right font-mono-financial text-text">
-                      {parseFloat(pos.quantity).toLocaleString()}
-                    </td>
-                    <td className="py-2 pr-4 text-right font-mono-financial text-text">
-                      ${parseFloat(pos.avg_cost_basis).toLocaleString(undefined, { minimumFractionDigits: 2 })}
-                    </td>
-                    <td className="py-2 pr-4 text-right font-mono-financial text-text">
-                      ${parseFloat(pos.current_price).toLocaleString(undefined, { minimumFractionDigits: 2 })}
-                    </td>
-                    <td className="py-2 pr-4 text-right font-mono-financial text-text">
-                      ${parseFloat(pos.market_value).toLocaleString(undefined, { minimumFractionDigits: 2 })}
-                    </td>
-                    <td
-                      className={`py-2 text-right font-mono-financial ${gain >= 0 ? 'text-positive' : 'text-negative'}`}
-                    >
-                      {gain >= 0 ? '+' : ''}${Math.abs(gain).toLocaleString(undefined, { minimumFractionDigits: 2 })}
-                      <span className="ml-1 text-xs">
-                        ({gainPct >= 0 ? '+' : ''}
-                        {gainPct.toFixed(2)}%)
-                      </span>
-                    </td>
-                  </tr>
-                )
-              })}
-            </tbody>
+            <tbody>{positions.map(renderRow)}</tbody>
           </table>
         </div>
       </div>
