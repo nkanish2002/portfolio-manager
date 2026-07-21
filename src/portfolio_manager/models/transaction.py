@@ -70,6 +70,7 @@ class TransactionRead(SQLModel, table=False):
     id: UUID
     portfolio_id: UUID
     asset_id: UUID
+    symbol: str | None = None
     type: str
     quantity: Decimal
     price: Decimal

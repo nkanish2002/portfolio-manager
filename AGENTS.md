@@ -1,7 +1,7 @@
 # AGENTS.md — Coding Agent Reference
 
 > **Project:** Portfolio Manager
-> **Status:** Phase 4 — WebSocket Backend (4.1 complete, 4.2 complete)
+> **Status:** Phase 5 — Trade Execution (5.1 complete, 5.2 complete)
 > **Location:** `~/Work/portfolio-manager`
 > **Full spec:** `PLAN.md`
 
@@ -90,7 +90,9 @@ uv run python -c "from portfolio_manager.config import settings; print(settings.
 | **3.3** | ✅ Done | Layout + Dashboard + KPI cards, Settings, Positions |
 | **4.1** | ✅ Done | WebSocket backend: ws_service, ws route, auth via JWT query param |
 | 4.2 | ✅ Done | Frontend WebSocket hook + live price updates |
-| 5.1-5.2 | ⏳ Pending | Trade operations UI |
+| 5.1 | ✅ Done | Buy/Sell modals: ticker search, trade execution, FIFO P&L preview |
+| 5.2 | ✅ Done | Trade audit page: filters, pagination, CSV export |
+| 6.1 | ⏳ Pending | Analytics page + risk metrics table |
 
 ## File Map (Created So Far)
 
@@ -174,17 +176,21 @@ portfolio-manager/
         ├── store/
         │   ├── authStore.ts           # Zustand: login, register, logout, init (hydrate)
         │   ├── portfolioStore.ts      # Portfolio list, current selection
-        │   └── basketStore.ts         # Basket list + CRUD
+        │   ├── basketStore.ts         # Basket list + CRUD
+        │   └── tradeStore.ts          # Buy/Sell modal state + trade execution
         ├── hooks/
         │   └── useAuth.ts             # useAuth, useRequireAuth, useRequireGuest
         ├── pages/
         │   ├── LoginPage.tsx          # Email/password form with error/loading states
         │   ├── RegisterPage.tsx       # Registration form with confirm password
         │   ├── DashboardPage.tsx      # KPI cards, basket allocation, position table
-        │   ├── PositionsPage.tsx      # Full position table with empty state
+        │   ├── PositionsPage.tsx      # Full position table with buy/sell actions
+        │   ├── TradesPage.tsx         # Trade history: filters, pagination, CSV export
         │   └── SettingsPage.tsx       # Profile editor + basket CRUD
         ├── components/
-        │   └── Layout.tsx             # Nav bar, portfolio selector, user menu
+        │   ├── Layout.tsx              # Nav bar, portfolio selector, user menu
+        │   ├── BuyModal.tsx           # Buy modal: symbol search, qty, price, fees
+        │   └── SellModal.tsx          # Sell modal: qty, price, FIFO P&L preview
         └── services/
             └── api.ts                 # Axios instance (JWT interceptor, 401 redirect) + TS interfaces
 ```

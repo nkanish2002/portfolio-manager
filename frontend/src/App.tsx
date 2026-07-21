@@ -2,7 +2,7 @@
  * App root — routes with auth guard + Layout shell.
  *
  * Public routes (no Layout): /login, /register
- * Protected routes (Layout wrapper): /dashboard, /positions, /settings
+ * Protected routes (Layout wrapper): /dashboard, /positions, /trades, /settings
  */
 
 import React from 'react'
@@ -14,6 +14,7 @@ import LoginPage from '@/pages/LoginPage'
 import PositionsPage from '@/pages/PositionsPage'
 import RegisterPage from '@/pages/RegisterPage'
 import SettingsPage from '@/pages/SettingsPage'
+import TradesPage from '@/pages/TradesPage'
 import { useAuthStore } from '@/store/authStore'
 import { useBasketStore } from '@/store/basketStore'
 import { usePortfolioStore } from '@/store/portfolioStore'
@@ -74,6 +75,7 @@ function App() {
                 <Routes>
                   <Route path="/dashboard" element={<DashboardPage />} />
                   <Route path="/positions" element={<PositionsPage />} />
+                  <Route path="/trades" element={<TradesPage />} />
                   <Route path="/settings" element={<SettingsPage />} />
                 </Routes>
               </Layout>

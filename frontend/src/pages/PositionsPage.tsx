@@ -3,13 +3,18 @@
  *
  * Uses positionStore for state. Flash animations on price change.
  * Subscribes to position tickers via the WebSocket hook.
+ *
+ * Segment 5.1: Buy/Sell modals with trade execution.
  */
 
-import { useEffect } from 'react'
+import { useCallback, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { useWebSocket } from '@/hooks/useWebSocket'
 import { usePortfolioStore } from '@/store/portfolioStore'
 import { type FlashEntry, usePositionStore } from '@/store/positionStore'
+import { useTradeStore } from '@/store/tradeStore'
+import BuyModal from '@/components/BuyModal'
+import SellModal from '@/components/SellModal'
 
 /** Drop flash entries that have passed their animation window. */
 function activeFlashes(flashes: Record<string, FlashEntry>): Record<string, FlashEntry> {
@@ -25,6 +30,12 @@ export default function PositionsPage() {
   const { selectedId } = usePortfolioStore()
   const { positions, isLoading, error, flashes, fetchPositions, applyPriceUpdate, getSymbols } = usePositionStore()
   const { subscribe, unsubscribe } = useWebSocket()
+  const { openBuy, openSell } = useTradeStore()
+
+  // Refresh positions after a trade completes
+  const handleTradeSuccess = useCallback(() => {
+    if (selectedId) fetchPositions(selectedId)
+  }, [selectedId, fetchPositions])
 
   // Fetch positions when portfolio changes
   useEffect(() => {
@@ -87,6 +98,16 @@ export default function PositionsPage() {
       <div className="flex flex-1 flex-col items-center justify-center gap-4 text-text-dim">
         <p className="text-lg">No positions yet</p>
         <p className="text-sm">Record a trade or import holdings to get started</p>
+        <button
+          type="button"
+          onClick={() => openBuy(selectedId)}
+          className="rounded bg-accent px-4 py-2 font-medium text-bg text-sm transition hover:bg-accent/80"
+        >
+          + Buy your first position
+        </button>
+        {/* Modals */}
+        <BuyModal onTradeSuccess={handleTradeSuccess} />
+        <SellModal onTradeSuccess={handleTradeSuccess} />
       </div>
     )
   }
@@ -114,12 +135,21 @@ export default function PositionsPage() {
         <td className="py-2 pr-4 text-right font-mono-financial text-text">
           ${parseFloat(pos.market_value).toLocaleString(undefined, { minimumFractionDigits: 2 })}
         </td>
-        <td className={`py-2 text-right font-mono-financial ${gain >= 0 ? 'text-positive' : 'text-negative'}`}>
+        <td className={`py-2 pr-4 text-right font-mono-financial ${gain >= 0 ? 'text-positive' : 'text-negative'}`}>
           {gain >= 0 ? '+' : ''}${Math.abs(gain).toLocaleString(undefined, { minimumFractionDigits: 2 })}
           <span className="ml-1 text-xs">
             ({gainPct >= 0 ? '+' : ''}
             {gainPct.toFixed(2)}%)
           </span>
+        </td>
+        <td className="py-2 text-right">
+          <button
+            type="button"
+            onClick={() => openSell(pos)}
+            className="rounded border border-negative/30 px-2 py-0.5 text-xs text-negative transition hover:border-negative hover:bg-negative/10"
+          >
+            Sell
+          </button>
         </td>
       </tr>
     )
@@ -139,13 +169,12 @@ export default function PositionsPage() {
             >
               ← Dashboard
             </Link>
-            {/* Buy button — wired in 5.1 */}
             <button
               type="button"
-              className="rounded bg-accent px-3 py-1 font-medium text-bg text-sm opacity-50"
-              disabled
+              onClick={() => openBuy(selectedId)}
+              className="rounded bg-accent px-3 py-1 font-medium text-bg text-sm transition hover:bg-accent/80"
             >
-              Buy (coming soon)
+              + Buy
             </button>
           </div>
         </div>
@@ -165,13 +194,18 @@ export default function PositionsPage() {
                 <th className="pr-4 pb-2 text-right">Avg Cost</th>
                 <th className="pr-4 pb-2 text-right">Price</th>
                 <th className="pr-4 pb-2 text-right">Market Value</th>
-                <th className="pb-2 text-right">Unrealized P&L</th>
+                <th className="pr-4 pb-2 text-right">Unrealized P&L</th>
+                <th className="pb-2 text-right">Action</th>
               </tr>
             </thead>
             <tbody>{positions.map(renderRow)}</tbody>
           </table>
         </div>
       </div>
+
+      {/* Trade modals */}
+      <BuyModal onTradeSuccess={handleTradeSuccess} />
+      <SellModal onTradeSuccess={handleTradeSuccess} />
     </div>
   )
 }
