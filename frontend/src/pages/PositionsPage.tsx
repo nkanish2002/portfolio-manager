@@ -62,12 +62,13 @@ interface BasketDeviation {
 
 function RebalancingPanel({
   baskets,
-  totalNav,
+  positionsCount,
   portfolios,
   selectedPortfolioId,
 }: {
   baskets: Basket[]
-  totalNav: number
+  /** Position count — used as a refetch trigger (changes on moves/trades, not price ticks) */
+  positionsCount: number
   portfolios: Portfolio[]
   selectedPortfolioId: string | null
 }) {
@@ -77,18 +78,18 @@ function RebalancingPanel({
 
   useEffect(() => {
     if (!baskets.length) return
+    let cancelled = false
     setLoading(true)
     Promise.all(
       baskets.map(async (basket) => {
         try {
           const data = await basketsApi.analytics(basket.id)
-          const nav = data.nav
           return {
             basket,
             targetPct: parseFloat(basket.target_allocation),
-            actualPct: totalNav > 0 ? (nav / totalNav) * 100 : 0,
+            actualPct: 0,
             deviation: 0,
-            nav,
+            nav: data.nav,
           } as BasketDeviation
         } catch {
           return {
@@ -101,7 +102,8 @@ function RebalancingPanel({
         }
       }),
     ).then((results) => {
-      // Recalculate deviation now we have all navs
+      if (cancelled) return
+      // Compute actual percentages from the real total across all baskets
       const realTotal = results.reduce((sum, r) => sum + r.nav, 0)
       results.forEach((r) => {
         r.actualPct = realTotal > 0 ? (r.nav / realTotal) * 100 : 0
@@ -110,7 +112,10 @@ function RebalancingPanel({
       setDeviations(results)
       setLoading(false)
     })
-  }, [baskets, totalNav])
+    return () => {
+      cancelled = true
+    }
+  }, [baskets, positionsCount])
 
   // Find over and under-allocated baskets (threshold: ±2%)
   const overAllocated = useMemo(
@@ -149,17 +154,18 @@ function RebalancingPanel({
                 {canMove && (
                   <p className="mt-1 text-text-dim text-xs">
                     Consider moving positions from this basket to{' '}
-                    {underAllocated.map((u) => (
+                    {underAllocated.map((u, i) => (
                       <span key={u.basket.id} className="font-medium text-accent">
+                        {i > 0 ? (i === underAllocated.length - 1 ? ' or ' : ', ') : ''}
                         {u.basket.name}
                       </span>
                     ))}{' '}
                     using the "Move" dropdown on each position row.
                   </p>
                 )}
-                {underAllocated.length === 0 && (
+                {!canMove && underAllocated.length === 0 && (
                   <p className="mt-1 text-text-dim text-xs">
-                    All baskets are within their allocation targets.
+                    No under-allocated baskets to move positions into. Consider lowering this basket's target or selling positions.
                   </p>
                 )}
               </div>
@@ -323,11 +329,8 @@ export default function PositionsPage() {
   // Derive clean flashes (drop expired)
   const activeFlashMap = activeFlashes(flashes)
 
-  // Compute total NAV for rebalancing panel
-  const totalNav = useMemo(
-    () => positions.reduce((sum, p) => sum + parseFloat(p.market_value), 0),
-    [positions],
-  )
+  // Count of positions — used as a refetch trigger for the rebalancing panel
+  // (changes on moves/trades, not on every WebSocket price tick)
 
   // Handle move
   const handleMove = useCallback(
@@ -434,7 +437,7 @@ export default function PositionsPage() {
       {/* ── Rebalancing suggestions ──────────────────────────────── */}
       <RebalancingPanel
         baskets={baskets}
-        totalNav={totalNav}
+        positionsCount={positions.length}
         portfolios={portfolios}
         selectedPortfolioId={selectedId}
       />
