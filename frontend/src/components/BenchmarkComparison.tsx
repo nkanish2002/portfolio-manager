@@ -57,6 +57,35 @@ function fmtNum(v: number | undefined, digits = 2): string {
   return v.toFixed(digits)
 }
 
+/* ── Legend (module-level so it isn't re-created each render) ──────── */
+
+function Legend({ benchmark }: { benchmark: string }) {
+  return (
+    <div className="mb-2 flex flex-wrap items-center gap-4 text-xs">
+      <span className="flex items-center gap-1.5 text-text">
+        <span className="h-2 w-4 rounded-sm" style={{ backgroundColor: THEME.portfolioLine }} />
+        Portfolio
+      </span>
+      <span className="flex items-center gap-1.5 text-text">
+        <span className="h-2 w-4 rounded-sm" style={{ backgroundColor: THEME.benchmarkLine }} />
+        {benchmark}
+      </span>
+      <span className="text-text-dim">Rebased to 100</span>
+    </div>
+  )
+}
+
+/* ── Comparison metric card (module-level) ────────────────────────── */
+
+function Metric({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded border border-border/50 bg-bg px-3 py-2">
+      <div className="text-text-dim text-xs">{label}</div>
+      <div className="font-mono-financial text-text text-sm">{value}</div>
+    </div>
+  )
+}
+
 /* ── Component ──────────────────────────────────────────────────────── */
 
 export default function BenchmarkComparison({
@@ -170,40 +199,11 @@ export default function BenchmarkComparison({
     return () => observer.disconnect()
   }, [])
 
-  /* ── Legend ──────────────────────────────────────────────────────── */
-
-  function Legend() {
-    return (
-      <div className="mb-2 flex flex-wrap items-center gap-4 text-xs">
-        <span className="flex items-center gap-1.5 text-text">
-          <span className="h-2 w-4 rounded-sm" style={{ backgroundColor: THEME.portfolioLine }} />
-          Portfolio
-        </span>
-        <span className="flex items-center gap-1.5 text-text">
-          <span className="h-2 w-4 rounded-sm" style={{ backgroundColor: THEME.benchmarkLine }} />
-          {benchmark}
-        </span>
-        <span className="text-text-dim">Rebased to 100</span>
-      </div>
-    )
-  }
-
-  /* ── Comparison metrics row ──────────────────────────────────────── */
-
-  function Metric({ label, value }: { label: string; value: string }) {
-    return (
-      <div className="rounded border border-border/50 bg-bg px-3 py-2">
-        <div className="text-text-dim text-xs">{label}</div>
-        <div className="font-mono-financial text-text text-sm">{value}</div>
-      </div>
-    )
-  }
-
   /* ── Render ──────────────────────────────────────────────────────── */
 
   return (
     <div>
-      <Legend />
+      <Legend benchmark={benchmark} />
 
       <div className="relative" style={{ height }}>
         <div ref={containerRef} style={{ height: '100%' }} />

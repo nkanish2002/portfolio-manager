@@ -96,7 +96,9 @@ export default function AllocationPie({ slices, groupBy, onChangeGroupBy, height
 
   const data = useMemo(
     () =>
-      slices
+      // Copy before sorting - Array.prototype.sort mutates in place, and
+      // `slices` is React state from the parent (mutating it is a bug).
+      [...slices]
         .sort((a, b) => b.value - a.value)
         .map((s, i) => ({ ...s, color: COLORS[i % COLORS.length], name: s.key, value: s.value })),
     [slices],
