@@ -1,5 +1,12 @@
 """Service layer — business logic that sits between routes and the DB/feeds."""
 
+from portfolio_manager.services.basket_seed import (
+    PRESET_BASKETS,
+    TARGET_TOLERANCE,
+    TARGET_TOTAL,
+    compute_target_summary,
+    seed_default_baskets,
+)
 from portfolio_manager.services.benchmark import (
     compare_to_benchmark,
     excess_returns,
@@ -74,6 +81,12 @@ __all__ = [
     "excess_returns",
     "information_ratio",
     "tracking_error",
+    # basket seed
+    "PRESET_BASKETS",
+    "TARGET_TOTAL",
+    "TARGET_TOLERANCE",
+    "compute_target_summary",
+    "seed_default_baskets",
     # classification
     "classify_asset",
     "infer_region",
