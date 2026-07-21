@@ -190,6 +190,18 @@ export interface BasketUpdate {
   sort_order?: number
 }
 
+export interface BasketAnalyticsData {
+  basket_id: string
+  basket_name: string
+  portfolio_count: number
+  nav: number
+  cost_basis: number
+  unrealized_gain: number
+  unrealized_gain_pct: number
+  position_count: number
+  allocation_by_sector: Record<string, number>
+}
+
 export interface AccountCreate {
   name: string
   institution?: string | null
@@ -293,7 +305,7 @@ export const basketsApi = {
 
   remove: (id: string) => api.delete<void>(`/api/v1/baskets/${id}`).then((r) => r.data),
 
-  analytics: (id: string) => api.get<Record<string, unknown>>(`/api/v1/baskets/${id}/analytics`).then((r) => r.data),
+  analytics: (id: string) => api.get<BasketAnalyticsData>(`/api/v1/baskets/${id}/analytics`).then((r) => r.data),
 }
 
 export const accountsApi = {
@@ -327,9 +339,9 @@ export const positionsApi = {
 
   refresh: (portfolioId: string) => api.post(`/api/v1/portfolios/${portfolioId}/positions/refresh`).then((r) => r.data),
 
-  move: (portfolioId: string, positionId: string, basketId: string) =>
+  move: (portfolioId: string, positionId: string, targetPortfolioId: string) =>
     api
-      .post(`/api/v1/portfolios/${portfolioId}/positions/${positionId}/move`, { basket_id: basketId })
+      .post(`/api/v1/portfolios/${portfolioId}/positions/${positionId}/move`, { target_portfolio_id: targetPortfolioId })
       .then((r) => r.data),
 }
 

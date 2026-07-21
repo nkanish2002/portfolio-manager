@@ -1,7 +1,7 @@
 # AGENTS.md — Coding Agent Reference
 
 > **Project:** Portfolio Manager
-> **Status:** Phase 5 — Trade Execution (5.1 complete, 5.2 complete)
+> **Status:** Phase 7 — Custom Basket Framework (7.1, 7.2 complete)
 > **Location:** `~/Work/portfolio-manager`
 > **Full spec:** `PLAN.md`
 
@@ -95,6 +95,9 @@ uv run python -c "from portfolio_manager.config import settings; print(settings.
 | 6.1 | ✅ Done | Analytics page + risk metrics table |
 | 6.2 | ✅ Done | NAV + Allocation + Drawdown Charts |
 | 6.3 | ✅ Done | Monthly Returns Heatmap + Benchmark Comparison |
+| 7.1 | ✅ Done | Basket seed (3-basket preset on register) + target-allocation summary/warning + CRUD tests |
+| 7.2 | ✅ Done | BasketsPage: dynamic cards, create/edit/delete modals, allocation bars, analytics, sector breakdown |
+| 7.3 | ✅ Done | Move position between baskets (dropdown per row) + rebalancing suggestions panel |
 
 ## File Map (Created So Far)
 
@@ -129,6 +132,7 @@ portfolio-manager/
 │   │   ├── nav_history.py            # NAV series from transactions
 │   │   ├── benchmark.py             # Excess returns, tracking error, information ratio
 │   │   ├── classification.py         # Sector/region classification
+│   │   ├── basket_seed.py            # 3-basket preset seed + target-allocation summary/warning
 │   │   └── ws_service.py            # WebSocket manager: clients, subscriptions, poll loop
 │   ├── routes/                       # API v1 routers (all auth-gated, user-scoped)
 │   │   ├── __init__.py               # api_router aggregator + ws export
@@ -188,11 +192,13 @@ portfolio-manager/
         │   ├── DashboardPage.tsx      # KPI cards, basket allocation, position table
         │   ├── PositionsPage.tsx      # Full position table with buy/sell actions
         │   ├── TradesPage.tsx         # Trade history: filters, pagination, CSV export
+        │   ├── BasketsPage.tsx        # Basket management: cards, create/edit/delete modals, analytics, sector breakdown
         │   └── SettingsPage.tsx       # Profile editor + basket CRUD
         ├── components/
         │   ├── Layout.tsx              # Nav bar, portfolio selector, user menu
         │   ├── BuyModal.tsx           # Buy modal: symbol search, qty, price, fees
-        │   └── SellModal.tsx          # Sell modal: qty, price, FIFO P&L preview
+        │   ├── SellModal.tsx          # Sell modal: qty, price, FIFO P&L preview
+        │   └── BasketAllocation.tsx   # Reusable allocation row: color, target/actual bar, NAV, P&L, sector breakdown
         └── services/
             └── api.ts                 # Axios instance (JWT interceptor, 401 redirect) + TS interfaces
 ```
