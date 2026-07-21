@@ -371,12 +371,12 @@ export const analyticsApi = {
   allocationChart: (portfolioId: string, params?: { group_by?: string }) =>
     api.get<Record<string, unknown>>(`/api/v1/portfolios/${portfolioId}/charts/allocation`, { params }).then((r) => r.data),
 
-  monthlyReturns: (portfolioId: string) =>
-    api.get<Record<string, unknown>>(`/api/v1/portfolios/${portfolioId}/charts/monthly-returns`).then((r) => r.data),
+  monthlyReturns: (portfolioId: string, params?: { period?: string }) =>
+    api.get<Record<string, unknown>>(`/api/v1/portfolios/${portfolioId}/charts/monthly-returns`, { params }).then((r) => r.data),
 
-  benchmarkComparison: (portfolioId: string) =>
+  benchmarkComparison: (portfolioId: string, params?: { period?: string; benchmark?: string }) =>
     api
-      .get<Record<string, unknown>>(`/api/v1/portfolios/${portfolioId}/charts/benchmark-comparison`)
+      .get<Record<string, unknown>>(`/api/v1/portfolios/${portfolioId}/charts/benchmark-comparison`, { params })
       .then((r) => r.data),
 }
 

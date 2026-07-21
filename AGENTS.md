@@ -94,6 +94,7 @@ uv run python -c "from portfolio_manager.config import settings; print(settings.
 | 5.2 | ✅ Done | Trade audit page: filters, pagination, CSV export |
 | 6.1 | ✅ Done | Analytics page + risk metrics table |
 | 6.2 | ✅ Done | NAV + Allocation + Drawdown Charts |
+| 6.3 | ✅ Done | Monthly Returns Heatmap + Benchmark Comparison |
 
 ## File Map (Created So Far)
 

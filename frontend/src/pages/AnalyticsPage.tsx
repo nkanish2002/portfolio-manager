@@ -3,12 +3,15 @@
  *
  * Segment 6.1: Risk metrics table (9+ metrics, color-coded)
  * Segment 6.2: NAV chart, allocation pie, drawdown chart
+ * Segment 6.3: Monthly returns heatmap, benchmark comparison
  *
  * Data is fetched from the analytics backend routes:
  *   GET /api/v1/portfolios/{id}/analytics/risk?period=X&benchmark=Y
  *   GET /api/v1/portfolios/{id}/charts/nav?period=X
  *   GET /api/v1/portfolios/{id}/charts/drawdown?period=X
  *   GET /api/v1/portfolios/{id}/charts/allocation?group_by=Y
+ *   GET /api/v1/portfolios/{id}/charts/monthly-returns?period=X
+ *   GET /api/v1/portfolios/{id}/charts/benchmark-comparison?period=X&benchmark=Y
  */
 
 import { useEffect, useState } from 'react'
@@ -18,6 +21,8 @@ import RiskGauge, { RISK_METRICS } from '@/components/RiskGauge'
 import NavChart from '@/components/NavChart'
 import AllocationPie from '@/components/AllocationPie'
 import DrawdownChart from '@/components/DrawdownChart'
+import MonthlyReturnsHeatmap from '@/components/MonthlyReturnsHeatmap'
+import BenchmarkComparison from '@/components/BenchmarkComparison'
 
 /* ── Constants ──────────────────────────────────────────────────────── */
 
@@ -52,6 +57,24 @@ interface AllocationSlice {
   pct: number
 }
 
+interface MonthlyReturnPoint {
+  month: string
+  return: number
+}
+
+interface BenchmarkComparisonPoint {
+  date: string
+  portfolio: number
+  benchmark: number
+}
+
+interface BenchmarkComparisonMetrics {
+  tracking_error?: number
+  information_ratio?: number
+  excess_return_annualized?: number
+  cumulative_excess_return?: number
+}
+
 /* ── Page ───────────────────────────────────────────────────────────── */
 
 export default function AnalyticsPage() {
@@ -77,6 +100,15 @@ export default function AnalyticsPage() {
 
   // Allocation data
   const [allocSlices, setAllocSlices] = useState<AllocationSlice[]>([])
+
+  // Monthly returns heatmap
+  const [monthlySeries, setMonthlySeries] = useState<MonthlyReturnPoint[]>([])
+  const [monthlyLoading, setMonthlyLoading] = useState(true)
+
+  // Benchmark comparison
+  const [benchSeries, setBenchSeries] = useState<BenchmarkComparisonPoint[]>([])
+  const [benchComparison, setBenchComparison] = useState<BenchmarkComparisonMetrics | undefined>(undefined)
+  const [benchLoading, setBenchLoading] = useState(true)
 
   /* ── Fetch risk metrics ──────────────────────────────────────────── */
 
@@ -144,6 +176,40 @@ export default function AnalyticsPage() {
       })
       .catch(() => setAllocSlices([]))
   }, [selectedId, allocationGroupBy])
+
+  /* ── Fetch monthly returns ──────────────────────────────────────── */
+
+  useEffect(() => {
+    if (!selectedId) return
+    setMonthlyLoading(true)
+
+    analyticsApi
+      .monthlyReturns(selectedId, { period })
+      .then((data: Record<string, unknown>) => {
+        setMonthlySeries(((data as any).series ?? []) as MonthlyReturnPoint[])
+      })
+      .catch(() => setMonthlySeries([]))
+      .finally(() => setMonthlyLoading(false))
+  }, [selectedId, period])
+
+  /* ── Fetch benchmark comparison ────────────────────────────────── */
+
+  useEffect(() => {
+    if (!selectedId) return
+    setBenchLoading(true)
+
+    analyticsApi
+      .benchmarkComparison(selectedId, { period, benchmark })
+      .then((data: Record<string, unknown>) => {
+        setBenchSeries(((data as any).series ?? []) as BenchmarkComparisonPoint[])
+        setBenchComparison((data as any).comparison as BenchmarkComparisonMetrics | undefined)
+      })
+      .catch(() => {
+        setBenchSeries([])
+        setBenchComparison(undefined)
+      })
+      .finally(() => setBenchLoading(false))
+  }, [selectedId, period, benchmark])
 
   /* ── Empty / loading states ──────────────────────────────────────── */
 
@@ -262,6 +328,26 @@ export default function AnalyticsPage() {
       <div className="mb-6 rounded border border-border bg-surface p-4">
         <h2 className="mb-3 font-semibold text-sm text-text">Drawdown</h2>
         <DrawdownChart series={ddSeries} maxDrawdown={ddMax} isLoading={ddLoading} height={200} />
+      </div>
+
+      {/* ── Monthly returns heatmap (full width) ────────────────────── */}
+      <div className="mb-6 rounded border border-border bg-surface p-4">
+        <h2 className="mb-3 font-semibold text-sm text-text">Monthly Returns</h2>
+        <MonthlyReturnsHeatmap series={monthlySeries} isLoading={monthlyLoading} />
+      </div>
+
+      {/* ── Benchmark comparison (full width) ──────────────────────── */}
+      <div className="mb-6 rounded border border-border bg-surface p-4">
+        <h2 className="mb-3 font-semibold text-sm text-text">
+          Benchmark Comparison <span className="text-text-dim font-normal">· vs {benchmark}</span>
+        </h2>
+        <BenchmarkComparison
+          series={benchSeries}
+          benchmark={benchmark}
+          comparison={benchComparison}
+          isLoading={benchLoading}
+          height={280}
+        />
       </div>
 
       {/* ── Health legend ──────────────────────────────────────────── */}
