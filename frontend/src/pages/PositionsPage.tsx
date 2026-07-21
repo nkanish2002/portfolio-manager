@@ -5,16 +5,20 @@
  * Subscribes to position tickers via the WebSocket hook.
  *
  * Segment 5.1: Buy/Sell modals with trade execution.
+ * Segment 7.3: Move-to-basket dropdown + rebalancing suggestions.
  */
 
-import { useCallback, useEffect } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useWebSocket } from '@/hooks/useWebSocket'
+import { basketsApi, type Basket, type Portfolio, type Position } from '@/services/api'
 import { usePortfolioStore } from '@/store/portfolioStore'
 import { type FlashEntry, usePositionStore } from '@/store/positionStore'
 import { useTradeStore } from '@/store/tradeStore'
 import BuyModal from '@/components/BuyModal'
 import SellModal from '@/components/SellModal'
+
+/* ── Helpers ────────────────────────────────────────────────────────── */
 
 /** Drop flash entries that have passed their animation window. */
 function activeFlashes(flashes: Record<string, FlashEntry>): Record<string, FlashEntry> {
@@ -26,9 +30,257 @@ function activeFlashes(flashes: Record<string, FlashEntry>): Record<string, Flas
   return cleaned
 }
 
+/** Resolve the basket name for a portfolio (given basket list). */
+function portfolioBasketName(
+  portfolio: Portfolio,
+  baskets: Basket[],
+): string | null {
+  if (!portfolio.basket_id) return null
+  const basket = baskets.find((b) => b.id === portfolio.basket_id)
+  return basket?.name ?? null
+}
+
+/** Resolve the basket color for a portfolio. */
+function portfolioBasketColor(
+  portfolio: Portfolio,
+  baskets: Basket[],
+): string | null {
+  if (!portfolio.basket_id) return null
+  const basket = baskets.find((b) => b.id === portfolio.basket_id)
+  return basket?.color ?? null
+}
+
+/* ── Rebalancing suggestions panel ──────────────────────────────────── */
+
+interface BasketDeviation {
+  basket: Basket
+  targetPct: number
+  actualPct: number
+  deviation: number
+  nav: number
+}
+
+function RebalancingPanel({
+  baskets,
+  positionsCount,
+  portfolios,
+  selectedPortfolioId,
+}: {
+  baskets: Basket[]
+  /** Position count — used as a refetch trigger (changes on moves/trades, not price ticks) */
+  positionsCount: number
+  portfolios: Portfolio[]
+  selectedPortfolioId: string | null
+}) {
+  // Compute basket deviations from analytics
+  const [deviations, setDeviations] = useState<BasketDeviation[]>([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    if (!baskets.length) return
+    let cancelled = false
+    setLoading(true)
+    Promise.all(
+      baskets.map(async (basket) => {
+        try {
+          const data = await basketsApi.analytics(basket.id)
+          return {
+            basket,
+            targetPct: parseFloat(basket.target_allocation),
+            actualPct: 0,
+            deviation: 0,
+            nav: data.nav,
+          } as BasketDeviation
+        } catch {
+          return {
+            basket,
+            targetPct: parseFloat(basket.target_allocation),
+            actualPct: 0,
+            deviation: -parseFloat(basket.target_allocation),
+            nav: 0,
+          } as BasketDeviation
+        }
+      }),
+    ).then((results) => {
+      if (cancelled) return
+      // Compute actual percentages from the real total across all baskets
+      const realTotal = results.reduce((sum, r) => sum + r.nav, 0)
+      results.forEach((r) => {
+        r.actualPct = realTotal > 0 ? (r.nav / realTotal) * 100 : 0
+        r.deviation = r.actualPct - r.targetPct
+      })
+      setDeviations(results)
+      setLoading(false)
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [baskets, positionsCount])
+
+  // Find over and under-allocated baskets (threshold: ±2%)
+  const overAllocated = useMemo(
+    () => deviations.filter((d) => d.deviation > 2),
+    [deviations],
+  )
+  const underAllocated = useMemo(
+    () => deviations.filter((d) => d.deviation < -2),
+    [deviations],
+  )
+
+  if (loading || deviations.length === 0) return null
+  if (overAllocated.length === 0 && underAllocated.length === 0) return null
+
+  return (
+    <div className="mb-6 rounded border border-warning/30 bg-warning/5 p-4">
+      <h3 className="mb-3 flex items-center gap-2 font-semibold text-sm text-warning">
+        <span>⚖</span> Rebalancing Suggestions
+      </h3>
+      <div className="space-y-2">
+        {overAllocated.map((d) => {
+          const basketPortfolios = portfolios.filter(
+            (p) => p.basket_id === d.basket.id && p.id !== selectedPortfolioId,
+          )
+          const canMove = underAllocated.length > 0 && basketPortfolios.length > 0
+
+          return (
+            <div key={d.basket.id} className="flex items-start gap-3 rounded border border-border/50 bg-surface/50 p-3 text-sm">
+              <span className="mt-0.5 h-2.5 w-2.5 rounded-full" style={{ backgroundColor: d.basket.color }} />
+              <div className="flex-1">
+                <p className="text-text">
+                  <strong>{d.basket.name}</strong> is over-allocated by{' '}
+                  <span className="font-mono-financial text-negative">+{d.deviation.toFixed(1)}%</span>
+                  {' '}({d.actualPct.toFixed(1)}% vs {d.targetPct.toFixed(0)}% target)
+                </p>
+                {canMove && (
+                  <p className="mt-1 text-text-dim text-xs">
+                    Consider moving positions from this basket to{' '}
+                    {underAllocated.map((u, i) => (
+                      <span key={u.basket.id} className="font-medium text-accent">
+                        {i > 0 ? (i === underAllocated.length - 1 ? ' or ' : ', ') : ''}
+                        {u.basket.name}
+                      </span>
+                    ))}{' '}
+                    using the "Move" dropdown on each position row.
+                  </p>
+                )}
+                {!canMove && underAllocated.length === 0 && (
+                  <p className="mt-1 text-text-dim text-xs">
+                    No under-allocated baskets to move positions into. Consider lowering this basket's target or selling positions.
+                  </p>
+                )}
+              </div>
+            </div>
+          )
+        })}
+        {underAllocated.map((d) => (
+          <div key={d.basket.id} className="flex items-start gap-3 rounded border border-border/50 bg-surface/50 p-3 text-sm">
+            <span className="mt-0.5 h-2.5 w-2.5 rounded-full" style={{ backgroundColor: d.basket.color }} />
+            <div className="flex-1">
+              <p className="text-text">
+                <strong>{d.basket.name}</strong> is under-allocated by{' '}
+                <span className="font-mono-financial text-warning">{d.deviation.toFixed(1)}%</span>
+                {' '}({d.actualPct.toFixed(1)}% vs {d.targetPct.toFixed(0)}% target)
+              </p>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+/* ── Move-to-basket dropdown ────────────────────────────────────────── */
+
+function MoveDropdown({
+  position,
+  currentPortfolioId,
+  portfolios,
+  baskets,
+  onMove,
+}: {
+  position: Position
+  currentPortfolioId: string
+  portfolios: Portfolio[]
+  baskets: Basket[]
+  onMove: (positionId: string, targetPortfolioId: string) => void
+}) {
+  const [open, setOpen] = useState(false)
+
+  // Target portfolios: same user, different portfolio, same account
+  // (we don't restrict by account — any portfolio is a valid target)
+  const targetPortfolios = useMemo(
+    () =>
+      portfolios
+        .filter((p) => p.id !== currentPortfolioId)
+        .sort((a, b) => a.name.localeCompare(b.name)),
+    [portfolios, currentPortfolioId],
+  )
+
+  if (targetPortfolios.length === 0) return null
+
+  return (
+    <div className="relative">
+      <button
+        type="button"
+        onClick={() => setOpen(!open)}
+        className="rounded border border-border/50 px-2 py-0.5 text-xs text-text-dim transition hover:border-accent hover:text-accent"
+      >
+        Move ▾
+      </button>
+      {open && (
+        <>
+          {/* Backdrop to close dropdown */}
+          <div className="fixed inset-0 z-30" onClick={() => setOpen(false)} />
+          <div className="absolute right-0 z-40 mt-1 min-w-[180px] rounded border border-border bg-surface shadow-lg">
+            {targetPortfolios.map((p) => {
+              const basketName = portfolioBasketName(p, baskets)
+              const basketColor = portfolioBasketColor(p, baskets)
+              return (
+                <button
+                  key={p.id}
+                  type="button"
+                  onClick={() => {
+                    onMove(position.id, p.id)
+                    setOpen(false)
+                  }}
+                  className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-text transition hover:bg-border/50"
+                >
+                  {basketColor && (
+                    <span className="h-2 w-2 rounded-full" style={{ backgroundColor: basketColor }} />
+                  )}
+                  <span className="flex-1">
+                    <span className="font-medium">{p.name}</span>
+                    {basketName && (
+                      <span className="ml-1.5 text-text-dim text-xs">→ {basketName}</span>
+                    )}
+                  </span>
+                </button>
+              )
+            })}
+          </div>
+        </>
+      )}
+    </div>
+  )
+}
+
+/* ── Positions page ─────────────────────────────────────────────────── */
+
 export default function PositionsPage() {
   const { selectedId } = usePortfolioStore()
-  const { positions, isLoading, error, flashes, fetchPositions, applyPriceUpdate, getSymbols } = usePositionStore()
+  const {
+    positions,
+    isLoading,
+    error,
+    flashes,
+    portfolios,
+    baskets,
+    fetchPositions,
+    applyPriceUpdate,
+    getSymbols,
+    fetchMoveTargets,
+    movePosition,
+  } = usePositionStore()
   const { subscribe, unsubscribe } = useWebSocket()
   const { openBuy, openSell } = useTradeStore()
 
@@ -43,10 +295,12 @@ export default function PositionsPage() {
     fetchPositions(selectedId)
   }, [selectedId, fetchPositions])
 
-  // (Re)subscribe to the current holdings' tickers. Re-runs whenever the set
-  // of symbols actually changes (not just the row count), and unsubscribes the
-  // previous set on cleanup so switching portfolios doesn't accumulate stale
-  // subscriptions on the backend.
+  // Fetch portfolios + baskets for the move dropdown
+  useEffect(() => {
+    fetchMoveTargets()
+  }, [fetchMoveTargets])
+
+  // (Re)subscribe to the current holdings' tickers
   const symbolsKey = getSymbols().join(',')
   useEffect(() => {
     const symbols = symbolsKey ? symbolsKey.split(',') : []
@@ -74,6 +328,18 @@ export default function PositionsPage() {
 
   // Derive clean flashes (drop expired)
   const activeFlashMap = activeFlashes(flashes)
+
+  // Count of positions — used as a refetch trigger for the rebalancing panel
+  // (changes on moves/trades, not on every WebSocket price tick)
+
+  // Handle move
+  const handleMove = useCallback(
+    (positionId: string, targetPortfolioId: string) => {
+      if (!selectedId) return
+      movePosition(selectedId, positionId, targetPortfolioId)
+    },
+    [selectedId, movePosition],
+  )
 
   /* ── Empty / loading states ──────────────────────────────────────── */
 
@@ -114,7 +380,7 @@ export default function PositionsPage() {
 
   /* ── Position row renderer ───────────────────────────────────────── */
 
-  const renderRow = (pos: (typeof positions)[0]) => {
+  const renderRow = (pos: Position) => {
     const gain = parseFloat(pos.unrealized_gain)
     const gainPct = parseFloat(pos.unrealized_gain_pct)
     const flash = activeFlashMap[pos.symbol]
@@ -142,14 +408,23 @@ export default function PositionsPage() {
             {gainPct.toFixed(2)}%)
           </span>
         </td>
-        <td className="py-2 text-right">
-          <button
-            type="button"
-            onClick={() => openSell(pos)}
-            className="rounded border border-negative/30 px-2 py-0.5 text-xs text-negative transition hover:border-negative hover:bg-negative/10"
-          >
-            Sell
-          </button>
+        <td className="py-2">
+          <div className="flex items-center justify-end gap-1.5">
+            <MoveDropdown
+              position={pos}
+              currentPortfolioId={selectedId!}
+              portfolios={portfolios}
+              baskets={baskets}
+              onMove={handleMove}
+            />
+            <button
+              type="button"
+              onClick={() => openSell(pos)}
+              className="rounded border border-negative/30 px-2 py-0.5 text-xs text-negative transition hover:border-negative hover:bg-negative/10"
+            >
+              Sell
+            </button>
+          </div>
         </td>
       </tr>
     )
@@ -159,6 +434,14 @@ export default function PositionsPage() {
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-6">
+      {/* ── Rebalancing suggestions ──────────────────────────────── */}
+      <RebalancingPanel
+        baskets={baskets}
+        positionsCount={positions.length}
+        portfolios={portfolios}
+        selectedPortfolioId={selectedId}
+      />
+
       <div className="rounded border border-border bg-surface p-4">
         <div className="mb-4 flex items-center justify-between">
           <h1 className="font-semibold text-lg text-text">Positions</h1>
@@ -195,7 +478,7 @@ export default function PositionsPage() {
                 <th className="pr-4 pb-2 text-right">Price</th>
                 <th className="pr-4 pb-2 text-right">Market Value</th>
                 <th className="pr-4 pb-2 text-right">Unrealized P&L</th>
-                <th className="pb-2 text-right">Action</th>
+                <th className="pb-2 text-right">Actions</th>
               </tr>
             </thead>
             <tbody>{positions.map(renderRow)}</tbody>

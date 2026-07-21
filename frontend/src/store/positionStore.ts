@@ -6,10 +6,19 @@
  * applies price deltas in-place, recalculating derived fields.
  *
  * Tracks per-symbol flash state (up/down) for ~1 s so tables can animate.
+ *
+ * Segment 7.3: Added portfolios/baskets lists + movePosition action.
  */
 
 import { create } from 'zustand'
-import { type Position, positionsApi } from '@/services/api'
+import {
+  type Basket,
+  type Position,
+  type Portfolio,
+  basketsApi,
+  portfoliosApi,
+  positionsApi,
+} from '@/services/api'
 
 /* ── Flash tracking ─────────────────────────────────────────────────── */
 
@@ -26,11 +35,25 @@ interface PositionState {
   error: string | null
   flashes: Record<string, FlashEntry>
 
+  /** All user portfolios (for move-to-basket dropdown) */
+  portfolios: Portfolio[]
+
+  /** All user baskets (for display names in dropdown) */
+  baskets: Basket[]
+
   /* ── Actions ─────────────────────────────────────────────────────── */
   fetchPositions: (portfolioId: string) => Promise<void>
   applyPriceUpdate: (symbol: string, newPrice: number, prevPrice: number | null) => void
   /** Return tickers for all current positions (for WS subscription) */
   getSymbols: () => string[]
+  /** Fetch all portfolios + baskets for the move dropdown */
+  fetchMoveTargets: () => Promise<void>
+  /** Move a position to a different portfolio (i.e. different basket) */
+  movePosition: (
+    portfolioId: string,
+    positionId: string,
+    targetPortfolioId: string,
+  ) => Promise<void>
 }
 
 export const usePositionStore = create<PositionState>((set, get) => ({
@@ -38,6 +61,8 @@ export const usePositionStore = create<PositionState>((set, get) => ({
   isLoading: false,
   error: null,
   flashes: {},
+  portfolios: [],
+  baskets: [],
 
   fetchPositions: async (portfolioId: string) => {
     set({ isLoading: true, error: null })
@@ -101,4 +126,30 @@ export const usePositionStore = create<PositionState>((set, get) => ({
   },
 
   getSymbols: () => get().positions.map((p) => p.symbol),
+
+  fetchMoveTargets: async () => {
+    try {
+      const [portfolios, baskets] = await Promise.all([
+        portfoliosApi.list(),
+        basketsApi.list(),
+      ])
+      set({ portfolios, baskets })
+    } catch {
+      // Non-fatal — dropdown just won't populate
+    }
+  },
+
+  movePosition: async (
+    portfolioId: string,
+    positionId: string,
+    targetPortfolioId: string,
+  ) => {
+    try {
+      await positionsApi.move(portfolioId, positionId, targetPortfolioId)
+      // Refresh positions for the source portfolio (moved position disappears)
+      await get().fetchPositions(portfolioId)
+    } catch (err: unknown) {
+      set({ error: err instanceof Error ? err.message : 'Failed to move position' })
+    }
+  },
 }))
