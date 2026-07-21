@@ -256,17 +256,10 @@ async def list_transactions(
     stmt = stmt.order_by(Transaction.trade_date.desc(), Transaction.created_at.desc())
     result = await session.execute(stmt)
     transactions = result.scalars().all()
-    # Populate symbol from joined asset for each transaction
-    for txn in transactions:
-        if txn.asset and not hasattr(txn, 'symbol'):
-            # Monkey-patch symbol onto the transaction for serialization
-            # TransactionRead doesn't have symbol, but we add it via model_validate
-            pass
+    # Populate symbol from the eagerly-loaded asset relationship
     reads = [TransactionRead.model_validate(t) for t in transactions]
-    # Attach symbol to each read
     for txn, read in zip(transactions, reads, strict=True):
-        if txn.asset:
-            object.__setattr__(read, 'symbol', txn.asset.symbol)
+        read.symbol = txn.asset.symbol if txn.asset else None
     return reads
 
 

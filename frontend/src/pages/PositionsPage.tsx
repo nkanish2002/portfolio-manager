@@ -7,7 +7,7 @@
  * Segment 5.1: Buy/Sell modals with trade execution.
  */
 
-import { useCallback, useEffect, useRef } from 'react'
+import { useCallback, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { useWebSocket } from '@/hooks/useWebSocket'
 import { usePortfolioStore } from '@/store/portfolioStore'
@@ -32,28 +32,10 @@ export default function PositionsPage() {
   const { subscribe, unsubscribe } = useWebSocket()
   const { openBuy, openSell } = useTradeStore()
 
-  // Keep a ref to the latest fetchPositions so the event handler always
-  // calls the current version without re-registering the listener.
-  const fetchRef = useRef(fetchPositions)
-  fetchRef.current = fetchPositions
-
   // Refresh positions after a trade completes
   const handleTradeSuccess = useCallback(() => {
     if (selectedId) fetchPositions(selectedId)
   }, [selectedId, fetchPositions])
-
-  // Listen for positions-updated events dispatched by the trade store
-  useEffect(() => {
-    const handler = (e: Event) => {
-      const detail = (e as CustomEvent).detail
-      if (Array.isArray(detail)) {
-        // Direct position array from the trade store
-        window.dispatchEvent(new CustomEvent('positions-data', { detail: { positions: detail } }))
-      }
-    }
-    window.addEventListener('positions-updated', handler)
-    return () => window.removeEventListener('positions-updated', handler)
-  }, [])
 
   // Fetch positions when portfolio changes
   useEffect(() => {

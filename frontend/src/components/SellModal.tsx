@@ -5,7 +5,7 @@
  * Shows expected realized gain/loss via the backend preview endpoint.
  */
 
-import { useCallback, useEffect, useRef } from 'react'
+import { useCallback, useEffect } from 'react'
 import { usePortfolioStore } from '@/store/portfolioStore'
 import { useTradeStore } from '@/store/tradeStore'
 
@@ -31,8 +31,6 @@ export default function SellModal({ onTradeSuccess }: { onTradeSuccess: () => vo
     submitSell,
   } = useTradeStore()
 
-  const overlayRef = useRef<HTMLDivElement>(null)
-
   // Close on Escape
   useEffect(() => {
     if (!sellOpen) return
@@ -52,28 +50,25 @@ export default function SellModal({ onTradeSuccess }: { onTradeSuccess: () => vo
     [selectedId, submitSell, onTradeSuccess],
   )
 
-  const handleOverlayClick = useCallback(
-    (e: React.MouseEvent) => {
-      if (e.target === overlayRef.current) closeSell()
-    },
-    [closeSell],
-  )
-
   if (!sellOpen || !sellPosition) return null
 
   const proceeds = sellForm.qty * sellForm.price - sellForm.fees
   const avgCost = sellAvgCostBasis
   const costBasis = sellForm.qty * avgCost
-  const simplePnl = costBasis > 0 ? ((sellForm.price - avgCost) / avgCost) * 100 : 0
+  // Percentage derived from the FIFO realized gain so it stays consistent
+  // with the dollar amount shown (exact for single-lot, weighted-avg for multi-lot).
+  const pnlPct = sellRealizedGain !== null && costBasis > 0 ? (sellRealizedGain / costBasis) * 100 : 0
 
   return (
-    <div
-      ref={overlayRef}
-      className="fixed inset-0 z-40 flex items-center justify-center bg-black/60 backdrop-blur-sm"
-      onClick={handleOverlayClick}
-      role="presentation"
-    >
-      <div className="w-full max-w-md rounded-lg border border-border bg-surface p-6 shadow-2xl">
+    <div className="fixed inset-0 z-40 flex items-center justify-center">
+      {/* Backdrop — a real button so it's keyboard-accessible (Escape also closes) */}
+      <button
+        type="button"
+        aria-label="Close dialog"
+        className="absolute inset-0 cursor-default bg-black/60 backdrop-blur-sm"
+        onClick={closeSell}
+      />
+      <div className="relative w-full max-w-md rounded-lg border border-border bg-surface p-6 shadow-2xl">
         {/* Header */}
         <div className="mb-4 flex items-center justify-between">
           <h2 className="text-lg font-semibold text-negative">Sell</h2>
@@ -180,8 +175,8 @@ export default function SellModal({ onTradeSuccess }: { onTradeSuccess: () => vo
                     <span className="font-mono-financial">
                       {sellRealizedGain >= 0 ? '+' : ''}${Math.abs(sellRealizedGain).toFixed(2)}
                       <span className="ml-1 text-xs">
-                        ({simplePnl >= 0 ? '+' : ''}
-                        {simplePnl.toFixed(1)}%)
+                        ({pnlPct >= 0 ? '+' : ''}
+                        {pnlPct.toFixed(1)}%)
                       </span>
                     </span>
                   </div>

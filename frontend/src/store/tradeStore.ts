@@ -6,7 +6,7 @@
  */
 
 import { create } from 'zustand'
-import { type Position, type TickerSearchResult, positionsApi, transactionsApi, tickerApi } from '@/services/api'
+import { type Position, type TickerSearchResult, transactionsApi, tickerApi } from '@/services/api'
 
 interface BuyForm {
   symbol: string
@@ -37,6 +37,7 @@ interface TradeState {
   openBuy: (portfolioId?: string) => void
   closeBuy: () => void
   setBuyField: <K extends keyof BuyForm>(key: K, value: BuyForm[K]) => void
+  selectTicker: (result: TickerSearchResult) => void
   searchTicker: (query: string) => Promise<void>
   submitBuy: (portfolioId: string) => Promise<void>
 
@@ -87,6 +88,14 @@ export const useTradeStore = create<TradeState>((set, get) => ({
       return updates
     }),
 
+  // Selecting a result from the dropdown: set symbol + clear results so the
+  // dropdown closes (avoids re-triggering a search for the selected symbol).
+  selectTicker: (result) =>
+    set((state) => ({
+      buyForm: { ...state.buyForm, symbol: result.symbol },
+      buySearchResults: [],
+    })),
+
   searchTicker: async (query: string) => {
     const { portfolioId } = get()
     if (!portfolioId) return
@@ -113,9 +122,6 @@ export const useTradeStore = create<TradeState>((set, get) => ({
         price: buyForm.price,
         fees: buyForm.fees,
       })
-      // Re-fetch positions and dispatch update event
-      const refreshed = await positionsApi.list(portfolioId)
-      window.dispatchEvent(new CustomEvent('positions-updated', { detail: refreshed }))
       get().closeBuy()
     } catch (err: unknown) {
       set({ error: err instanceof Error ? err.message : 'Buy failed' })
@@ -158,11 +164,11 @@ export const useTradeStore = create<TradeState>((set, get) => ({
       error: null,
     }),
 
-  setSellField: async (key, value) => {
+  setSellField: (key, value) => {
     set((state) => ({ sellForm: { ...state.sellForm, [key]: value } }))
     // Auto-update preview when qty or price changes
     if (key === 'qty' || key === 'price') {
-      await get().updateSellPreview()
+      void get().updateSellPreview()
     }
   },
 
@@ -209,8 +215,6 @@ export const useTradeStore = create<TradeState>((set, get) => ({
         price: sellForm.price,
         fees: sellForm.fees,
       })
-      const refreshed = await positionsApi.list(portfolioId)
-      window.dispatchEvent(new CustomEvent('positions-updated', { detail: refreshed }))
       get().closeSell()
     } catch (err: unknown) {
       set({ error: err instanceof Error ? err.message : 'Sell failed' })

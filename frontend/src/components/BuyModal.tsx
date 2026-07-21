@@ -5,7 +5,7 @@
  * Calls ticker search on symbol change, records a BUY transaction on submit.
  */
 
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect } from 'react'
 import type { TickerSearchResult } from '@/services/api'
 import { usePortfolioStore } from '@/store/portfolioStore'
 import { useTradeStore } from '@/store/tradeStore'
@@ -52,15 +52,8 @@ function TickerSearchDropdown({
 
 export default function BuyModal({ onTradeSuccess }: { onTradeSuccess: () => void }) {
   const { selectedId } = usePortfolioStore()
-  const { buyOpen, buyForm, buySearchResults, isLoading, error, closeBuy, setBuyField, submitBuy } = useTradeStore()
-
-  const overlayRef = useRef<HTMLDivElement>(null)
-  const [searchQuery, setSearchQuery] = useState('')
-
-  // Sync search query with form symbol for the dropdown
-  useEffect(() => {
-    setSearchQuery(buyForm.symbol)
-  }, [buyForm.symbol])
+  const { buyOpen, buyForm, buySearchResults, isLoading, error, closeBuy, setBuyField, selectTicker, submitBuy } =
+    useTradeStore()
 
   // Close on Escape
   useEffect(() => {
@@ -74,11 +67,9 @@ export default function BuyModal({ onTradeSuccess }: { onTradeSuccess: () => voi
 
   const handleSelectTicker = useCallback(
     (result: TickerSearchResult) => {
-      setBuyField('symbol', result.symbol)
-      // If we can infer a price-like hint from the name, we could pre-fill,
-      // but for now the user must enter the price manually.
+      selectTicker(result)
     },
-    [setBuyField],
+    [selectTicker],
   )
 
   const handleSubmit = useCallback(
@@ -90,25 +81,20 @@ export default function BuyModal({ onTradeSuccess }: { onTradeSuccess: () => voi
     [selectedId, submitBuy, onTradeSuccess],
   )
 
-  const handleOverlayClick = useCallback(
-    (e: React.MouseEvent) => {
-      if (e.target === overlayRef.current) closeBuy()
-    },
-    [closeBuy],
-  )
-
   if (!buyOpen) return null
 
   const totalCost = buyForm.qty * buyForm.price + buyForm.fees
 
   return (
-    <div
-      ref={overlayRef}
-      className="fixed inset-0 z-40 flex items-center justify-center bg-black/60 backdrop-blur-sm"
-      onClick={handleOverlayClick}
-      role="presentation"
-    >
-      <div className="w-full max-w-md rounded-lg border border-border bg-surface p-6 shadow-2xl">
+    <div className="fixed inset-0 z-40 flex items-center justify-center">
+      {/* Backdrop — a real button so it's keyboard-accessible (Escape also closes) */}
+      <button
+        type="button"
+        aria-label="Close dialog"
+        className="absolute inset-0 cursor-default bg-black/60 backdrop-blur-sm"
+        onClick={closeBuy}
+      />
+      <div className="relative w-full max-w-md rounded-lg border border-border bg-surface p-6 shadow-2xl">
         {/* Header */}
         <div className="mb-4 flex items-center justify-between">
           <h2 className="text-lg font-semibold text-positive">Buy</h2>
@@ -136,7 +122,7 @@ export default function BuyModal({ onTradeSuccess }: { onTradeSuccess: () => voi
                 className={INPUT}
                 maxLength={10}
               />
-              <TickerSearchDropdown results={buySearchResults} onSelect={handleSelectTicker} query={searchQuery} />
+              <TickerSearchDropdown results={buySearchResults} onSelect={handleSelectTicker} query={buyForm.symbol} />
             </div>
           </label>
 
