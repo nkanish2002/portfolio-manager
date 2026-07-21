@@ -15,6 +15,7 @@ import PositionsPage from '@/pages/PositionsPage'
 import RegisterPage from '@/pages/RegisterPage'
 import SettingsPage from '@/pages/SettingsPage'
 import TradesPage from '@/pages/TradesPage'
+import AnalyticsPage from '@/pages/AnalyticsPage'
 import { useAuthStore } from '@/store/authStore'
 import { useBasketStore } from '@/store/basketStore'
 import { usePortfolioStore } from '@/store/portfolioStore'
@@ -76,6 +77,7 @@ function App() {
                   <Route path="/dashboard" element={<DashboardPage />} />
                   <Route path="/positions" element={<PositionsPage />} />
                   <Route path="/trades" element={<TradesPage />} />
+                  <Route path="/analytics" element={<AnalyticsPage />} />
                   <Route path="/settings" element={<SettingsPage />} />
                 </Routes>
               </Layout>
