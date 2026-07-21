@@ -397,3 +397,31 @@ export const analyticsApi = {
 export const healthApi = {
   check: () => api.get<HealthResponse>('/health').then((r) => r.data),
 }
+
+/* ── Statement import API ─────────────────────────────────────────── */
+
+export interface StatementImportResult {
+  portfolio_id: string
+  holdings_imported: number
+  created: string[]
+  updated: string[]
+}
+
+export const importApi = {
+  uploadStatement: (portfolioId: string, file: File) => {
+    const formData = new FormData()
+    formData.append('file', file)
+    formData.append('portfolio_id', portfolioId)
+    return api
+      .post<StatementImportResult>('/api/v1/import/statement', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      })
+      .then((r) => r.data)
+  },
+
+  generateReport: (portfolioId: string, params?: { period?: string; benchmark?: string }) =>
+    api.get(`/api/v1/reports/portfolio/${portfolioId}`, {
+      params,
+      responseType: 'blob',
+    }),
+}
