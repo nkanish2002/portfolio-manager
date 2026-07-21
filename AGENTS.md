@@ -92,7 +92,9 @@ uv run python -c "from portfolio_manager.config import settings; print(settings.
 | 4.2 | ✅ Done | Frontend WebSocket hook + live price updates |
 | 5.1 | ✅ Done | Buy/Sell modals: ticker search, trade execution, FIFO P&L preview |
 | 5.2 | ✅ Done | Trade audit page: filters, pagination, CSV export |
-| 6.1 | ⏳ Pending | Analytics page + risk metrics table |
+| 6.1 | ✅ Done | Analytics page + risk metrics table |
+| 6.2 | ✅ Done | NAV + Allocation + Drawdown Charts |
+| 6.3 | ✅ Done | Monthly Returns Heatmap + Benchmark Comparison |
 
 ## File Map (Created So Far)
 

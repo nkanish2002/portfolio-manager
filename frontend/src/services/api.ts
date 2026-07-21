@@ -354,27 +354,29 @@ export const tickerApi = {
 }
 
 export const analyticsApi = {
-  risk: (portfolioId: string) =>
-    api.get<Record<string, unknown>>(`/api/v1/portfolios/${portfolioId}/analytics/risk`).then((r) => r.data),
+  risk: (portfolioId: string, params?: { period?: string; benchmark?: string }) =>
+    api
+      .get<Record<string, unknown>>(`/api/v1/portfolios/${portfolioId}/analytics/risk`, { params })
+      .then((r) => r.data),
 
   allocations: (portfolioId: string) =>
     api.get<Record<string, unknown>>(`/api/v1/portfolios/${portfolioId}/analytics/allocations`).then((r) => r.data),
 
-  navChart: (portfolioId: string) =>
-    api.get<Record<string, unknown>>(`/api/v1/portfolios/${portfolioId}/charts/nav`).then((r) => r.data),
+  navChart: (portfolioId: string, params?: { period?: string }) =>
+    api.get<Record<string, unknown>>(`/api/v1/portfolios/${portfolioId}/charts/nav`, { params }).then((r) => r.data),
 
-  drawdownChart: (portfolioId: string) =>
-    api.get<Record<string, unknown>>(`/api/v1/portfolios/${portfolioId}/charts/drawdown`).then((r) => r.data),
+  drawdownChart: (portfolioId: string, params?: { period?: string }) =>
+    api.get<Record<string, unknown>>(`/api/v1/portfolios/${portfolioId}/charts/drawdown`, { params }).then((r) => r.data),
 
-  allocationChart: (portfolioId: string) =>
-    api.get<Record<string, unknown>>(`/api/v1/portfolios/${portfolioId}/charts/allocation`).then((r) => r.data),
+  allocationChart: (portfolioId: string, params?: { group_by?: string }) =>
+    api.get<Record<string, unknown>>(`/api/v1/portfolios/${portfolioId}/charts/allocation`, { params }).then((r) => r.data),
 
-  monthlyReturns: (portfolioId: string) =>
-    api.get<Record<string, unknown>>(`/api/v1/portfolios/${portfolioId}/charts/monthly-returns`).then((r) => r.data),
+  monthlyReturns: (portfolioId: string, params?: { period?: string }) =>
+    api.get<Record<string, unknown>>(`/api/v1/portfolios/${portfolioId}/charts/monthly-returns`, { params }).then((r) => r.data),
 
-  benchmarkComparison: (portfolioId: string) =>
+  benchmarkComparison: (portfolioId: string, params?: { period?: string; benchmark?: string }) =>
     api
-      .get<Record<string, unknown>>(`/api/v1/portfolios/${portfolioId}/charts/benchmark-comparison`)
+      .get<Record<string, unknown>>(`/api/v1/portfolios/${portfolioId}/charts/benchmark-comparison`, { params })
       .then((r) => r.data),
 }
 
