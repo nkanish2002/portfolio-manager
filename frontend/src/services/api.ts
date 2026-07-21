@@ -118,6 +118,7 @@ export interface Transaction {
   id: string
   portfolio_id: string
   asset_id: string
+  symbol: string | null
   type: string
   quantity: string
   price: string
@@ -126,6 +127,14 @@ export interface Transaction {
   notes: string | null
   realized_gain: string | null
   created_at: string
+}
+
+export interface TickerSearchResult {
+  symbol: string
+  name: string
+  exchange: string | null
+  quote_type: string | null
+  sector: string | null
 }
 
 export interface Benchmark {
@@ -220,13 +229,25 @@ export interface PositionUpdate {
 }
 
 export interface TransactionCreate {
-  asset_id: string
+  asset_id?: string
+  symbol?: string
   type: string
   quantity: number
   price: number
   fees?: number
-  trade_date: string | Date
+  trade_date?: string | Date
   notes?: string | null
+}
+
+export interface SellPreviewRequest {
+  asset_id: string
+  quantity: number
+  price: number
+}
+
+export interface SellPreviewResponse {
+  realized_gain: string
+  remaining_qty: string
 }
 
 /* ── Common response wrappers ───────────────────────────────────────── */
@@ -318,6 +339,18 @@ export const transactionsApi = {
 
   create: (portfolioId: string, data: TransactionCreate) =>
     api.post<Transaction>(`/api/v1/portfolios/${portfolioId}/transactions`, data).then((r) => r.data),
+
+  sellPreview: (portfolioId: string, data: SellPreviewRequest) =>
+    api
+      .post<SellPreviewResponse>(`/api/v1/portfolios/${portfolioId}/transactions/sell-preview`, data)
+      .then((r) => r.data),
+}
+
+export const tickerApi = {
+  search: (portfolioId: string, query: string, limit?: number) =>
+    api
+      .get<TickerSearchResult[]>(`/api/v1/portfolios/${portfolioId}/search-ticker`, { params: { q: query, limit } })
+      .then((r) => r.data),
 }
 
 export const analyticsApi = {

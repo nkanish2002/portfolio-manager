@@ -95,7 +95,7 @@ function UserMenu() {
 
 export default function Layout({ children }: { children: React.ReactNode }) {
   const location = useLocation()
-  const isDashboard = location.pathname === '/dashboard'
+  const showNav = ['/dashboard', '/positions', '/trades'].includes(location.pathname)
 
   return (
     <div className="flex min-h-screen flex-col">
@@ -107,10 +107,11 @@ export default function Layout({ children }: { children: React.ReactNode }) {
               Portfolio Manager
             </Link>
 
-            {isDashboard && (
+            {showNav && (
               <ul className="flex gap-4 text-sm">
                 <NavItem to="/dashboard">Overview</NavItem>
                 <NavItem to="/positions">Positions</NavItem>
+                <NavItem to="/trades">Trades</NavItem>
               </ul>
             )}
           </div>
