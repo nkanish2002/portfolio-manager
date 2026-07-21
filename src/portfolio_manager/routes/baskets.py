@@ -8,6 +8,7 @@ from portfolio_manager.auth import current_active_user
 from portfolio_manager.database import get_session
 from portfolio_manager.models import Basket, BasketCreate, BasketRead, BasketUpdate
 from portfolio_manager.models.user import User
+from portfolio_manager.services.basket_seed import compute_target_summary
 
 router = APIRouter(prefix="/api/v1/baskets", tags=["baskets"])
 
@@ -21,6 +22,15 @@ async def list_baskets(
         select(Basket).where(Basket.user_id == user.id).order_by(Basket.sort_order, Basket.created_at)
     )
     return result.scalars().all()
+
+
+@router.get("/summary")
+async def basket_target_summary(
+    session: AsyncSession = Depends(get_session),
+    user: User = Depends(current_active_user),
+):
+    """Report whether basket target allocations sum to 100% (with a warning if not)."""
+    return await compute_target_summary(session, user.id)
 
 
 @router.post("/", response_model=BasketRead, status_code=status.HTTP_201_CREATED)

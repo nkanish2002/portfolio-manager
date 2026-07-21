@@ -50,7 +50,17 @@ class UserManager(UUIDIDMixin, BaseUserManager[User, UUID]):
     verification_token_lifetime_seconds = 3600 * 24  # 24h for email verification
 
     async def on_after_register(self, user: User, request=None) -> None:
-        """Hook after successful registration."""
+        """Hook after successful registration.
+
+        Seeds the 3-basket preset (Super Stable / Stable Alpha / High Beta) for
+        the new user. The seeder is idempotent — it no-ops if the user already
+        owns any baskets.
+        """
+        from portfolio_manager.services.basket_seed import seed_default_baskets
+
+        async with async_session_factory() as session:
+            await seed_default_baskets(session, user.id)
+
         # No email sending in dev — verified by default
         if os.environ.get("ENV_FOR_DYNACONF", "development") == "development":
             await self._update(user, {"is_verified": True})

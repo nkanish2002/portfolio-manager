@@ -95,7 +95,7 @@ function UserMenu() {
 
 export default function Layout({ children }: { children: React.ReactNode }) {
   const location = useLocation()
-  const showNav = ['/dashboard', '/positions', '/trades', '/analytics'].includes(location.pathname)
+  const showNav = ['/dashboard', '/positions', '/trades', '/analytics', '/baskets'].includes(location.pathname)
 
   return (
     <div className="flex min-h-screen flex-col">
@@ -113,6 +113,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                 <NavItem to="/positions">Positions</NavItem>
                 <NavItem to="/trades">Trades</NavItem>
                 <NavItem to="/analytics">Analytics</NavItem>
+                <NavItem to="/baskets">Baskets</NavItem>
               </ul>
             )}
           </div>
