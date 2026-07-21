@@ -470,7 +470,7 @@ function SkeletonCard() {
 /* ── Baskets page ───────────────────────────────────────────────────── */
 
 export default function BasketsPage() {
-  const { baskets, isLoading, init, create, update, remove } = useBasketStore()
+  const { baskets, isLoading, error, init, create, update, remove } = useBasketStore()
 
   // Analytics state: Map<basket_id, BasketAnalyticsData | null>
   const [analyticsMap, setAnalyticsMap] = useState<Map<string, BasketAnalyticsData | null>>(new Map())
@@ -488,7 +488,12 @@ export default function BasketsPage() {
 
   // Fetch analytics for each basket once the list is loaded
   useEffect(() => {
-    if (!baskets.length) return
+    if (!baskets.length) {
+      setAnalyticsMap(new Map())
+      setAnalyticsLoading(false)
+      return
+    }
+    let cancelled = false
     setAnalyticsLoading(true)
     Promise.all(
       baskets.map(async (b) => {
@@ -500,9 +505,13 @@ export default function BasketsPage() {
         }
       }),
     ).then((results) => {
+      if (cancelled) return
       setAnalyticsMap(new Map(results))
       setAnalyticsLoading(false)
     })
+    return () => {
+      cancelled = true
+    }
   }, [baskets])
 
   const totalNav = useMemo(
@@ -552,6 +561,13 @@ export default function BasketsPage() {
           + New Basket
         </button>
       </div>
+
+      {/* Error banner */}
+      {error && (
+        <div className="mb-4 rounded border border-negative/30 bg-negative/10 px-3 py-2 text-negative text-sm">
+          {error}
+        </div>
+      )}
 
       {/* Target summary */}
       <TargetSummary baskets={baskets} />
