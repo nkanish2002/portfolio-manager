@@ -1,7 +1,7 @@
 # AGENTS.md — Coding Agent Reference
 
 > **Project:** Portfolio Manager
-> **Status:** Phase 7 — Custom Basket Framework (7.1, 7.2 complete)
+> **Status:** Phase 7 — Custom Basket Framework (7.1, 7.2, 7.3 complete)
 > **Location:** `~/Work/portfolio-manager`
 > **Full spec:** `PLAN.md`
 
