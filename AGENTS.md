@@ -98,8 +98,8 @@ uv run python -c "from portfolio_manager.config import settings; print(settings.
 | 7.1 | ✅ Done | Basket seed (3-basket preset on register) + target-allocation summary/warning + CRUD tests |
 | 7.2 | ✅ Done | BasketsPage: dynamic cards, create/edit/delete modals, allocation bars, analytics, sector breakdown |
 | 7.3 | ✅ Done | Move position between baskets (dropdown per row) + rebalancing suggestions panel |
-| **8.2** | ✅ Done | Frontend import modal + report generator (HTML download) |
 | **8.1** | ✅ Done | Backend statement import: PDF parsing service, import route, 23 tests |
+| **8.2** | ✅ Done | Frontend import modal + report generator (HTML download) |
 
 ## File Map (Created So Far)
 
