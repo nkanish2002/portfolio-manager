@@ -5,7 +5,8 @@
  * Shows empty state when no portfolios/positions exist.
  */
 
-import { useEffect, useMemo } from 'react'
+import { useEffect, useMemo, useState } from 'react'
+import ImportModal from '@/components/ImportModal'
 import { useWebSocket } from '@/hooks/useWebSocket'
 import type { Position } from '@/services/api'
 import { useBasketStore } from '@/store/basketStore'
@@ -140,6 +141,9 @@ export default function DashboardPage() {
     }
   }, [symbolsKey, subscribe, unsubscribe])
 
+  /* ── Import modal ──────────────────────────────────────────────── */
+  const [importOpen, setImportOpen] = useState(false)
+
   // Listen for live price updates from WebSocket
   useEffect(() => {
     const handler = (e: Event) => {
@@ -194,6 +198,24 @@ export default function DashboardPage() {
         <KpiCard label="Baskets" value={String(baskets.length)} />
       </div>
 
+      {/* ── Actions bar ─────────────────────────────────────────── */}
+      <div className="mt-6 flex gap-3">
+        <button
+          type="button"
+          onClick={() => setImportOpen(true)}
+          className="rounded border border-accent px-3 py-1.5 text-accent text-sm transition hover:bg-accent/10"
+        >
+          Import Statement
+        </button>
+        <button
+          type="button"
+          onClick={() => setImportOpen(true)}
+          className="rounded border border-border px-3 py-1.5 text-text-dim text-sm transition hover:border-accent/50 hover:text-accent"
+        >
+          Generate Report
+        </button>
+      </div>
+
       {/* ── Basket allocation ──────────────────────────────────────── */}
       <div className="mt-6 rounded border border-border bg-surface p-4">
         <h2 className="mb-3 font-semibold text-sm text-text">Basket Allocation</h2>
@@ -219,6 +241,16 @@ export default function DashboardPage() {
         </div>
         <PositionTable positions={positions} flashes={flashes} />
       </div>
+
+      {/* ── Import modal ───────────────────────────────────────────── */}
+      <ImportModal
+        isOpen={importOpen}
+        onClose={() => setImportOpen(false)}
+        onSuccess={() => {
+          setImportOpen(false)
+          if (selectedId) fetchPositions(selectedId)
+        }}
+      />
     </div>
   )
 }

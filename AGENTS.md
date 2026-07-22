@@ -1,7 +1,7 @@
 # AGENTS.md — Coding Agent Reference
 
 > **Project:** Portfolio Manager
-> **Status:** Phase 7 — Custom Basket Framework (7.1, 7.2, 7.3 complete)
+> **Status:** Phase 8 — Statement Import & Reports (8.2 complete)
 > **Location:** `~/Work/portfolio-manager`
 > **Full spec:** `PLAN.md`
 
@@ -98,6 +98,8 @@ uv run python -c "from portfolio_manager.config import settings; print(settings.
 | 7.1 | ✅ Done | Basket seed (3-basket preset on register) + target-allocation summary/warning + CRUD tests |
 | 7.2 | ✅ Done | BasketsPage: dynamic cards, create/edit/delete modals, allocation bars, analytics, sector breakdown |
 | 7.3 | ✅ Done | Move position between baskets (dropdown per row) + rebalancing suggestions panel |
+| **8.1** | ✅ Done | Backend statement import: PDF parsing service, import route, 23 tests |
+| **8.2** | ✅ Done | Frontend import modal + report generator (HTML download) |
 
 ## File Map (Created So Far)
 
@@ -133,6 +135,7 @@ portfolio-manager/
 │   │   ├── benchmark.py             # Excess returns, tracking error, information ratio
 │   │   ├── classification.py         # Sector/region classification
 │   │   ├── basket_seed.py            # 3-basket preset seed + target-allocation summary/warning
+│   │   ├── statement_import.py       # Schwab PDF parsing: regex heuristics, asset/position upsert
 │   │   └── ws_service.py            # WebSocket manager: clients, subscriptions, poll loop
 │   ├── routes/                       # API v1 routers (all auth-gated, user-scoped)
 │   │   ├── __init__.py               # api_router aggregator + ws export
@@ -142,6 +145,7 @@ portfolio-manager/
 │   │   ├── positions.py              # Positions: add/refresh/move
 │   │   ├── transactions.py           # Record buy/sell w/ FIFO realized P&L + history
 │   │   ├── analytics.py             # Risk, allocations, charts, benchmark comparison
+│   │   ├── statement_import.py      # POST /api/v1/import/statement (PDF upload → positions)
 │   │   └── ws.py                     # WebSocket endpoint: /ws/quotes (JWT auth via query param)
 │   └── models/                       # All 9 models + 1 association table
 │       ├── __init__.py               # Single entry point for model imports
@@ -169,6 +173,7 @@ portfolio-manager/
     ├── test_transactions.py          # Transaction record + FIFO realized P&L + history
     ├── test_analytics.py             # Risk, allocations, charts, basket analytics routes
     └── test_ws.py                    # WebSocket: manager, auth, subscriptions, broadcast
+    └── test_statement_import.py      # PDF parsing (4 formats + cash), upsert pipeline, route tests
 └── frontend/                          # React 19 + TS + Vite + Tailwind v4
     ├── package.json                   # React 19, TS, Vite 6, Tailwind v4, Zustand 5, React Router 7
     ├── vite.config.ts                 # Vite + @tailwindcss/vite plugin + API proxy to :8000
@@ -198,6 +203,7 @@ portfolio-manager/
         │   ├── Layout.tsx              # Nav bar, portfolio selector, user menu
         │   ├── BuyModal.tsx           # Buy modal: symbol search, qty, price, fees
         │   ├── SellModal.tsx          # Sell modal: qty, price, FIFO P&L preview
+        │   ├── ImportModal.tsx         # Import modal: statement upload (PDF) + HTML report download, tabbed UI
         │   └── BasketAllocation.tsx   # Reusable allocation row: color, target/actual bar, NAV, P&L, sector breakdown
         └── services/
             └── api.ts                 # Axios instance (JWT interceptor, 401 redirect) + TS interfaces

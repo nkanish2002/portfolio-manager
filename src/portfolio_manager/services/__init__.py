@@ -36,7 +36,16 @@ from portfolio_manager.services.portfolio_calc import (
     summarize_portfolio,
 )
 from portfolio_manager.services.price_cache import PriceCache
+from portfolio_manager.services.report_generator import (
+    generate_portfolio_report,
+    generate_report_filename,
+)
 from portfolio_manager.services.risk import compute_risk_metrics, max_drawdown
+from portfolio_manager.services.statement_import import (
+    StatementHolding,
+    import_statement,
+    parse_pdf_text,
+)
 from portfolio_manager.services.trades import (
     SellResult,
     TradeLedger,
@@ -93,4 +102,11 @@ __all__ = [
     # websocket
     "WebSocketManager",
     "ws_manager",
+    # statement import
+    "StatementHolding",
+    "import_statement",
+    "parse_pdf_text",
+    # report generator
+    "generate_portfolio_report",
+    "generate_report_filename",
 ]
