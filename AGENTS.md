@@ -1,7 +1,7 @@
 # AGENTS.md — Coding Agent Reference
 
 > **Project:** Portfolio Manager
-> **Status:** Phase 8 — Statement Import & Reports (8.2 complete)
+> **Status:** Phase 9 — Docker & Production Readiness (9.3 complete)
 > **Location:** `~/Work/portfolio-manager`
 > **Full spec:** `PLAN.md`
 
@@ -100,6 +100,9 @@ uv run python -c "from portfolio_manager.config import settings; print(settings.
 | 7.3 | ✅ Done | Move position between baskets (dropdown per row) + rebalancing suggestions panel |
 | **8.1** | ✅ Done | Backend statement import: PDF parsing service, import route, 23 tests |
 | **8.2** | ✅ Done | Frontend import modal + report generator (HTML download) |
+| **9.1** | ✅ Done | Dockerfile (multi-stage), docker-compose (dev + prod), .dockerignore, SPA catch-all |
+| **9.2** | ✅ Done | Exception handlers, structlog JSON logging, graceful shutdown (21 tests) |
+| **9.3** | ✅ Done | README + final E2E integration test (38 E2E checks, 264 tests) + analytics/data_feed bug fixes |
 
 ## File Map (Created So Far)
 

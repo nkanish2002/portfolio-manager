@@ -193,7 +193,7 @@ class YFinanceFetcher:
         bars: list[PriceBar] = []
         for idx, row in df.iterrows():
             # idx is a tz-aware pandas Timestamp; normalize to a date
-            bar_date = getattr(idx, "date", None) or idx
+            bar_date = idx.date() if callable(getattr(idx, "date", None)) else idx
             volume = row.get("Volume")
             bars.append(
                 PriceBar(

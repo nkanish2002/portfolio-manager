@@ -135,6 +135,8 @@ async def portfolio_allocations(
 ):
     """Allocation breakdown by sector, region, asset class, and basket."""
     portfolio = await get_owned_portfolio(session, portfolio_id, user.id)
+    # Eager-load basket to avoid lazy-load in async context
+    await session.refresh(portfolio, attribute_names=["basket"])
     positions = await _load_positions(session, portfolio)
     pvs = _position_values(positions)
     nav = compute_nav(pvs)
@@ -212,6 +214,7 @@ async def chart_allocation(
     user: User = Depends(current_active_user),
 ):
     portfolio = await get_owned_portfolio(session, portfolio_id, user.id)
+    await session.refresh(portfolio, attribute_names=["basket"])
     positions = await _load_positions(session, portfolio)
     pvs = _position_values(positions)
     nav = float(compute_nav(pvs))
