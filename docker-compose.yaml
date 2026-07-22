@@ -16,5 +16,32 @@ services:
       timeout: 3s
       retries: 5
 
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: portfolio-backend
+    ports:
+      - "8000:8000"
+    environment:
+      ENV_FOR_DYNACONF: development
+      PORTFOLIO_MANAGER_DATABASE_URL: postgresql+asyncpg://portfolio:portfolio@postgres:5432/portfolio_manager
+    volumes:
+      # Mount source for hot-reload during development
+      - ./src:/app/src
+    depends_on:
+      postgres:
+        condition: service_healthy
+    # Use reload mode for dev (overrides CMD's uvloop for watchfiles)
+    command: >
+      sh -c "
+        alembic upgrade head &&
+        uvicorn portfolio_manager.main:app
+          --host 0.0.0.0
+          --port 8000
+          --reload
+          --reload-dir /app/src
+      "
+
 volumes:
   postgres_data:

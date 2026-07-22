@@ -1,0 +1,26 @@
+# Production Docker Compose — backend only (connects to Supabase)
+# Usage: docker compose -f docker-compose.prod.yaml up -d --build
+# Prerequisites: .env.production with PORTFOLIO_MANAGER_DATABASE_URL and PORTFOLIO_MANAGER_JWT_SECRET
+
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: portfolio-backend-prod
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      ENV_FOR_DYNACONF: production
+    env_file:
+      - .env.production
+    # No volume mounts in prod — image contains built frontend + source
+    command: >
+      sh -c "
+        alembic upgrade head &&
+        uvicorn portfolio_manager.main:app
+          --host 0.0.0.0
+          --port 8000
+          --loop uvloop
+      "

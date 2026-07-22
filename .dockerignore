@@ -1,0 +1,51 @@
+# Dependency and virtual env directories
+node_modules/
+.venv/
+venv/
+env/
+
+# Python bytecode and cache
+__pycache__/
+*.py[cod]
+*.pyo
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Environment files (secrets)
+.env
+.env.*
+!.env.template
+
+# Docker
+docker-compose.override.yaml
+
+# Frontend build output
+frontend/dist/
+frontend/tsconfig.tsbuildinfo
+src/portfolio_manager/static/
+
+# Lockfiles (only uv.lock is needed in Docker, but npm lock is needed for frontend stage)
+# Keep frontend/package-lock.json, exclude backend lock for cleaner context
+# uv.lock is actually needed for `uv sync --frozen` so we keep it
+
+# Test files (not needed in production image)
+tests/
+
+# Docs
+*.md
+
+# Misc
+.git/
+.gitignore
+LICENSE
