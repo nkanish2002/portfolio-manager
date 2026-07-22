@@ -96,6 +96,8 @@ async def generate_portfolio_html_report(
 ) -> Response:
     """Generate and download a standalone HTML portfolio report."""
     portfolio = await get_owned_portfolio(session, portfolio_id, user.id)
+    # Eagerly load the basket relationship (lazy access in async raises MissingGreenlet)
+    await session.refresh(portfolio, attribute_names=["basket"])
     positions = await _load_positions(session, portfolio)
     baskets = await _load_user_baskets(session, user.id)
 
@@ -110,7 +112,7 @@ async def generate_portfolio_html_report(
         for pos in positions
     ]
     total_value = float(compute_nav(pvs))
-    total_cost = float(sum(pv.quantity * pv.avg_cost_basis for pv in pvs), Decimal("0"))
+    total_cost = float(sum((pv.quantity * pv.avg_cost_basis for pv in pvs), Decimal("0")))
     total_pnl = total_value - total_cost
 
     # ── Basket allocation (target vs actual) ──────────────────────
@@ -122,7 +124,7 @@ async def generate_portfolio_html_report(
 
     basket_rows = []
     for b in baskets:
-        actual = (float(basket_nav.get(b.name, Decimal("0")) / total_value) if total_value else 0.0) * 100
+        actual = float(basket_nav.get(b.name, Decimal("0"))) / total_value * 100 if total_value else 0.0
         basket_rows.append(
             {
                 "name": b.name,
@@ -174,7 +176,7 @@ async def generate_portfolio_html_report(
     for pos in positions:
         asset = pos.asset
         sector_vals[asset.sector or "Unknown"] += pos.quantity * pos.current_price
-    sector_allocation = {k: float(v / total_value) if total_value else 0.0 for k, v in sector_vals.items()}
+    sector_allocation = {k: (float(v) / total_value if total_value else 0.0) for k, v in sector_vals.items()}
 
     # ── Generate HTML report ─────────────────────────────────────
     report_data = {

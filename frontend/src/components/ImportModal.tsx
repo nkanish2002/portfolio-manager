@@ -147,6 +147,7 @@ export default function ImportModal({ isOpen, onClose, onSuccess }: Props) {
   const handleReport = useCallback(async () => {
     if (!portfolioId) return
     setIsLoading(true)
+    setError(null)
     try {
       const response = await importApi.generateReport(portfolioId, {
         period: reportPeriod,
@@ -156,20 +157,33 @@ export default function ImportModal({ isOpen, onClose, onSuccess }: Props) {
       const url = window.URL.createObjectURL(new Blob([response.data], { type: 'text/html' }))
       const link = document.createElement('a')
       link.href = url
-      const filename = response.headers['content-disposition']
-        ?.match(/filename="?(.+?)"?$/i)?.[1]
-        ?? 'portfolio_report.html'
+      const filename =
+        response.headers['content-disposition']
+          ?.match(/filename="?(.+?)"?$/i)?.[1] ?? 'portfolio_report.html'
       link.download = filename
       document.body.appendChild(link)
       link.click()
       document.body.removeChild(link)
       window.URL.revokeObjectURL(url)
     } catch (err: unknown) {
-      const msg =
-        err instanceof Error
-          ? err.message
-          : 'Report generation failed'
-      setError(typeof msg === 'string' ? msg : String(msg))
+      // With responseType: 'blob', axios wraps error bodies in a Blob too,
+      // so we must read it as text to extract the backend detail message.
+      let msg = 'Report generation failed'
+      if (err instanceof Error && 'response' in err) {
+        const response = (err as { response?: { data?: Blob | { detail?: string }; status?: number } }).response
+        if (response?.data instanceof Blob) {
+          try {
+            const text = await response.data.text()
+            const parsed = JSON.parse(text)
+            msg = parsed.detail ?? msg
+          } catch {
+            msg = `Report generation failed (HTTP ${response.status ?? 'error'})`
+          }
+        } else if (response?.data && typeof response.data === 'object' && 'detail' in response.data) {
+          msg = response.data.detail ?? msg
+        }
+      }
+      setError(msg)
     } finally {
       setIsLoading(false)
     }

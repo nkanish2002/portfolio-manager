@@ -170,6 +170,13 @@ def _fmt_pct(value: float) -> str:
     return f"{value:+.2f}%"
 
 
+def _fmt_signed_currency(value: float) -> str:
+    """Format a float as a signed dollar amount (e.g. +$200.00 / -$50.00)."""
+    if value >= 0:
+        return f"+${value:,.2f}"
+    return f"-${abs(value):,.2f}"
+
+
 def _color_class(value: float) -> str:
     """Return 'positive' or 'negative' CSS class based on sign."""
     return "positive" if value >= 0 else "negative"
@@ -209,7 +216,7 @@ def generate_portfolio_report(data: dict[str, Any]) -> bytes:
     sector_allocation = data.get("sector_allocation", {})
 
     pnl_class = _color_class(total_pnl)
-    pnl_display = f"{'+' if total_pnl >= 0 else ''}${_fmt_currency(total_pnl)}"
+    pnl_display = _fmt_signed_currency(total_pnl)
 
     # Build basket rows
     basket_rows_parts: list[str] = []
@@ -254,7 +261,7 @@ def generate_portfolio_report(data: dict[str, Any]) -> bytes:
             f'  <td class="mono" style="text-align:right">{qty:,.3g}</td>'
             f'  <td class="mono" style="text-align:right">${price:,.2f}</td>'
             f'  <td class="mono" style="text-align:right">${mv:,.2f}</td>'
-            f'  <td class="mono {pos_class}" style="text-align:right">{_fmt_pct(gain).replace("+", "+")}</td>'
+            f'  <td class="mono {pos_class}" style="text-align:right">{_fmt_signed_currency(gain)}</td>'
             f'  <td class="mono {pos_class}" style="text-align:right">{gain_pct:+.2f}%</td>'
             f"  <td>{sector}</td>"
             f"</tr>"
@@ -311,13 +318,14 @@ def generate_portfolio_report(data: dict[str, Any]) -> bytes:
         else '<p style="color:var(--text-dim);font-size:0.85rem;">Insufficient data for risk metrics</p>'
     )
 
-    # Build sector allocation rows
+    # Build sector allocation rows (Value column = pct * total NAV)
     sector_rows_parts: list[str] = []
     for sector_name, pct in sorted(sector_allocation.items(), key=lambda x: -x[1]):
+        sector_value = pct * total_value
         sector_rows_parts.append(
             f"<tr>"
             f"  <td>{sector_name}</td>"
-            f'  <td class="mono" style="text-align:right">{pct:.2%}</td>'
+            f'  <td class="mono" style="text-align:right">${sector_value:,.2f}</td>'
             f'  <td class="mono" style="text-align:right">{pct:.1%}</td>'
             f"</tr>"
         )

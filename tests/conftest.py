@@ -347,10 +347,11 @@ async def fake_data_feed(monkeypatch):
     # point the module singleton (used by routes) at our feed
     monkeypatch.setattr(df_mod, "data_feed", feed)
     # also patch the import inside the routes modules
-    from portfolio_manager.routes import analytics, positions
+    from portfolio_manager.routes import analytics, positions, reports
 
     monkeypatch.setattr(positions, "data_feed", feed)
     monkeypatch.setattr(analytics, "data_feed", feed)
+    monkeypatch.setattr(reports, "data_feed", feed)
 
     feed.fetcher = fetcher  # expose for tests
 
